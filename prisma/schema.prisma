@@ -370,6 +370,9 @@ model Supplier {
   aliases   SupplierAlias[]
   photos    SupplierPhoto[]
   summaries SupplierManagementSummary[]
+  /// Vínculos declarados a mano por la administración (los deducidos del DNI no
+  /// se persisten: se calculan al vuelo).
+  links     PersonSupplierLink[]
 
   @@index([ruc])
   @@index([normalizedName])
@@ -504,6 +507,104 @@ model SupplierManagementSummary {
   @@unique([supplierId, managementPeriodId])
   @@index([managementPeriodId])
   @@index([consideredAmount])
+}
+
+// =============================================================================
+// VÍNCULOS DECLARADOS (personas y etiquetas)
+// =============================================================================
+
+/// Persona señalada por la administración del portal: postulante a regidor,
+/// familiar de un político, comunicador…
+///
+/// El DNI es el puente con los proveedores: el RUC de una persona natural es
+/// `10 + DNI + dígito verificador`, así que el vínculo se DEDUCE del dato en lugar
+/// de inventarse. El DNI no se publica nunca en el portal público (Ley 29733): se
+/// ve solo en el panel.
+///
+/// `description` y `source` son obligatorias a propósito: publicar un vínculo con
+/// una persona real exige decir qué se afirma y de dónde sale.
+model Person {
+  id          String  @id @default(cuid())
+  /// Ocho dígitos, con ceros a la izquierda (`07575250`).
+  dni         String  @unique
+  fullName    String
+  slug        String  @unique
+  description String
+  source      String
+  /// Permite mantener una persona fuera del portal sin borrarla.
+  isPublic    Boolean @default(true)
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tags  PersonTagOnPerson[]
+  links PersonSupplierLink[]
+
+  @@index([isPublic])
+  @@index([fullName])
+}
+
+/// Etiqueta del catálogo de personas (Comunicador, Postulante a regidor…).
+///
+/// Es un catálogo en base de datos, como los estados y los tipos de orden: sumar
+/// «cuánto ganan los comunicadores» exige que la etiqueta se escriba siempre
+/// igual, y con texto libre bastaría un acento para partir la suma en dos.
+model PersonTag {
+  id       String  @id @default(cuid())
+  code     String  @unique
+  label    String
+  /// Orden de presentación, en el panel y en el portal público.
+  position Int     @default(0)
+  isActive Boolean @default(true)
+  isPublic Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  persons PersonTagOnPerson[]
+
+  @@index([position])
+  @@index([isPublic])
+}
+
+/// Etiqueta puesta sobre una persona.
+model PersonTagOnPerson {
+  personId String
+  tagId    String
+
+  person Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tag    PersonTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([personId, tagId])
+  @@index([tagId])
+}
+
+/// Vínculo MANUAL entre una persona y un proveedor.
+///
+/// Los vínculos que salen del DNI NO viven aquí: se calculan al vuelo comparando
+/// el DNI con el RUC de las personas naturales. Persistirlos obligaría a
+/// resincronizarlos en cada importación, y un proveedor importado mañana quedaría
+/// fuera hasta la siguiente pasada. Aquí solo está lo que un administrador afirma
+/// a mano (por ejemplo, una empresa de la que la persona es titular).
+model PersonSupplierLink {
+  id         String  @id @default(cuid())
+  personId   String
+  supplierId String
+  /// Por qué se vincula, si hace falta precisarlo.
+  note       String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, supplierId])
+  @@index([personId])
+  @@index([supplierId])
 }
 
 // =============================================================================

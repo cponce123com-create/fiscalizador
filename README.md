@@ -14,13 +14,17 @@ nunca la fuente de presentación.
 Esta entrega cubre las **Fases 1 a 10** del plan: base del proyecto, modelo de datos
 completo, autenticación, el **importador funcionando de extremo a extremo**
 —verificado contra el libro real del portal— y el **portal público** completo
-(portada, órdenes, proveedores, ranking, historial y estadísticas).
+(portada, órdenes, proveedores, ranking, historial, estadísticas y vínculos
+declarados).
 
 **Incluido:** esquema completo, migraciones, seed, autenticación con roles,
-importador en dos fases con validación y normalización, auditoría, panel de
+importador en dos fases con validación y normalización, **carga por lotes de varios
+libros con el periodo deducido del contenido** y **detección de duplicados por
+contenido** (reimportar un libro ya no duplica sus órdenes), auditoría, panel de
 administración, listados públicos paginados y filtrados en servidor, perfil de
 proveedor, ranking con pesos, historial por gestiones, estadísticas comparadas con
-concentración del gasto, gráficos y pruebas automatizadas.
+concentración del gasto, **registro de personas señaladas con etiquetas y vínculos
+deducidos del DNI**, gráficos y pruebas automatizadas.
 
 **Pendiente (fases posteriores):** fotografías de proveedores en Cloudinary,
 auditoría visible en el panel, SEO, asistente con IA, optimización fina y
@@ -38,10 +42,15 @@ Documentación relacionada:
 
 ## Requisitos
 
-- **Node.js 20 o superior.** El proyecto se desarrolló y verificó con **20.19.1**.
+- **Node.js 20.19 o superior.** El proyecto se desarrolló y verificó con **20.19.1**.
   Para desplegar conviene **Node 22 o superior**: Prisma 7.10 arrastra un paquete
   (`@prisma/streams-local`) que declara Node ≥ 22. En Node 20 funciona, pero emite
   una advertencia de motor.
+
+  El mínimo 20.19 no es un capricho: el CLI de Prisma carga una dependencia ESM
+  (`zeptomatch`) desde CommonJS, y `require()` de un módulo ESM solo funciona a partir
+  de Node 20.19 y en la 22. Con 20.18 el CLI muere con `ERR_REQUIRE_ESM` y no arranca
+  ni `prisma generate`.
 - **PostgreSQL.** En desarrollo y producción se usa **Neon** (PostgreSQL
   gestionado). Cualquier PostgreSQL compatible sirve.
 - **npm 10 o superior.**
@@ -104,11 +113,13 @@ desplegables, sino **por capas**:
 
 ```
 app/                     Presentación (páginas y manejadores de ruta)
+  (public)/              Portal ciudadano (páginas públicas)
   admin/(panel)/         Panel autenticado
   admin/login/           Formulario de acceso (fuera del layout protegido)
   api/                   Endpoints HTTP
 components/
   admin/                 Componentes del panel
+  publico/               Componentes del portal ciudadano
   ui/                    Primitivos de interfaz (botón, tarjeta, tabla, aviso…)
 lib/
   api/                   Cliente de API y respuestas HTTP
@@ -129,6 +140,7 @@ services/                Lógica de negocio (sin HTTP, sin React)
   normalizationService   → normalization.ts (RUC, montos, fechas, texto)
   supplierService.ts     Alta de proveedores y resúmenes por gestión
   statisticsService.ts   Agregaciones del portal público (listados, ranking, estadísticas)
+  personsService.ts      Personas señaladas, etiquetas y vínculos deducidos del DNI
   storageService.ts      Almacenamiento de archivos originales
   auditService.ts        Registro de auditoría
 ```
@@ -157,6 +169,30 @@ que lo hacen a propósito para no crear una capa de paso innecesaria.
 
 Funciona en **dos fases**, y esa separación es el núcleo del diseño.
 
+### Carga por lotes
+
+La pantalla de importar acepta **varios libros a la vez** (hasta 20): se arrastran
+sobre la zona de carga y se procesan en cola. El mes y el año de cada libro **se
+deducen de sus fechas de emisión** —`POST /api/admin/imports/periodo`, que no escribe
+nada— así que importar un año entero no obliga a elegir doce meses a mano; el
+administrador revisa y corrige los periodos antes de analizar. El tipo de información
+se elige una vez y se aplica a toda la tanda.
+
+Cada libro se analiza y se confirma con su propia petición: el progreso es por archivo
+y un libro defectuoso **no detiene a los demás**. Lo que falla queda marcado en su
+fila con el motivo y el resto se importa igual. Si el periodo ya tiene importaciones,
+hay que marcar «versión nueva» de forma explícita, porque nada se reemplaza en
+silencio.
+
+**Duplicados por contenido.** Un libro repetido se reconoce de dos maneras: por su
+huella (los mismos bytes) y por su contenido. Lo segundo importa porque el portal
+vuelve a publicar libros corregidos con bytes distintos y las mismas órdenes: se
+comparan las claves de deduplicación (número de orden + RUC + monto + fecha) con las
+que ya están en la base de datos. Si el libro no aporta ninguna fila nueva, se excluye
+por defecto con el motivo a la vista; si aporta solo algunas, se avisa de cuántas ya
+estaban. Y al confirmar se descartan las filas repetidas (`omitirDuplicados`), así que
+reimportar un libro **no duplica nada**: la operación es repetible.
+
 ### Fase 1 — Analizar (no escribe nada)
 
 `POST /api/admin/imports/analyze`
@@ -167,9 +203,10 @@ Funciona en **dos fases**, y esa separación es el núcleo del diseño.
    similitud, e informa el método y la confianza de cada propuesta.
 4. Valida fila por fila y clasifica los hallazgos en **ERROR**, **WARNING** o
    **INFO**.
-5. Detecta duplicados: mismo contenido exacto (checksum) o mismo periodo ya
-   importado.
-6. Devuelve columnas detectadas, resumen, vista previa y hallazgos.
+5. Detecta duplicados: mismo archivo (checksum), mismo periodo ya importado y filas
+   que ya están en el portal.
+6. Devuelve columnas detectadas, resumen, vista previa, hallazgos y cuánto del libro
+   es nuevo (`duplicadoContenido`).
 
 ### Fase 2 — Confirmar (una sola transacción)
 
@@ -177,6 +214,12 @@ Funciona en **dos fases**, y esa separación es el núcleo del diseño.
 
 **Relee el archivo guardado en el servidor** y escribe todo de una vez: proveedores,
 órdenes, resúmenes por gestión y auditoría. Si algo falla, no queda nada a medias.
+
+Antes de insertar descarta las filas cuya clave de deduplicación ya existe
+(`omitirDuplicados`, activado por defecto) e informa de cuántas omitió. La comparación
+es contra lo que había **antes** de esta importación, no entre las filas nuevas: las
+dos filas reales del libro que comparten número de orden entran juntas la primera vez y
+se omiten juntas al repetir.
 
 El cuerpo de la petición **no lleva filas**, solo el identificador del lote y las
 correcciones de mapeo. Es deliberado: si el navegador pudiera enviar las filas ya
@@ -190,7 +233,43 @@ normalizadas, podría insertar registros que no existen en el archivo original.
   texto original en `rawAmount` y un WARNING, **nunca como cero**.
 - **Estados:** se buscan en el catálogo. Un estado desconocido cae en `DESCONOCIDO`,
   se advierte y **no suma** al monto considerado.
-- **Duplicados:** nunca se bloquean solos. Se advierten y decide el administrador.
+- **Duplicados:** nunca se bloquean solos. Se advierten, se excluyen por defecto en la
+  revisión y decide el administrador. Lo que sí es automático es no volver a insertar
+  una fila que ya está: reimportar un libro no duplica sus órdenes.
+
+---
+
+## Vínculos declarados
+
+Sección pública en **`/vinculos`**, alimentada desde **`/admin/personas`** y
+**`/admin/etiquetas`**.
+
+Sirve para cruzar el gasto del portal con información que solo tiene la
+administración: qué proveedores están detrás de un aportante de campaña, de un
+postulante a regidor, de un comunicador o de un familiar de un político.
+
+**El vínculo no se inventa, se deduce.** El RUC de una persona natural es
+`10 + DNI + dígito verificador`, así que el DNI viaja dentro del RUC: registrar el DNI
+basta para que el sistema encuentre solo a los proveedores de esa persona. Los
+vínculos deducidos **no se guardan en la base de datos**, se calculan al vuelo; de ese
+modo, un proveedor que se importe mañana queda vinculado sin resincronizar nada. Lo
+único que se persiste son los vínculos **manuales**, para lo que el DNI no alcanza
+(una empresa de la que la persona es titular).
+
+**Las etiquetas son un catálogo**, no texto libre, porque de ellas salen las sumas:
+«cuánto ganan los comunicadores» solo cuadra si la etiqueta se escribe siempre igual.
+Se crean, se renombran, se reordenan, se desactivan y se ocultan sin tocar código.
+
+**Qué se publica y qué no.** Se publican el nombre, la descripción, la fuente, el
+proveedor vinculado y su monto. El **DNI no se publica nunca** (Ley 29733 de
+protección de datos personales). La descripción y la fuente son **obligatorias**: esta
+sección afirma cosas sobre personas reales, así que cada ficha dice qué se afirma y de
+dónde sale, y la página avisa de que **no es una conclusión legal ni una imputación**.
+Una ficha marcada como no pública se queda en el panel.
+
+Los montos usan la **misma regla de monto considerado** que el resto del portal, así
+que los totales de `/vinculos` cuadran con los del ranking. Un proveedor vinculado a
+dos personas de la misma etiqueta cuenta una sola vez.
 
 ---
 
@@ -199,9 +278,9 @@ normalizadas, podría insertar registros que no existen en el archivo original.
 | Rol | Alcance |
 |---|---|
 | `SUPERADMIN` | Todo, incluida la gestión de usuarios y la configuración |
-| `ADMIN` | Gestión completa de datos e importaciones. No gestiona usuarios ni configuración |
-| `EDITOR` | Mantiene lo ya importado. **No importa**: cargar un libro cambia las cifras públicas |
-| `VIEWER` | Solo lectura |
+| `ADMIN` | Gestión completa de datos, importaciones y vínculos. No gestiona usuarios ni configuración |
+| `EDITOR` | Mantiene lo ya importado. **No importa ni publica vínculos**: cargar un libro o señalar a una persona cambia lo que ve el ciudadano |
+| `VIEWER` | Solo lectura. **No entra en el registro de personas**, que contiene DNIs |
 
 Los permisos se comprueban **contra la base de datos en cada petición**, no solo en
 el middleware. Así, desactivar una cuenta o bajarle el rol surte efecto de inmediato
@@ -235,6 +314,13 @@ exactamente con las medidas durante el desarrollo:
 
 Si el importador deja de reproducir estas cifras, la prueba falla. Es la red de
 seguridad que impide que un cambio de formato o de redondeo pase desapercibido.
+
+Las pruebas de integración se ejecutan **contra la base de datos real** y se saltan
+solas si no hay `DATABASE_URL`. Crean y borran sus propios datos (proveedores de
+prueba, fichas de verificación, lotes de importación y sus archivos), así que se pueden
+repetir sin dejar rastro. Comprueban, entre otras cosas, que reimportar un libro **no
+aumenta** el número de órdenes y que el DNI dentro del RUC de una persona natural
+encuentra su ficha.
 
 ---
 

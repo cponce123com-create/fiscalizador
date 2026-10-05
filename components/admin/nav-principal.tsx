@@ -4,7 +4,9 @@ import {
   FileSpreadsheet,
   LayoutDashboard,
   ListOrdered,
+  Tags,
   Upload,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -39,6 +41,8 @@ const ENLACES: readonly Enlace[] = [
     permiso: 'imports:read',
   },
   { href: '/admin/ordenes', etiqueta: 'Órdenes', icono: ListOrdered, permiso: 'orders:read' },
+  { href: '/admin/personas', etiqueta: 'Personas', icono: Users, permiso: 'persons:read' },
+  { href: '/admin/etiquetas', etiqueta: 'Etiquetas', icono: Tags, permiso: 'persons:read' },
 ];
 
 export function NavPrincipal({ permisos }: { permisos: readonly string[] }) {

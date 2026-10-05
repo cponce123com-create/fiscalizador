@@ -116,6 +116,21 @@ const TIPOS_CONTRATO = [
   },
 ];
 
+/**
+ * Etiquetas de arranque para las personas señaladas.
+ *
+ * Son solo un punto de partida: el panel permite crear, renombrar, reordenar y
+ * desactivar etiquetas sin tocar código. Es un catálogo y no texto libre porque
+ * sumar «cuánto ganan los comunicadores» exige que la etiqueta se escriba siempre
+ * igual: con texto libre, un acento de más partiría la suma en dos.
+ */
+const ETIQUETAS_PERSONAS = [
+  { code: 'COMUNICADOR', label: 'Comunicador', position: 1 },
+  { code: 'POSTULANTE_REGIDOR', label: 'Postulante a regidor', position: 2 },
+  { code: 'APORTANTE_CAMPANA', label: 'Aportante de campaña', position: 3 },
+  { code: 'FAMILIAR_POLITICO', label: 'Familiar de político', position: 4 },
+];
+
 async function sembrarCatalogos() {
   for (const gestion of GESTIONES) {
     await prisma.managementPeriod.upsert({
@@ -257,9 +272,29 @@ async function sembrarSuperadmin() {
   console.log(`Superadmin: ${email} creado.`);
 }
 
+/**
+ * Etiquetas de personas señaladas.
+ *
+ * `update: {}` a propósito: una etiqueta que ya existe NO se renombra, ni se
+ * reactiva, ni se reordena. Si un administrador la cambió, el seed no debe pisar
+ * su decisión (la misma regla que sigue la visibilidad de columnas).
+ */
+async function sembrarEtiquetasPersonas() {
+  for (const etiqueta of ETIQUETAS_PERSONAS) {
+    await prisma.personTag.upsert({
+      where: { code: etiqueta.code },
+      update: {},
+      create: etiqueta,
+    });
+  }
+
+  console.log(`Etiquetas de personas: ${ETIQUETAS_PERSONAS.length}.`);
+}
+
 async function main() {
   console.log('Sembrando datos iniciales...');
   await sembrarCatalogos();
+  await sembrarEtiquetasPersonas();
   await sembrarVisibilidadColumnas();
   await sembrarSuperadmin();
   console.log('Seed completado.');

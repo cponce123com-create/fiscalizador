@@ -9,8 +9,9 @@ import { cn } from '@/lib/utils';
  * Navegación pública.
  *
  * Enlaza todas las secciones del portal ciudadano: Inicio, Órdenes, Proveedores,
- * Ranking, Historial, Estadísticas y Metodología. Si se añade una sección nueva,
- * hay que añadirla aquí: una página que no se enlaza no existe para el ciudadano.
+ * Ranking, Historial, Estadísticas, Vínculos y Metodología. Si se añade una sección
+ * nueva, hay que añadirla aquí: una página que no se enlaza no existe para el
+ * ciudadano.
  */
 const ENLACES = [
   { href: '/', etiqueta: 'Inicio' },
@@ -19,6 +20,7 @@ const ENLACES = [
   { href: '/ranking', etiqueta: 'Ranking' },
   { href: '/historial', etiqueta: 'Historial' },
   { href: '/estadisticas', etiqueta: 'Estadísticas' },
+  { href: '/vinculos', etiqueta: 'Vínculos' },
   { href: '/metodologia', etiqueta: 'Metodología' },
 ] as const;
 

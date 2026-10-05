@@ -16,6 +16,8 @@ export type Permission =
   | 'suppliers:write'
   | 'imports:read'
   | 'imports:write'
+  | 'persons:read'
+  | 'persons:write'
   | 'users:manage'
   | 'settings:manage'
   | 'audit:read';
@@ -32,6 +34,8 @@ const PERMISOS_POR_ROL: Record<Role, readonly Permission[]> = {
     'suppliers:write',
     'imports:read',
     'imports:write',
+    'persons:read',
+    'persons:write',
     'users:manage',
     'settings:manage',
     'audit:read',
@@ -46,14 +50,29 @@ const PERMISOS_POR_ROL: Record<Role, readonly Permission[]> = {
     'suppliers:write',
     'imports:read',
     'imports:write',
+    'persons:read',
+    'persons:write',
     'audit:read',
   ],
 
   // Mantiene el contenido ya importado, pero NO importa: cargar un libro nuevo
   // cambia las cifras públicas, así que requiere rol ADMIN o superior.
-  EDITOR: ['orders:read', 'orders:write', 'suppliers:read', 'suppliers:write', 'imports:read'],
+  //
+  // Puede LEER el registro de personas (lo necesita para revisar los vínculos),
+  // pero no escribirlo: publicar una acusación sobre una persona real no puede
+  // estar al alcance de cualquiera que mantenga datos.
+  EDITOR: [
+    'orders:read',
+    'orders:write',
+    'suppliers:read',
+    'suppliers:write',
+    'imports:read',
+    'persons:read',
+  ],
 
-  // Solo lectura. Es el rol por defecto de una cuenta nueva.
+  // Solo lectura. Es el rol por defecto de una cuenta nueva, así que NO entra en
+  // el registro de personas: contiene DNIs, que son datos personales (Ley 29733),
+  // y un rol que se asigna por defecto no debe verlos.
   VIEWER: ['orders:read', 'suppliers:read'],
 };
 
