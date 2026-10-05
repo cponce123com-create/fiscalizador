@@ -4,8 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import type { EstadoFormulario } from '@/components/admin/formulario-accion';
-import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
-import { NoAutenticado, SinPermiso, requierePermiso } from '@/lib/auth/session';
+import { mensajeDeErrorDeAccion } from '@/lib/api/responses';
+import { requierePermiso } from '@/lib/auth/session';
 import {
   actualizarPersona,
   crearPersona,
@@ -49,25 +49,6 @@ const esquemaVinculo = z.object({
 
 const esquemaIdentificador = z.object({ id: z.string().min(1).max(64) });
 
-function mensajeDeError(error: unknown): string {
-  if (
-    error instanceof ErrorDeNegocio ||
-    error instanceof NoEncontrado ||
-    error instanceof SinPermiso ||
-    error instanceof NoAutenticado
-  ) {
-    return error.message;
-  }
-
-  if (error instanceof z.ZodError) {
-    return error.issues[0]?.message ?? 'Datos inválidos.';
-  }
-
-  // Un fallo inesperado no se enseña en crudo: puede traer detalles internos.
-  console.error('Fallo inesperado en una acción de vínculos:', error);
-  return 'No se pudo completar la operación. Revisa los datos e inténtalo de nuevo.';
-}
-
 function entradaPersona(formData: FormData) {
   return esquemaEntrada.parse({
     dni: texto(formData.get('dni')),
@@ -95,7 +76,7 @@ export async function accionCrearPersona(
 
     return { error: null, ok: `Ficha de ${datos.fullName.trim()} guardada.` };
   } catch (error) {
-    return { error: mensajeDeError(error), ok: null };
+    return { error: mensajeDeErrorDeAccion(error), ok: null };
   }
 }
 
@@ -113,7 +94,7 @@ export async function accionActualizarPersona(
 
     return { error: null, ok: `Ficha de ${datos.fullName.trim()} actualizada.` };
   } catch (error) {
-    return { error: mensajeDeError(error), ok: null };
+    return { error: mensajeDeErrorDeAccion(error), ok: null };
   }
 }
 
@@ -130,7 +111,7 @@ export async function accionEliminarPersona(
 
     return { error: null, ok: 'Ficha eliminada.' };
   } catch (error) {
-    return { error: mensajeDeError(error), ok: null };
+    return { error: mensajeDeErrorDeAccion(error), ok: null };
   }
 }
 
@@ -154,7 +135,7 @@ export async function accionVincularProveedor(
 
     return { error: null, ok: 'Proveedor vinculado.' };
   } catch (error) {
-    return { error: mensajeDeError(error), ok: null };
+    return { error: mensajeDeErrorDeAccion(error), ok: null };
   }
 }
 
@@ -171,6 +152,6 @@ export async function accionDesvincularProveedor(
 
     return { error: null, ok: 'Vínculo quitado.' };
   } catch (error) {
-    return { error: mensajeDeError(error), ok: null };
+    return { error: mensajeDeErrorDeAccion(error), ok: null };
   }
 }

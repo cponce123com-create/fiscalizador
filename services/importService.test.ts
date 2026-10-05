@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 
 import { periodoEnNombre } from '@/services/importService';
@@ -335,5 +335,199 @@ describe.skipIf(!hayBaseDeDatos)('reimportar un libro no duplica sus órdenes', 
           .catch(() => undefined);
       }
     }
+  });
+});
+
+describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () => {
+  let svc: typeof import('@/services/importService');
+  let prisma: typeof import('@/lib/prisma').prisma;
+  let storage: typeof import('@/services/storageService');
+
+  beforeAll(async () => {
+    svc = await import('@/services/importService');
+    ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+  });
+
+  /**
+   * RUC y meses de prueba. Julio, agosto y setiembre de 2023 caen dentro de la
+   * gestión 2023-2026: es lo que hace falta para que el lote genere un resumen por
+   * gestión, que es justo lo que hay que limpiar al borrarlo.
+   */
+  const RUC = '20888888888';
+  const RUC_HUERFANO = '20999999991';
+  const NOMBRE_A = 'libro-eliminar-a-2023-07.xlsx';
+  const NOMBRE_B = 'libro-eliminar-b-2023-08.xlsx';
+  const NOMBRE_C = 'libro-eliminar-c-2023-09.xlsx';
+  const NOMBRE_D = 'libro-eliminar-d-2023-10.xlsx';
+
+  const lotes: string[] = [];
+  const claves: string[] = [];
+
+  /** Importa un libro de prueba y devuelve el identificador de su lote. */
+  async function importar(
+    nombre: string,
+    month: number,
+    filas: (string | null)[][],
+  ): Promise<string> {
+    const analisis = await svc.analizar({
+      buffer: libro(filas),
+      originalFilename: nombre,
+      year: 2023,
+      month,
+      importType: 'CONSOLIDADO',
+      userId: null,
+    });
+
+    lotes.push(analisis.importBatchId);
+
+    const lote = await prisma.importBatch.findUnique({
+      where: { id: analisis.importBatchId },
+      select: { storageKey: true },
+    });
+    if (lote?.storageKey) claves.push(lote.storageKey);
+
+    await svc.confirmar({
+      importBatchId: analisis.importBatchId,
+      userId: null,
+      reemplazarPeriodo: true,
+    });
+
+    return analisis.importBatchId;
+  }
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({
+      where: { originalFilename: { in: [NOMBRE_A, NOMBRE_B, NOMBRE_C, NOMBRE_D] } },
+    });
+    await prisma.supplier.deleteMany({ where: { ruc: { in: [RUC, RUC_HUERFANO] } } });
+    await prisma.auditLog.deleteMany({ where: { entityId: { in: lotes } } });
+
+    for (const clave of claves) {
+      await storage
+        .getStorage()
+        .remove(clave)
+        .catch(() => undefined);
+    }
+  });
+
+  it('borra el lote y sus órdenes, y conserva el proveedor mientras le queden otras', async () => {
+    const loteA = await importar(NOMBRE_A, 7, [
+      fila(1, '2023-07-05 00:00:00.0', 'EA-1', RUC, 'PRUEBA ELIMINAR S.A.C.'),
+      fila(2, '2023-07-06 00:00:00.0', 'EA-2', RUC, 'PRUEBA ELIMINAR S.A.C.'),
+    ]);
+
+    await importar(NOMBRE_B, 8, [
+      fila(1, '2023-08-05 00:00:00.0', 'EB-1', RUC, 'PRUEBA ELIMINAR S.A.C.'),
+      fila(2, '2023-08-06 00:00:00.0', 'EB-2', RUC, 'PRUEBA ELIMINAR S.A.C.'),
+    ]);
+
+    const proveedor = await prisma.supplier.findUnique({
+      where: { ruc: RUC },
+      select: { id: true },
+    });
+    expect(proveedor).not.toBeNull();
+    expect(await prisma.order.count({ where: { supplierId: proveedor!.id } })).toBe(4);
+
+    const resultado = await svc.eliminarImportacion({ importBatchId: loteA, userId: null });
+
+    expect(resultado.ordenesEliminadas).toBe(2);
+    expect(resultado.proveedoresEliminados).toBe(0);
+    expect(resultado.proveedoresConservados).toBe(1);
+    expect(resultado.archivoEliminado).toBe(true);
+
+    expect(await prisma.importBatch.findUnique({ where: { id: loteA } })).toBeNull();
+    expect(await prisma.order.count({ where: { supplierId: proveedor!.id } })).toBe(2);
+
+    // El resumen se rehace: no puede seguir contando las órdenes que se borraron.
+    const restante = await prisma.order.findFirst({
+      where: { supplierId: proveedor!.id },
+      select: { managementPeriodId: true },
+    });
+    expect(restante?.managementPeriodId).toBeTruthy();
+
+    const resumen = await prisma.supplierManagementSummary.findUnique({
+      where: {
+        supplierId_managementPeriodId: {
+          supplierId: proveedor!.id,
+          managementPeriodId: restante!.managementPeriodId!,
+        },
+      },
+      select: { orderCount: true },
+    });
+    expect(resumen?.orderCount).toBe(2);
+
+    // El rastro sobrevive al lote: la auditoría no tiene clave foránea hacia él.
+    const rastro = await prisma.auditLog.findFirst({
+      where: { entity: 'ImportBatch', entityId: loteA, action: 'DELETE' },
+    });
+    expect(rastro).not.toBeNull();
+  });
+
+  it('si no se piden, los proveedores sin órdenes se conservan y su resumen se borra', async () => {
+    const loteB = await prisma.importBatch.findFirst({
+      where: { originalFilename: NOMBRE_B },
+      select: { id: true },
+    });
+    expect(loteB).not.toBeNull();
+
+    const resultado = await svc.eliminarImportacion({
+      importBatchId: loteB!.id,
+      userId: null,
+      borrarProveedoresHuerfanos: false,
+    });
+
+    expect(resultado.ordenesEliminadas).toBe(2);
+    expect(resultado.proveedoresEliminados).toBe(0);
+    expect(resultado.proveedoresConservados).toBe(1);
+
+    const proveedor = await prisma.supplier.findUnique({
+      where: { ruc: RUC },
+      select: { id: true },
+    });
+    expect(proveedor).not.toBeNull();
+
+    // Sin órdenes, el resumen no se queda en cero: desaparece.
+    expect(
+      await prisma.supplierManagementSummary.count({ where: { supplierId: proveedor!.id } }),
+    ).toBe(0);
+  });
+
+  it('borra los proveedores que se quedan sin ninguna orden', async () => {
+    const loteC = await importar(NOMBRE_C, 9, [
+      fila(1, '2023-09-05 00:00:00.0', 'EC-1', RUC_HUERFANO, 'PRUEBA HUERFANA S.A.C.'),
+    ]);
+
+    const resultado = await svc.eliminarImportacion({ importBatchId: loteC, userId: null });
+
+    expect(resultado.ordenesEliminadas).toBe(1);
+    expect(resultado.proveedoresEliminados).toBe(1);
+    expect(resultado.proveedoresConservados).toBe(0);
+    expect(
+      await prisma.supplier.findUnique({ where: { ruc: RUC_HUERFANO }, select: { id: true } }),
+    ).toBeNull();
+  });
+
+  it('no elimina una importación que se está procesando', async () => {
+    const lote = await prisma.importBatch.create({
+      data: {
+        filename: 'prueba-en-proceso',
+        originalFilename: NOMBRE_D,
+        year: 2023,
+        month: 10,
+        period: '2023-10',
+        importType: 'CONSOLIDADO',
+        version: 1,
+        checksum: 'prueba-en-proceso',
+        status: 'PROCESSING',
+      },
+      select: { id: true },
+    });
+
+    await expect(
+      svc.eliminarImportacion({ importBatchId: lote.id, userId: null }),
+    ).rejects.toThrow(/se está procesando/);
+
+    await prisma.importBatch.delete({ where: { id: lote.id } });
   });
 });

@@ -225,6 +225,26 @@ El cuerpo de la petición **no lleva filas**, solo el identificador del lote y l
 correcciones de mapeo. Es deliberado: si el navegador pudiera enviar las filas ya
 normalizadas, podría insertar registros que no existen en el archivo original.
 
+### Eliminar una importación
+
+Desde `/admin/importaciones` (rol ADMIN o superior) se puede borrar una importación
+completa: sus órdenes, sus columnas, sus hallazgos y el archivo original. No se puede
+deshacer, y no se permite mientras el lote se está procesando.
+
+Borrar órdenes obliga a **rehacer los resúmenes por (proveedor, gestión)** que ese lote
+alimentaba: las órdenes se van por cascada, pero `SupplierManagementSummary` no, y sin
+rehacerlo el portal seguiría contando órdenes que ya no existen. Los resúmenes que se
+quedan sin órdenes se eliminan; los que todavía tienen alguna se recalculan desde las
+órdenes reales.
+
+Los proveedores que se queden sin ninguna orden se borran también, salvo que tengan
+órdenes en otra importación, un vínculo declarado o una fotografía. Es la vía para vaciar
+una carga de prueba y empezar de cero.
+
+La baja queda en la auditoría con sus cifras. El rastro sobrevive al lote porque
+`AuditLog.entityId` es texto, sin clave foránea hacia él: el portal puede decir qué se
+borró, cuándo y quién lo hizo.
+
 ### Reglas de validación
 
 - **RUC:** 11 dígitos y dígito verificador (módulo 11). Formato inválido es ERROR;

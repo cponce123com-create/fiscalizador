@@ -735,3 +735,227 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     throw error;
   }
 }
+
+export type EliminarImportacionInput = {
+  importBatchId: string;
+  userId: string | null;
+  request?: Request;
+  /**
+   * Borra además los proveedores que se queden sin ninguna orden ni vínculo.
+   * Activado por defecto: sin esto, «vaciar» dejaría el listado de proveedores
+   * lleno de fichas en cero.
+   */
+  borrarProveedoresHuerfanos?: boolean;
+};
+
+export type EliminarImportacionResult = {
+  importBatchId: string;
+  period: string;
+  version: number;
+  ordenesEliminadas: number;
+  proveedoresEliminados: number;
+  /** Proveedores que se quedaron sin órdenes pero se conservan: tienen otras órdenes, vínculos declarados o fotografía. */
+  proveedoresConservados: number;
+  archivoEliminado: boolean;
+};
+
+/**
+ * Elimina una importación completa: sus órdenes, sus columnas, sus hallazgos, su
+ * archivo original y, si se pide, los proveedores que se queden huérfanos.
+ *
+ * Es la única operación del portal que borra datos de verdad, así que hace tres
+ * cosas que no se pueden saltar:
+ *
+ *  1. Rehace los resúmenes por (proveedor, gestión) que alimentaba el lote. Las
+ *     órdenes se van por cascada, pero `SupplierManagementSummary` NO: sin esto, el
+ *     portal seguiría contando órdenes que ya no existen.
+ *  2. Deja la eliminación en la auditoría, con sus cifras. El rastro sobrevive al
+ *     lote porque la auditoría guarda el identificador como texto, sin clave foránea.
+ *  3. Borra el archivo original del almacenamiento.
+ *
+ * Un lote en proceso no se puede eliminar: se está escribiendo en ese momento.
+ */
+export async function eliminarImportacion(
+  input: EliminarImportacionInput,
+): Promise<EliminarImportacionResult> {
+  const { importBatchId, userId, request, borrarProveedoresHuerfanos = true } = input;
+
+  const lote = await prisma.importBatch.findUnique({
+    where: { id: importBatchId },
+    select: {
+      id: true,
+      period: true,
+      version: true,
+      status: true,
+      originalFilename: true,
+      checksum: true,
+      storageKey: true,
+    },
+  });
+
+  if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
+  if (lote.status === 'PROCESSING') {
+    throw new ErrorDeNegocio(
+      'Esa importación se está procesando ahora mismo. Espera a que termine antes de eliminarla.',
+    );
+  }
+
+  const { ip, userAgent } = request
+    ? contextoDePeticion(request)
+    : { ip: null, userAgent: null };
+
+  let ordenesEliminadas = 0;
+  let proveedoresEliminados = 0;
+  let proveedoresConservados = 0;
+
+  await prisma.$transaction(
+    async (tx) => {
+      // Parejas (proveedor, gestión) que este lote alimentaba: son las que hay que
+      // limpiar o rehacer cuando sus órdenes desaparezcan.
+      const afectadas = (
+        await tx.order.findMany({
+          where: { importBatchId: lote.id },
+          select: { supplierId: true, managementPeriodId: true },
+          distinct: ['supplierId', 'managementPeriodId'],
+        })
+      ).filter(
+        (par): par is { supplierId: string; managementPeriodId: string } =>
+          par.managementPeriodId !== null,
+      );
+
+      const proveedoresDelLote = (
+        await tx.order.findMany({
+          where: { importBatchId: lote.id },
+          select: { supplierId: true },
+          distinct: ['supplierId'],
+        })
+      ).map((fila) => fila.supplierId);
+
+      ordenesEliminadas = await tx.order.count({ where: { importBatchId: lote.id } });
+
+      // El lote se lleva sus órdenes, sus columnas y sus hallazgos por cascada.
+      await tx.importBatch.delete({ where: { id: lote.id } });
+
+      // Resúmenes: se borra el de los pares que se quedan sin órdenes y se rehace el
+      // de los que todavía tienen alguna (por ejemplo, de otra importación).
+      const restantes = new Map<string, number>();
+
+      if (proveedoresDelLote.length > 0) {
+        const filas = await tx.order.groupBy({
+          by: ['supplierId', 'managementPeriodId'],
+          where: { supplierId: { in: proveedoresDelLote }, managementPeriodId: { not: null } },
+          _count: { _all: true },
+        });
+
+        for (const fila of filas) {
+          if (fila.managementPeriodId) {
+            restantes.set(`${fila.supplierId}|${fila.managementPeriodId}`, fila._count._all);
+          }
+        }
+      }
+
+      const sinOrdenes = afectadas.filter(
+        (par) => (restantes.get(`${par.supplierId}|${par.managementPeriodId}`) ?? 0) === 0,
+      );
+
+      if (sinOrdenes.length > 0) {
+        await tx.supplierManagementSummary.deleteMany({
+          where: {
+            OR: sinOrdenes.map((par) => ({
+              supplierId: par.supplierId,
+              managementPeriodId: par.managementPeriodId,
+            })),
+          },
+        });
+      }
+
+      for (const par of afectadas) {
+        if ((restantes.get(`${par.supplierId}|${par.managementPeriodId}`) ?? 0) > 0) {
+          await recalcularResumenGestion(tx, par.supplierId, par.managementPeriodId);
+        }
+      }
+
+      // Proveedores que se quedaron sin nada que los justifique. Se consultan las tres
+      // referencias de una vez en lugar de proveedor a proveedor.
+      let huerfanos: string[] = [];
+
+      if (borrarProveedoresHuerfanos && proveedoresDelLote.length > 0) {
+        const [conOrdenes, conVinculos, conFotos] = await Promise.all([
+          tx.order.groupBy({
+            by: ['supplierId'],
+            where: { supplierId: { in: proveedoresDelLote } },
+            _count: { _all: true },
+          }),
+          tx.personSupplierLink.groupBy({
+            by: ['supplierId'],
+            where: { supplierId: { in: proveedoresDelLote } },
+            _count: { _all: true },
+          }),
+          tx.supplierPhoto.groupBy({
+            by: ['supplierId'],
+            where: { supplierId: { in: proveedoresDelLote } },
+            _count: { _all: true },
+          }),
+        ]);
+
+        const vivos = new Set<string>([
+          ...conOrdenes.map((fila) => fila.supplierId),
+          ...conVinculos.map((fila) => fila.supplierId),
+          ...conFotos.map((fila) => fila.supplierId),
+        ]);
+
+        huerfanos = proveedoresDelLote.filter((id) => !vivos.has(id));
+      }
+
+      if (huerfanos.length > 0) {
+        await tx.supplier.deleteMany({ where: { id: { in: huerfanos } } });
+        proveedoresEliminados = huerfanos.length;
+      }
+
+      proveedoresConservados = proveedoresDelLote.length - proveedoresEliminados;
+
+      // La eliminación también deja rastro.
+      await registrarAuditoria(tx, {
+        userId,
+        action: 'DELETE',
+        entity: 'ImportBatch',
+        entityId: lote.id,
+        ip,
+        userAgent,
+        metadata: {
+          period: lote.period,
+          version: lote.version,
+          originalFilename: lote.originalFilename,
+          checksum: lote.checksum,
+          deletedOrders: ordenesEliminadas,
+          deletedSuppliers: proveedoresEliminados,
+          keptSuppliers: proveedoresConservados,
+        },
+      });
+    },
+    { timeout: 120_000, maxWait: 15_000 },
+  );
+
+  // El archivo original ya no hace falta. Si no se puede borrar, la base ya está
+  // limpia: se avisa, pero no se tumba una operación que ya terminó bien.
+  let archivoEliminado = false;
+
+  if (lote.storageKey) {
+    try {
+      await getStorage().remove(lote.storageKey);
+      archivoEliminado = true;
+    } catch (error) {
+      console.error('No se pudo borrar el archivo original de la importación:', error);
+    }
+  }
+
+  return {
+    importBatchId: lote.id,
+    period: lote.period,
+    version: lote.version,
+    ordenesEliminadas,
+    proveedoresEliminados,
+    proveedoresConservados,
+    archivoEliminado,
+  };
+}

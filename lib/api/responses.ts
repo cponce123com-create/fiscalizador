@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import { NoAutenticado, SinPermiso } from '@/lib/auth/session';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 
@@ -46,4 +48,30 @@ export function respuestaDeError(error: unknown): Response {
 
   console.error('Error inesperado en la API:', error);
   return errorJson('Error interno del servidor.', 500);
+}
+
+/**
+ * Traduce una excepción al mensaje que verá quien la provocó desde el panel.
+ *
+ * Es la versión para Server Actions de lo que `respuestaDeError` hace para la API:
+ * los errores de dominio y de permiso se muestran tal cual —están escritos para
+ * leerse— y un fallo inesperado NO, porque podría arrastrar detalles internos
+ * (consultas, rutas) a la pantalla de un administrador.
+ */
+export function mensajeDeErrorDeAccion(error: unknown): string {
+  if (
+    error instanceof NoAutenticado ||
+    error instanceof SinPermiso ||
+    error instanceof NoEncontrado ||
+    error instanceof ErrorDeNegocio
+  ) {
+    return error.message;
+  }
+
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message ?? 'Datos inválidos.';
+  }
+
+  console.error('Fallo inesperado en una acción del panel:', error);
+  return 'No se pudo completar la operación. Revisa los datos e inténtalo de nuevo.';
 }

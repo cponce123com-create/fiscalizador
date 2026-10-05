@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
-import { FileSpreadsheet } from 'lucide-react';
+import { FileSpreadsheet, Info } from 'lucide-react';
 import Link from 'next/link';
 
+import { accionEliminarImportacion } from '@/app/admin/importaciones/actions';
+import { FormularioAccion } from '@/components/admin/formulario-accion';
 import { Aviso, EstadoVacio, Insignia, Tabla, TablaCelda, TablaCeldaEncabezado, TablaCuerpo, TablaEncabezado, TablaFila } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
@@ -42,6 +44,8 @@ export default async function PaginaImportaciones({
     );
   }
 
+  const puedeEscribir = puede(usuario.role, 'imports:write');
+
   const { page } = await searchParams;
   const pagina = Math.max(1, Number(page ?? '1') || 1);
 
@@ -79,10 +83,19 @@ export default async function PaginaImportaciones({
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Importaciones</h1>
         <p className="text-sm text-muted-foreground">
-          Historial de libros cargados. Cada intento queda registrado, incluso los fallidos: nada se
-          borra.
+          Historial de libros cargados. Cada intento queda registrado, incluso los fallidos, y solo se
+          puede eliminar una importación a propósito: la baja también queda en la auditoría.
         </p>
       </div>
+
+      {puedeEscribir ? (
+        <Aviso tono="info" titulo="Qué hace eliminar una importación" icono={<Info className="h-4 w-4" />}>
+          Se borran sus órdenes, sus columnas, sus hallazgos y el archivo original, y se rehacen los
+          resúmenes de los proveedores que tocaba, para que el portal no siga sumando órdenes que ya no
+          existen. Los proveedores que se queden sin ninguna orden se borran también, salvo que tengan
+          órdenes en otra importación, un vínculo declarado o una fotografía. No se puede deshacer.
+        </Aviso>
+      ) : null}
 
       {lotes.length === 0 ? (
         <EstadoVacio
@@ -111,6 +124,7 @@ export default async function PaginaImportaciones({
               <TablaCeldaEncabezado className="text-right">Errores</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Estado</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Subido por</TablaCeldaEncabezado>
+              {puedeEscribir ? <TablaCeldaEncabezado>Eliminar</TablaCeldaEncabezado> : null}
             </TablaFila>
           </TablaEncabezado>
 
@@ -170,6 +184,43 @@ export default async function PaginaImportaciones({
                   <span className="block">{lote.uploadedBy?.email ?? '—'}</span>
                   <span className="block">{formatearFechaHora(lote.uploadedAt)}</span>
                 </TablaCelda>
+
+                {puedeEscribir ? (
+                  <TablaCelda>
+                    {lote.status === 'PROCESSING' ? (
+                      <span className="text-xs text-muted-foreground">en proceso</span>
+                    ) : (
+                      <details>
+                        <summary className="cursor-pointer text-xs font-medium text-destructive hover:underline">
+                          Eliminar
+                        </summary>
+
+                        <div className="mt-3 w-72">
+                          <FormularioAccion
+                            accion={accionEliminarImportacion}
+                            etiqueta="Eliminar importación"
+                            variante="destructive"
+                            size="sm"
+                            className="gap-3"
+                            confirmar={`¿Eliminar la importación ${lote.period} v${lote.version}? Se borrarán sus ${lote._count.orders} orden(es) y el archivo original. No se puede deshacer.`}
+                          >
+                            <input type="hidden" name="importBatchId" value={lote.id} />
+
+                            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                              <input
+                                type="checkbox"
+                                name="borrarProveedores"
+                                defaultChecked
+                                className="mt-0.5 h-4 w-4 shrink-0 rounded border-input text-primary"
+                              />
+                              Borrar también los proveedores que se queden sin ninguna orden
+                            </label>
+                          </FormularioAccion>
+                        </div>
+                      </details>
+                    )}
+                  </TablaCelda>
+                ) : null}
               </TablaFila>
             ))}
           </TablaCuerpo>
