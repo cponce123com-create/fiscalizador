@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Info } from 'lucide-react';
 
-import { AsistenteImportacion } from '@/components/admin/asistente-importacion';
+import { ImportacionPorLotes } from '@/components/admin/importacion-por-lotes';
 import { Aviso } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
@@ -27,20 +27,22 @@ export default async function PaginaImportar() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold">Importar un libro</h1>
+        <h1 className="text-xl font-semibold">Importar libros</h1>
         <p className="text-sm text-muted-foreground">
-          Sube el archivo mensual del Portal de Transparencia. Primero se analiza y se muestra una
-          vista previa; nada se guarda hasta que lo confirmes.
+          Arrastra los libros mensuales del Portal de Transparencia, todos los que necesites de una
+          vez. El periodo de cada uno se deduce de sus fechas de emisión. Primero se analizan y se
+          muestra una vista previa; nada se guarda hasta que lo confirmes.
         </p>
       </div>
 
       <Aviso tono="info" titulo="Cómo funciona" icono={<Info className="h-4 w-4" />}>
-        El archivo original se conserva íntegro y cada registro guarda su contenido tal como venía en
-        el libro. Los valores que no se puedan interpretar no se corrigen ni se descartan: quedan
-        marcados para que los revises.
+        El archivo original de cada libro se conserva íntegro y cada registro guarda su contenido tal
+        como venía en el libro. Los valores que no se puedan interpretar no se corrigen ni se
+        descartan: quedan marcados para que los revises. Si un libro falla, los demás se importan
+        igual.
       </Aviso>
 
-      <AsistenteImportacion />
+      <ImportacionPorLotes />
     </div>
   );
 }

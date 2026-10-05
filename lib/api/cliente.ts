@@ -64,6 +64,13 @@ const lotePrevioSchema = z.object({
   totalRows: z.number(),
 });
 
+/** Cuánto de un libro ya está en el portal, comparando por contenido. */
+const duplicadoContenidoSchema = z.object({
+  filasNuevas: z.number(),
+  filasRepetidas: z.number(),
+  lotes: z.array(lotePrevioSchema),
+});
+
 export const analizarRespuestaSchema = z.object({
   importBatchId: z.string(),
   checksum: z.string(),
@@ -78,12 +85,23 @@ export const analizarRespuestaSchema = z.object({
   issues: z.array(issueSchema),
   lotesMismoPeriodo: z.array(lotePrevioSchema),
   loteMismoChecksum: lotePrevioSchema.nullable(),
+  duplicadoContenido: duplicadoContenidoSchema,
+});
+
+/** Respuesta del endpoint que deduce el periodo de un libro sin escribir nada. */
+export const periodoRespuestaSchema = z.object({
+  periodoSugerido: z.string().nullable(),
+  periodoDelNombre: z.string().nullable(),
+  mesesDetectados: z.array(z.object({ periodo: z.string(), filas: z.number() })),
+  filasLeidas: z.number(),
+  coincideConElNombre: z.boolean().nullable(),
 });
 
 export const confirmarRespuestaSchema = z.object({
   importBatchId: z.string(),
   status: z.enum(['COMPLETED', 'COMPLETED_WITH_WARNINGS']),
   ordenesInsertadas: z.number(),
+  ordenesOmitidasPorDuplicado: z.number(),
   proveedoresCreados: z.number(),
   proveedoresExistentes: z.number(),
   variantesDetectadas: z.number(),
@@ -92,6 +110,7 @@ export const confirmarRespuestaSchema = z.object({
 
 export type AnalizarRespuesta = z.infer<typeof analizarRespuestaSchema>;
 export type ConfirmarRespuesta = z.infer<typeof confirmarRespuestaSchema>;
+export type PeriodoRespuesta = z.infer<typeof periodoRespuestaSchema>;
 export type IssueRespuesta = z.infer<typeof issueSchema>;
 export type ResumenRespuesta = z.infer<typeof resumenSchema>;
 export type ColumnaRespuesta = z.infer<typeof columnaSchema>;

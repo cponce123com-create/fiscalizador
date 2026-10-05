@@ -80,6 +80,8 @@ export type AnalizarResult = {
   lotesMismoPeriodo: LotePrevio[];
   /** Lote ya importado con exactamente el mismo contenido. */
   loteMismoChecksum: LotePrevio | null;
+  /** Cuánto de este libro ya está en el portal, comparando por contenido. */
+  duplicadoContenido: DuplicadoContenido;
 };
 
 export type PreviewRow = {
@@ -98,6 +100,8 @@ export type ConfirmarResult = {
   importBatchId: string;
   status: 'COMPLETED' | 'COMPLETED_WITH_WARNINGS';
   ordenesInsertadas: number;
+  /** Filas que no se insertaron porque ya estaban en el portal. */
+  ordenesOmitidasPorDuplicado: number;
   proveedoresCreados: number;
   proveedoresExistentes: number;
   variantesDetectadas: number;
@@ -109,6 +113,143 @@ const LIMITE_PREVIEW = 10;
 /** Periodo en formato `YYYY-MM`. */
 export function periodoDe(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+/**
+ * Periodo `YYYY-MM` que aparece en el nombre del archivo, si lo trae.
+ *
+ * El portal no siempre nombra los libros con su mes (`Lista-OCOS (5).xls`), así
+ * que esto es solo una pista para contrastar con el contenido, nunca la fuente de
+ * verdad.
+ */
+export function periodoEnNombre(nombreArchivo: string): string | null {
+  const coincidencia = nombreArchivo.match(/(?<!\d)(20\d{2})[-_. ]?(0?[1-9]|1[0-2])(?!\d)/);
+  if (!coincidencia) return null;
+
+  const anio = coincidencia[1] as string;
+  const mes = (coincidencia[2] as string).padStart(2, '0');
+  return `${anio}-${mes}`;
+}
+
+export type PeriodoDetectado = {
+  /** Mes con más filas con fecha de emisión legible. */
+  periodoSugerido: string | null;
+  /** Periodo que trae el nombre del archivo, si lo trae. */
+  periodoDelNombre: string | null;
+  /** Todos los meses presentes, de más a menos filas. */
+  mesesDetectados: { periodo: string; filas: number }[];
+  filasLeidas: number;
+  /** `null` si el nombre no trae periodo o si ninguna fila tiene fecha. */
+  coincideConElNombre: boolean | null;
+};
+
+/** `YYYY-MM` en UTC: las fechas son `@db.Date` y se guardan a medianoche UTC. */
+function mesDe(fecha: Date): string {
+  return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Deduce a qué mes corresponde un libro a partir de las fechas de emisión de sus
+ * filas.
+ *
+ * Existe porque importar un año entero son doce libros, y elegir doce meses a mano
+ * es donde más se equivoca uno. Reutiliza `procesarBuffer`, el mismo pipeline que
+ * analizar y confirmar, para que el mes deducido sea exactamente el que se va a
+ * importar.
+ *
+ * NO escribe nada: ni base de datos, ni archivo original.
+ */
+export async function detectarPeriodo(
+  buffer: Buffer,
+  nombreArchivo: string,
+): Promise<PeriodoDetectado> {
+  const catalogos = await cargarCatalogos();
+  const { validacion } = procesarBuffer(buffer, catalogos);
+
+  const conteo = new Map<string, number>();
+  for (const orden of validacion.orders) {
+    if (!orden.issueDate) continue;
+    const periodo = mesDe(orden.issueDate);
+    conteo.set(periodo, (conteo.get(periodo) ?? 0) + 1);
+  }
+
+  const mesesDetectados = [...conteo.entries()]
+    .map(([periodo, filas]) => ({ periodo, filas }))
+    .sort((a, b) => b.filas - a.filas || a.periodo.localeCompare(b.periodo));
+
+  const periodoSugerido = mesesDetectados[0]?.periodo ?? null;
+  const periodoDelNombre = periodoEnNombre(nombreArchivo);
+
+  return {
+    periodoSugerido,
+    periodoDelNombre,
+    mesesDetectados,
+    filasLeidas: validacion.summary.totalRows,
+    coincideConElNombre:
+      periodoDelNombre === null || periodoSugerido === null
+        ? null
+        : periodoDelNombre === periodoSugerido,
+  };
+}
+
+export type DuplicadoContenido = {
+  /** Filas del libro que todavía no están en el portal. */
+  filasNuevas: number;
+  /** Filas del libro que ya están en el portal (misma clave de deduplicación). */
+  filasRepetidas: number;
+  /** Lotes anteriores que ya contienen alguna de esas filas. */
+  lotes: LotePrevio[];
+};
+
+/**
+ * Compara las claves de deduplicación del libro con las que ya están guardadas.
+ *
+ * Detectar por CONTENIDO y no solo por la huella del archivo es lo que reconoce un
+ * libro re-descargado del portal: los mismos datos con bytes distintos. La huella
+ * (checksum) solo ve archivos idénticos byte a byte.
+ *
+ * Las filas sin clave (sin número de orden o sin RUC) quedan fuera del recuento: no
+ * se pueden comparar y se insertan siempre.
+ */
+export async function analizarDuplicadosDeContenido(claves: string[]): Promise<DuplicadoContenido> {
+  const conClave = claves.filter((clave) => clave !== '');
+  const unicas = [...new Set(conClave)];
+
+  if (unicas.length === 0) {
+    return { filasNuevas: 0, filasRepetidas: 0, lotes: [] };
+  }
+
+  const existentes = await prisma.order.findMany({
+    where: { dedupeKey: { in: unicas } },
+    select: { dedupeKey: true, importBatchId: true },
+  });
+
+  const clavesExistentes = new Set(existentes.map((fila) => fila.dedupeKey));
+  const filasRepetidas = conClave.filter((clave) => clavesExistentes.has(clave)).length;
+
+  const idsLotes = [...new Set(existentes.map((fila) => fila.importBatchId))];
+  const lotes =
+    idsLotes.length === 0
+      ? []
+      : await prisma.importBatch.findMany({
+          where: { id: { in: idsLotes } },
+          orderBy: { uploadedAt: 'desc' },
+          select: {
+            id: true,
+            originalFilename: true,
+            period: true,
+            version: true,
+            status: true,
+            uploadedAt: true,
+            totalRows: true,
+          },
+        });
+
+  return {
+    filasNuevas: conClave.length - filasRepetidas,
+    filasRepetidas,
+    lotes,
+  };
 }
 
 export async function cargarCatalogos(db: ClienteDb = prisma): Promise<Catalogos> {
@@ -220,39 +361,44 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   const { hoja, mappings, validacion } = procesarBuffer(buffer, catalogos);
   const camposFaltantes = camposObligatoriosFaltantes(mappings);
 
-  // Duplicados: mismo contenido exacto, o mismo periodo ya importado.
-  const [loteMismoChecksum, lotesMismoPeriodo, ultimaVersion] = await Promise.all([
-    prisma.importBatch.findFirst({
-      where: { checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
-      select: {
-        id: true,
-        originalFilename: true,
-        period: true,
-        version: true,
-        status: true,
-        uploadedAt: true,
-        totalRows: true,
-      },
-    }),
-    prisma.importBatch.findMany({
-      where: { year, month, importType },
-      orderBy: { version: 'desc' },
-      select: {
-        id: true,
-        originalFilename: true,
-        period: true,
-        version: true,
-        status: true,
-        uploadedAt: true,
-        totalRows: true,
-      },
-    }),
-    prisma.importBatch.findFirst({
-      where: { year, month, importType },
-      orderBy: { version: 'desc' },
-      select: { version: true },
-    }),
-  ]);
+  const claves = validacion.orders.map((o) => o.dedupeKey ?? '');
+
+  // Duplicados: mismo contenido exacto (huella), mismo periodo ya importado, o
+  // filas que ya están en el portal aunque el archivo sea distinto.
+  const [loteMismoChecksum, lotesMismoPeriodo, ultimaVersion, duplicadoContenido] =
+    await Promise.all([
+      prisma.importBatch.findFirst({
+        where: { checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+        select: {
+          id: true,
+          originalFilename: true,
+          period: true,
+          version: true,
+          status: true,
+          uploadedAt: true,
+          totalRows: true,
+        },
+      }),
+      prisma.importBatch.findMany({
+        where: { year, month, importType },
+        orderBy: { version: 'desc' },
+        select: {
+          id: true,
+          originalFilename: true,
+          period: true,
+          version: true,
+          status: true,
+          uploadedAt: true,
+          totalRows: true,
+        },
+      }),
+      prisma.importBatch.findFirst({
+        where: { year, month, importType },
+        orderBy: { version: 'desc' },
+        select: { version: true },
+      }),
+      analizarDuplicadosDeContenido(claves),
+    ]);
 
   const version = (ultimaVersion?.version ?? 0) + 1;
 
@@ -328,6 +474,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     issues: validacion.issues,
     lotesMismoPeriodo,
     loteMismoChecksum,
+    duplicadoContenido,
   };
 }
 
@@ -339,6 +486,11 @@ export type ConfirmarInput = {
   mappingOverride?: { position: number; field: InternalField | null; isPublic: boolean }[];
   /** Confirmación explícita de reimportar un periodo ya existente. */
   reemplazarPeriodo?: boolean;
+  /**
+   * Descarta las filas cuya clave ya existe en el portal. Por defecto `true`:
+   * reimportar un libro no debe duplicar lo que ya está.
+   */
+  omitirDuplicados?: boolean;
 };
 
 /**
@@ -348,7 +500,14 @@ export type ConfirmarInput = {
  * transacción. Si cualquier paso falla, no queda nada a medias.
  */
 export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult> {
-  const { importBatchId, userId, request, mappingOverride, reemplazarPeriodo } = input;
+  const {
+    importBatchId,
+    userId,
+    request,
+    mappingOverride,
+    reemplazarPeriodo,
+    omitirDuplicados = true,
+  } = input;
 
   const lote = await prisma.importBatch.findUnique({ where: { id: importBatchId } });
   if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
@@ -402,6 +561,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     let proveedoresCreados = 0;
     let proveedoresExistentes = 0;
     let variantesDetectadas = 0;
+    let ordenesInsertadas = 0;
+    let ordenesOmitidasPorDuplicado = 0;
 
     // El grueso del trabajo va en UNA transacción. El timeout se amplía porque
     // un libro grande puede tardar; en Render el límite de la petición es menor,
@@ -460,8 +621,33 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             dedupeKey: o.dedupeKey ?? '',
           }));
 
-        if (filas.length > 0) {
-          await tx.order.createMany({ data: filas });
+        // 2b. Se descartan las filas que ya están en el portal. La comparación es
+        // contra lo que había ANTES de esta importación, no entre las filas nuevas:
+        // así las dos filas reales con el mismo número de orden entran juntas la
+        // primera vez y se omiten juntas al repetir.
+        const conClave = filas.filter((fila) => fila.dedupeKey !== '');
+        const clavesExistentes =
+          omitirDuplicados && conClave.length > 0
+            ? new Set(
+                (
+                  await tx.order.findMany({
+                    where: { dedupeKey: { in: [...new Set(conClave.map((f) => f.dedupeKey))] } },
+                    select: { dedupeKey: true },
+                    distinct: ['dedupeKey'],
+                  })
+                ).map((fila) => fila.dedupeKey),
+              )
+            : new Set<string>();
+
+        const filasAInsertar = omitirDuplicados
+          ? filas.filter((fila) => fila.dedupeKey === '' || !clavesExistentes.has(fila.dedupeKey))
+          : filas;
+
+        ordenesInsertadas = filasAInsertar.length;
+        ordenesOmitidasPorDuplicado = filas.length - filasAInsertar.length;
+
+        if (filasAInsertar.length > 0) {
+          await tx.order.createMany({ data: filasAInsertar });
         }
 
         // 3. Resúmenes por (proveedor, gestión).
@@ -494,7 +680,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             originalFilename: lote.originalFilename,
             checksum: lote.checksum,
             totalRows: validacion.summary.totalRows,
-            insertedOrders: filas.length,
+            insertedOrders: filasAInsertar.length,
+            skippedDuplicates: filas.length - filasAInsertar.length,
             errorRows: validacion.summary.errorRows,
             warningRows: validacion.summary.warningRows,
             cancelledRows: validacion.summary.cancelledRows,
@@ -526,7 +713,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     return {
       importBatchId: lote.id,
       status: estadoFinal,
-      ordenesInsertadas: validacion.orders.length,
+      ordenesInsertadas,
+      ordenesOmitidasPorDuplicado,
       proveedoresCreados,
       proveedoresExistentes,
       variantesDetectadas,

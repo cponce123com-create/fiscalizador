@@ -28,6 +28,11 @@ const cuerpoSchema = z.object({
   importBatchId: z.string().min(1, 'Falta el identificador del lote.'),
   /** Confirmación explícita para importar una versión nueva de un periodo ya cargado. */
   reemplazarPeriodo: z.boolean().optional().default(false),
+  /**
+   * Descarta las filas cuya clave ya existe en el portal. Por defecto sí: un libro
+   * reimportado no debe duplicar lo que ya está.
+   */
+  omitirDuplicados: z.boolean().optional().default(true),
   mapping: z
     .array(
       z.object({
@@ -63,6 +68,7 @@ export async function POST(request: Request): Promise<Response> {
       request,
       mappingOverride: parsed.data.mapping,
       reemplazarPeriodo: parsed.data.reemplazarPeriodo,
+      omitirDuplicados: parsed.data.omitirDuplicados,
     });
 
     return okJson(resultado, 200);
