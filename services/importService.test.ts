@@ -40,6 +40,7 @@ function fila(
   orden: string,
   ruc = '20541487710',
   razonSocial = 'PROVEEDOR DE PRUEBA S.A.C.',
+  estado = 'Devengada',
 ): (string | null)[] {
   return [
     String(numero),
@@ -50,7 +51,7 @@ function fila(
     '1740',
     fechaEmision,
     fechaEmision,
-    'Devengada',
+    estado,
     'S/. 100',
     ruc,
     razonSocial,
@@ -564,9 +565,11 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
       data: {
         filename: 'prueba-en-proceso',
         originalFilename: NOMBRE_D,
-        year: 2023,
-        month: 10,
-        period: '2023-10',
+        // Periodo imposible en los libros reales: el lote de prueba comparte clave
+        // única (año, mes, tipo, versión) con las importaciones de verdad.
+        year: 1998,
+        month: 1,
+        period: '1998-01',
         importType: 'CONSOLIDADO',
         version: 1,
         checksum: 'prueba-en-proceso',
@@ -680,5 +683,85 @@ describe.skipIf(!hayBaseDeDatos)('decisiones sobre las filas antes de importar',
     expect(
       await prisma.supplier.findUnique({ where: { ruc: RUC_AVISO }, select: { id: true } }),
     ).toBeNull();
+  });
+});
+
+describe.skipIf(!hayBaseDeDatos)('estados ya clasificados en el catálogo', () => {
+  let svc: typeof import('@/services/importService');
+  let prisma: typeof import('@/lib/prisma').prisma;
+  let storage: typeof import('@/services/storageService');
+
+  const NOMBRE = 'libro-estados-2023-08.xlsx';
+  // Inventado, con el dígito verificador válido.
+  const RUC = '20333333334';
+
+  let analisis: Awaited<ReturnType<typeof svc.analizar>>;
+  let clave: string | null = null;
+
+  beforeAll(async () => {
+    svc = await import('@/services/importService');
+    ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+
+    analisis = await svc.analizar({
+      buffer: libro([
+        fila(1, '2023-08-05 00:00:00.0', 'EE-1', RUC, 'PROVEEDOR DE PRUEBA S.A.C.', 'Emitida'),
+        fila(2, '2023-08-06 00:00:00.0', 'EE-2', RUC, 'PROVEEDOR DE PRUEBA S.A.C.', 'Comprometida'),
+      ]),
+      originalFilename: NOMBRE,
+      year: 2023,
+      month: 8,
+      importType: 'CONSOLIDADO',
+      userId: null,
+    });
+
+    const lote = await prisma.importBatch.findUnique({
+      where: { id: analisis.importBatchId },
+      select: { storageKey: true },
+    });
+    clave = lote?.storageKey ?? null;
+  });
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { originalFilename: NOMBRE } });
+    await prisma.supplier.deleteMany({ where: { ruc: RUC } });
+    await prisma.auditLog.deleteMany({ where: { entityId: analisis.importBatchId } });
+
+    if (clave) {
+      await storage
+        .getStorage()
+        .remove(clave)
+        .catch(() => undefined);
+    }
+  });
+
+  it('no marca como desconocido un estado que el catálogo ya clasifica', () => {
+    const desconocidos = analisis.issues.filter((issue) => issue.code === 'ESTADO_DESCONOCIDO');
+
+    expect(desconocidos).toHaveLength(0);
+    // Y suma al monto considerado: es la decisión que tomó el administrador al
+    // clasificar «Emitida» y «Comprometida» como gasto.
+    expect(analisis.summary.consideredCents).toBe(analisis.summary.registeredCents);
+  });
+
+  it('guarda cada orden con su estado y sin marcarla como anulada', async () => {
+    await svc.confirmar({
+      importBatchId: analisis.importBatchId,
+      userId: null,
+      reemplazarPeriodo: true,
+    });
+
+    const ordenes = await prisma.order.findMany({
+      where: { importBatchId: analisis.importBatchId },
+      orderBy: { sourceRow: 'asc' },
+      select: {
+        isCancelled: true,
+        status: { select: { code: true, countsEconomically: true } },
+      },
+    });
+
+    expect(ordenes.map((orden) => orden.status?.code)).toEqual(['EMITIDA', 'COMPROMETIDA']);
+    expect(ordenes.every((orden) => !orden.isCancelled)).toBe(true);
+    expect(ordenes.every((orden) => orden.status?.countsEconomically === true)).toBe(true);
   });
 });

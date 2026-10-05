@@ -83,6 +83,28 @@ const ESTADOS = [
     position: 2,
   },
   {
+    // Estados que aparecen en libros de otros meses del mismo portal. Cuentan como
+    // gasto por decisión del administrador: son órdenes emitidas y compromisos del
+    // mismo ejercicio, no anulaciones. El catálogo los distingue por su nombre en
+    // lugar de dejarlos caer en «Desconocido».
+    code: 'COMPROMETIDA',
+    label: 'Comprometida',
+    aliases: ['comprometido', 'comprometidas', 'comprometidos', 'compromiso'],
+    countsEconomically: true,
+    isCancelled: false,
+    isUnknown: false,
+    position: 3,
+  },
+  {
+    code: 'EMITIDA',
+    label: 'Emitida',
+    aliases: ['emitido', 'emitidas', 'emitidos'],
+    countsEconomically: true,
+    isCancelled: false,
+    isUnknown: false,
+    position: 4,
+  },
+  {
     // Red de seguridad: cualquier estado no catalogado cae aquí, se advierte y
     // NO suma al monto considerado hasta que un administrador lo clasifique.
     code: 'DESCONOCIDO',
@@ -131,15 +153,18 @@ const ETIQUETAS_PERSONAS = [
   { code: 'FAMILIAR_POLITICO', label: 'Familiar de político', position: 4 },
 ];
 
+/**
+ * Catálogos configurables.
+ *
+ * `update: {}` a propósito: el panel permite editar estos catálogos, así que el seed no
+ * debe pisar lo que un administrador haya cambiado (la misma regla que siguen las
+ * etiquetas y la visibilidad de columnas). Solo crea lo que falte.
+ */
 async function sembrarCatalogos() {
   for (const gestion of GESTIONES) {
     await prisma.managementPeriod.upsert({
       where: { name: gestion.name },
-      update: {
-        startDate: gestion.startDate,
-        endDate: gestion.endDate,
-        description: gestion.description,
-      },
+      update: {},
       create: gestion,
     });
   }
@@ -147,14 +172,7 @@ async function sembrarCatalogos() {
   for (const estado of ESTADOS) {
     await prisma.orderStatus.upsert({
       where: { code: estado.code },
-      update: {
-        label: estado.label,
-        aliases: estado.aliases,
-        countsEconomically: estado.countsEconomically,
-        isCancelled: estado.isCancelled,
-        isUnknown: estado.isUnknown,
-        position: estado.position,
-      },
+      update: {},
       create: estado,
     });
   }
@@ -162,7 +180,7 @@ async function sembrarCatalogos() {
   for (const tipo of TIPOS_ORDEN) {
     await prisma.orderType.upsert({
       where: { code: tipo.code },
-      update: { label: tipo.label, aliases: tipo.aliases, position: tipo.position },
+      update: {},
       create: tipo,
     });
   }
@@ -170,7 +188,7 @@ async function sembrarCatalogos() {
   for (const tipo of TIPOS_CONTRATO) {
     await prisma.contractType.upsert({
       where: { code: tipo.code },
-      update: { label: tipo.label, aliases: tipo.aliases, position: tipo.position },
+      update: {},
       create: tipo,
     });
   }

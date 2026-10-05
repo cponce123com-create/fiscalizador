@@ -178,6 +178,12 @@ nada— así que importar un año entero no obliga a elegir doce meses a mano; e
 administrador revisa y corrige los periodos antes de analizar. El tipo de información
 se elige una vez y se aplica a toda la tanda.
 
+Al terminar el análisis, **cada libro muestra un resumen de lo que hay que mirar**:
+filas repetidas dentro del libro, filas sin gestión, filas con aviso, filas con error y
+lo que ya está en el portal. Arriba se indica cuántos libros traen algo y hay un
+interruptor para **ver solo esos**, de manera que una tanda de doce libros no obliga a
+abrir doce fichas cuando solo tres tienen algo que revisar.
+
 Cada libro se analiza y se confirma con su propia petición: el progreso es por archivo
 y un libro defectuoso **no detiene a los demás**. Lo que falla queda marcado en su
 fila con el motivo y el resto se importa igual. Si el periodo ya tiene importaciones,
@@ -240,6 +246,28 @@ para poder corregirlas en el archivo de origen y volver a analizarlo.
 La decisión viaja como una **lista de números de fila**, no como datos: el servidor
 vuelve a leer el archivo guardado y descarta esas filas, igual que hace con las
 correcciones de mapeo. Queda registrada en la auditoría del lote.
+
+### Catálogos configurables
+
+`/admin/catalogos` (rol ADMIN o superior) reúne los cuatro catálogos de los que depende el
+importador: **estados**, **tipos de orden**, **tipos de contratación** y **gestiones**.
+
+Son datos, no código: clasificar un estado nuevo —decidir si cuenta como gasto— no exige
+desplegar la aplicación. El estado decide qué suma al **monto considerado**, así que
+cambiarlo mueve las cifras públicas al instante; por eso la pantalla exige el mismo
+permiso que importar y cada cambio queda auditado, con el antes y el después.
+
+Dos reglas valen para los cuatro:
+
+- El **código** se normaliza (`MAYÚSCULAS_CON_GUIONES`) y los **alias** se guardan con la
+  misma normalización que usa el importador para leer el libro. Cambiar el código no altera
+  lo ya importado: las órdenes apuntan al identificador, no al código.
+- Nada se **elimina** si está en uso: en lugar de un error de base de datos, la pantalla
+  dice cuántas órdenes lo usan y ofrece **desactivarlo**, que no toca nada de lo importado
+  y solo deja de reconocerlo en los libros siguientes.
+
+Los estados que traen los libros de otros meses del mismo portal —`Comprometida` y
+`Emitida`— ya vienen en el seed y cuentan como gasto.
 
 ### Eliminar una importación
 
