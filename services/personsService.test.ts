@@ -37,6 +37,15 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
 
   const CODIGO_ETIQUETA = 'TEST_VINCULOS';
 
+  /**
+   * DNI que no pertenece a ningún proveedor del portal.
+   *
+   * Sirve para comprobar que una ficha sin vínculos no se publica. La prueba comprueba
+   * que de verdad no coincide con ningún RUC, para que no falle por sorpresa el día que
+   * aparezca uno.
+   */
+  const DNI_SIN_VINCULO = '87654321';
+
   let tagId: string;
   let personaId: string;
   let dniReal: string;
@@ -105,6 +114,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
         fullName: 'PERSONA DE PRUEBA',
         description: 'Ficha creada por la suite de pruebas automatizadas.',
         source: 'Suite de pruebas.',
+        sourceUrl: 'https://ejemplo.test/acta-de-prueba',
         isPublic: true,
         tagIds: [tagId],
       },
@@ -122,7 +132,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
   });
 
   afterAll(async () => {
-    await prisma.person.deleteMany({ where: { dni: dniReal } });
+    await prisma.person.deleteMany({ where: { dni: { in: [dniReal, DNI_SIN_VINCULO] } } });
     await prisma.personTag.deleteMany({ where: { code: CODIGO_ETIQUETA } });
     await prisma.auditLog.deleteMany({ where: { entityId: { in: auditados } } });
   });
@@ -243,6 +253,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
           fullName: 'OTRA PERSONA',
           description: 'Descripción.',
           source: 'Fuente.',
+          sourceUrl: '',
           isPublic: true,
           tagIds: [],
         },
@@ -257,6 +268,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
       fullName: 'OTRA PERSONA',
       description: 'Descripción.',
       source: 'Fuente.',
+      sourceUrl: '',
       isPublic: true,
       tagIds: [],
     };
@@ -270,6 +282,23 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
     ).rejects.toThrow(/fuente es obligatoria/);
   });
 
+  it('no deja publicar con una fuente que no dice nada', async () => {
+    await expect(
+      svc.crearPersona(
+        {
+          dni: '00000000',
+          fullName: 'OTRA PERSONA',
+          description: 'Descripción.',
+          source: 'Un acta.',
+          sourceUrl: '',
+          isPublic: true,
+          tagIds: [],
+        },
+        { userId: null },
+      ),
+    ).rejects.toThrow(/fuente tiene que ser concreta/);
+  });
+
   it('no admite dos personas con el mismo DNI', async () => {
     await expect(
       svc.crearPersona(
@@ -277,13 +306,136 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
           dni: dniReal,
           fullName: 'DUPLICADA',
           description: 'Descripción.',
-          source: 'Fuente.',
+          source: 'Suite de pruebas automatizadas.',
+          sourceUrl: '',
           isPublic: true,
           tagIds: [],
         },
         { userId: null },
       ),
     ).rejects.toThrow(/Ya hay una persona registrada/);
+  });
+
+  /** Reconstruye la entrada del formulario a partir de la ficha, para poder editarla. */
+  function entradaDe(detalle: import('@/services/personsService').PersonaDetalle) {
+    return {
+      dni: detalle.dni,
+      fullName: detalle.fullName,
+      description: detalle.description,
+      source: detalle.source,
+      sourceUrl: detalle.sourceUrl ?? '',
+      tagIds: detalle.etiquetas.map((etiqueta) => etiqueta.id),
+    };
+  }
+
+  it('no publica una ficha que no señala a ningún proveedor', async () => {
+    // El DNI elegido no puede coincidir con el RUC de nadie: si coincidiera, la ficha
+    // tendría un vínculo y la prueba no mediría lo que quiere medir.
+    const coincidencias = await prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT COUNT(*)::int AS n
+      FROM "Supplier"
+      WHERE "rucPrefix" = '10' AND substring(ruc FROM 3 FOR 8) = ${DNI_SIN_VINCULO}
+    `;
+    expect(Number(coincidencias[0]?.n ?? 0)).toBe(0);
+
+    const creada = await svc.crearPersona(
+      {
+        dni: DNI_SIN_VINCULO,
+        fullName: 'PERSONA SIN VINCULOS',
+        description: 'Ficha sin ningún proveedor detrás.',
+        source: 'Suite de pruebas.',
+        sourceUrl: '',
+        isPublic: true,
+        tagIds: [tagId],
+      },
+      { userId: null },
+    );
+    auditados.push(creada.id);
+
+    const publico = await svc.detalleDeEtiqueta(tagId);
+    const panel = await svc.detalleDeEtiqueta(tagId, { soloPublicas: false });
+
+    // No sale al portal: afirmaría algo sobre una persona sin señalar a nadie.
+    expect(publico.personas.map((persona) => persona.fullName)).not.toContain(
+      'PERSONA SIN VINCULOS',
+    );
+
+    // En el panel sí se ve, marcada, para poder completarla.
+    const enPanel = panel.personas.find((persona) => persona.id === creada.id);
+    expect(enPanel?.tieneVinculos).toBe(false);
+  });
+
+  it('una ficha oculta no se publica aunque tenga vínculos', async () => {
+    const antes = await svc.personaPorId(personaId);
+
+    // Editar una ficha que YA está publicada no reinicia la fecha de verificación.
+    await svc.actualizarPersona(personaId, { ...entradaDe(antes), isPublic: true }, { userId: null });
+    expect((await svc.personaPorId(personaId)).verifiedAt).toEqual(antes.verifiedAt);
+
+    // Ocultarla la saca del portal...
+    await svc.actualizarPersona(
+      personaId,
+      { ...entradaDe(antes), isPublic: false },
+      { userId: null },
+    );
+    expect((await svc.detalleDeEtiqueta(tagId)).personas.map((p) => p.id)).not.toContain(personaId);
+
+    // ...y volver a publicarla la devuelve, con fecha de verificación nueva.
+    await svc.actualizarPersona(personaId, { ...entradaDe(antes), isPublic: true }, { userId: null });
+    const republicada = await svc.personaPorId(personaId);
+
+    expect(republicada.isPublic).toBe(true);
+    expect(republicada.verifiedAt).not.toBeNull();
+    expect(republicada.verifiedAt!.getTime()).toBeGreaterThanOrEqual(
+      antes.verifiedAt?.getTime() ?? 0,
+    );
+    expect((await svc.detalleDeEtiqueta(tagId)).personas.map((p) => p.id)).toContain(personaId);
+  });
+
+  it('publica una ficha cuyo único vínculo se deduce del RUC', async () => {
+    const detalle = await svc.personaPorId(personaId);
+    const manual = detalle.vinculosManuales[0];
+    expect(manual).toBeDefined();
+
+    await svc.desvincularProveedor(manual!.id, { userId: null });
+    auditados.push(manual!.id);
+
+    try {
+      const vinculados = await svc.proveedoresVinculados(personaId);
+      // Solo queda el deducido del DNI: el manual está fuera.
+      expect(vinculados.every((vinculo) => vinculo.origen === 'AUTOMATICO')).toBe(true);
+
+      const publico = await svc.detalleDeEtiqueta(tagId);
+      const ficha = publico.personas.find((persona) => persona.id === personaId);
+
+      expect(ficha).toBeDefined();
+      expect(ficha?.tieneVinculos).toBe(true);
+      // La ficha pública lleva su fuente y la fecha en la que se verificó.
+      expect(ficha?.sourceUrl).toBe('https://ejemplo.test/acta-de-prueba');
+      expect(ficha?.verifiedAt).toBeInstanceOf(Date);
+    } finally {
+      // Se deja el vínculo como estaba para el resto de pruebas.
+      const restaurado = await svc.vincularProveedor(
+        { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.' },
+        { userId: null },
+      );
+      auditados.push(restaurado.id);
+    }
+  });
+
+  it('distingue el vínculo deducido del declarado a mano', async () => {
+    const detalle = await svc.detalleDeEtiqueta(tagId);
+
+    const deducido = detalle.proveedores.find((proveedor) => proveedor.ruc === rucNatural);
+    const declarado = detalle.proveedores.find((proveedor) => proveedor.ruc === rucEmpresa);
+
+    // El de la persona natural sale del DNI que lleva dentro su RUC.
+    expect(deducido?.deducidos).toEqual(['PERSONA DE PRUEBA']);
+    expect(deducido?.declarados).toEqual([]);
+
+    // El de la empresa lo declaró la administración a mano.
+    expect(declarado?.declarados).toEqual(['PERSONA DE PRUEBA']);
+    expect(declarado?.deducidos).toEqual([]);
   });
 
   it('no vincula un RUC que no existe en el portal', async () => {

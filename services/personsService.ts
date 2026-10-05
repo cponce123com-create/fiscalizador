@@ -56,6 +56,10 @@ export type PersonaDetalle = {
   slug: string;
   description: string;
   source: string;
+  /** Enlace a la fuente, si se registró. */
+  sourceUrl: string | null;
+  /** Cuándo se verificó la fuente y se decidió publicar. */
+  verifiedAt: Date | null;
   isPublic: boolean;
   etiquetas: { id: string; code: string; label: string }[];
   vinculosManuales: {
@@ -105,6 +109,10 @@ export type FilaVinculoProveedor = {
   considerado: string;
   /** Nombres de las personas que lo señalan. */
   personas: string[];
+  /** Las que lo señalan porque su DNI está dentro del RUC. */
+  deducidos: string[];
+  /** Las que lo señalan por un vínculo declarado a mano. */
+  declarados: string[];
 };
 
 export type PersonaSenalada = {
@@ -113,6 +121,18 @@ export type PersonaSenalada = {
   slug: string;
   description: string;
   source: string;
+  /** Enlace a la fuente, si se registró. */
+  sourceUrl: string | null;
+  /** Cuándo se verificó la fuente y se decidió publicar. */
+  verifiedAt: Date | null;
+  /**
+   * Si tiene algún vínculo, deducido del RUC o declarado a mano.
+   *
+   * En el portal solo se publican las fichas con vínculos: una ficha sin ninguno
+   * afirmaría algo sobre una persona sin señalar a nadie. En el panel sí se ve, con
+   * esta marca, para poder completarla.
+   */
+  tieneVinculos: boolean;
 };
 
 const DNI_VALIDO = /^[0-9]{8}$/;
@@ -247,6 +267,8 @@ export async function personaPorId(id: string): Promise<PersonaDetalle> {
       slug: true,
       description: true,
       source: true,
+      sourceUrl: true,
+      verifiedAt: true,
       isPublic: true,
       tags: { select: { tag: { select: { id: true, code: true, label: true } } } },
       links: {
@@ -270,6 +292,8 @@ export async function personaPorId(id: string): Promise<PersonaDetalle> {
     slug: persona.slug,
     description: persona.description,
     source: persona.source,
+    sourceUrl: persona.sourceUrl,
+    verifiedAt: persona.verifiedAt,
     isPublic: persona.isPublic,
     etiquetas: persona.tags.map((asignada) => asignada.tag),
     vinculosManuales: persona.links.map((enlace) => ({
@@ -487,23 +511,51 @@ export async function resumenVinculos(
   };
 }
 
-/** Personas de una etiqueta y proveedores que señalan, con su gasto. */
+/**
+ * Identificadores de las personas de una etiqueta que tienen al menos un vínculo, sea
+ * deducido del RUC o declarado a mano.
+ *
+ * Se resuelve en SQL porque el vínculo automático NO está guardado: se deduce comparando
+ * el DNI con el RUC de las personas naturales, y persistirlo obligaría a resincronizarlo
+ * en cada importación.
+ */
+async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean): Promise<string[]> {
+  const filas = await prisma.$queryRaw<Array<{ personId: string }>>`
+    SELECT DISTINCT p.id AS "personId"
+    FROM "Person" p
+    JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
+    WHERE pt."tagId" = ${tagId}
+      AND (${soloPublicas} = false OR p."isPublic" = true)
+      AND (
+        EXISTS (
+          SELECT 1 FROM "Supplier" s
+          WHERE s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
+        )
+        OR EXISTS (SELECT 1 FROM "PersonSupplierLink" l WHERE l."personId" = p.id)
+      )
+  `;
+
+  return filas.map((fila) => fila.personId);
+}
+
+/**
+ * Personas de una etiqueta y proveedores que señalan, con su gasto.
+ *
+ * En el portal (`soloPublicas`) solo salen las fichas PUBLICADAS y CON VÍNCULO: una ficha
+ * sin ningún proveedor afirmaría algo sobre una persona sin señalar a nadie, y eso no se
+ * publica. En el panel se piden todas y cada una dice si tiene vínculos, para poder
+ * completarla.
+ *
+ * Cada proveedor distingue quién lo señala por el DNI que lleva dentro su RUC (deducido
+ * del dato) y quién por un vínculo que declaró la administración: no es lo mismo y la
+ * página pública lo dice.
+ */
 export async function detalleDeEtiqueta(
   tagId: string,
   { soloPublicas = true }: { soloPublicas?: boolean } = {},
 ): Promise<{ personas: PersonaSenalada[]; proveedores: FilaVinculoProveedor[] }> {
-  const [personas, filas] = await Promise.all([
-    prisma.person.findMany({
-      where: { tags: { some: { tagId } }, ...(soloPublicas ? { isPublic: true } : {}) },
-      orderBy: { fullName: 'asc' },
-      select: {
-        id: true,
-        fullName: true,
-        slug: true,
-        description: true,
-        source: true,
-      },
-    }),
+  const [idsConVinculo, filas] = await Promise.all([
+    idsDePersonasConVinculo(tagId, soloPublicas),
     prisma.$queryRaw<
       Array<{
         supplierId: string;
@@ -513,6 +565,8 @@ export async function detalleDeEtiqueta(
         ordenes: number;
         considerado: string;
         personas: string[];
+        deducidos: string[];
+        declarados: string[];
       }>
     >`
       WITH gasto AS (
@@ -528,13 +582,13 @@ export async function detalleDeEtiqueta(
         GROUP BY o."supplierId"
       ),
       vinculos AS (
-        SELECT p.id AS "personId", s.id AS "supplierId"
+        SELECT p.id AS "personId", s.id AS "supplierId", 'deducido' AS origen
         FROM "Person" p
         JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
         JOIN "Supplier" s ON s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
         WHERE pt."tagId" = ${tagId} AND (${soloPublicas} = false OR p."isPublic" = true)
         UNION
-        SELECT p.id AS "personId", l."supplierId" AS "supplierId"
+        SELECT p.id AS "personId", l."supplierId" AS "supplierId", 'declarado' AS origen
         FROM "PersonSupplierLink" l
         JOIN "Person" p ON p.id = l."personId"
         JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
@@ -555,7 +609,25 @@ export async function detalleDeEtiqueta(
             WHERE v2."supplierId" = s.id
           ),
           ARRAY[]::text[]
-        ) AS personas
+        ) AS personas,
+        COALESCE(
+          (
+            SELECT array_agg(DISTINCT p2."fullName" ORDER BY p2."fullName")
+            FROM vinculos v2
+            JOIN "Person" p2 ON p2.id = v2."personId"
+            WHERE v2."supplierId" = s.id AND v2.origen = 'deducido'
+          ),
+          ARRAY[]::text[]
+        ) AS deducidos,
+        COALESCE(
+          (
+            SELECT array_agg(DISTINCT p2."fullName" ORDER BY p2."fullName")
+            FROM vinculos v2
+            JOIN "Person" p2 ON p2.id = v2."personId"
+            WHERE v2."supplierId" = s.id AND v2.origen = 'declarado'
+          ),
+          ARRAY[]::text[]
+        ) AS declarados
       FROM (SELECT DISTINCT "supplierId" FROM vinculos) v
       JOIN "Supplier" s ON s.id = v."supplierId"
       LEFT JOIN gasto g ON g."supplierId" = s.id
@@ -563,8 +635,30 @@ export async function detalleDeEtiqueta(
     `,
   ]);
 
+  const conVinculo = new Set(idsConVinculo);
+
+  const personas = await prisma.person.findMany({
+    where: {
+      tags: { some: { tagId } },
+      ...(soloPublicas ? { isPublic: true, id: { in: idsConVinculo } } : {}),
+    },
+    orderBy: { fullName: 'asc' },
+    select: {
+      id: true,
+      fullName: true,
+      slug: true,
+      description: true,
+      source: true,
+      sourceUrl: true,
+      verifiedAt: true,
+    },
+  });
+
   return {
-    personas,
+    personas: personas.map((persona) => ({
+      ...persona,
+      tieneVinculos: conVinculo.has(persona.id),
+    })),
     proveedores: filas.map((fila) => ({
       supplierId: fila.supplierId,
       ruc: fila.ruc,
@@ -573,6 +667,8 @@ export async function detalleDeEtiqueta(
       ordenes: Number(fila.ordenes),
       considerado: fila.considerado,
       personas: fila.personas,
+      deducidos: fila.deducidos,
+      declarados: fila.declarados,
     })),
   };
 }
@@ -602,6 +698,8 @@ export type EntradaPersona = {
   fullName: string;
   description: string;
   source: string;
+  /** Enlace a la fuente. Cadena vacía si no se registra. */
+  sourceUrl: string;
   isPublic: boolean;
   tagIds: string[];
 };
@@ -613,17 +711,33 @@ function contextoDeAuditoria(accion: ContextoAccion) {
 }
 
 /**
+ * Longitud mínima de la fuente para poder publicar.
+ *
+ * No es una regla de estilo: lo que se publica aquí es una afirmación sobre una persona
+ * real. Una fuente de tres palabras («un acta») no permite comprobar nada, así que una
+ * ficha con eso se guarda como borrador, pero no sale al portal.
+ */
+const MINIMO_FUENTE = 12;
+
+/** Enlace absoluto: sin esquema no hay forma de comprobarlo desde el portal. */
+const URL_HTTP = /^https?:\/\/\S+$/i;
+
+/**
  * Comprueba lo que no puede quedar mal y explica por qué.
  *
  * La descripción y la fuente son obligatorias a propósito: esta sección publica
  * afirmaciones sobre personas reales, así que cada ficha tiene que decir qué se
  * afirma y de dónde sale.
+ *
+ * La fuente se exige con un mínimo de longitud solo al PUBLICAR: una ficha se puede
+ * dejar a medias mientras se documenta, sin que salga al portal.
  */
 function validarEntradaPersona(entrada: EntradaPersona): EntradaPersona {
   const dni = entrada.dni.trim();
   const fullName = entrada.fullName.trim();
   const description = entrada.description.trim();
   const source = entrada.source.trim();
+  const sourceUrl = entrada.sourceUrl.trim();
 
   if (!DNI_VALIDO.test(dni)) {
     throw new ErrorDeNegocio(
@@ -643,8 +757,26 @@ function validarEntradaPersona(entrada: EntradaPersona): EntradaPersona {
       'La fuente es obligatoria: hay que poder decir de dónde sale el vínculo.',
     );
   }
+  if (entrada.isPublic && source.length < MINIMO_FUENTE) {
+    throw new ErrorDeNegocio(
+      `Para publicar la ficha la fuente tiene que ser concreta: al menos ${MINIMO_FUENTE} ` +
+        'caracteres, con el documento o el medio del que sale. Sin eso la ficha se guarda, ' +
+        'pero no se publica.',
+    );
+  }
+  if (sourceUrl !== '' && !URL_HTTP.test(sourceUrl)) {
+    throw new ErrorDeNegocio('El enlace a la fuente tiene que empezar por http:// o https://.');
+  }
 
-  return { dni, fullName, description, source, isPublic: entrada.isPublic, tagIds: entrada.tagIds };
+  return {
+    dni,
+    fullName,
+    description,
+    source,
+    sourceUrl,
+    isPublic: entrada.isPublic,
+    tagIds: entrada.tagIds,
+  };
 }
 
 export async function crearPersona(
@@ -671,6 +803,11 @@ export async function crearPersona(
         slug: await slugUnico(tx, datos.fullName, datos.dni),
         description: datos.description,
         source: datos.source,
+        sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
+        // La fecha de verificación se sella al publicar: es el momento en el que el
+        // administrador asumió la publicación. No se teclea a mano, para que no pueda
+        // quedar una fecha que nadie comprobó.
+        verifiedAt: datos.isPublic ? new Date() : null,
         isPublic: datos.isPublic,
         createdById: accion.userId,
         tags: { create: datos.tagIds.map((tagId) => ({ tagId })) },
@@ -690,6 +827,7 @@ export async function crearPersona(
         fullName: datos.fullName,
         tagIds: datos.tagIds,
         isPublic: datos.isPublic,
+        sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
       },
     });
 
@@ -706,7 +844,7 @@ export async function actualizarPersona(
 
   const existente = await prisma.person.findUnique({
     where: { id },
-    select: { dni: true, fullName: true, isPublic: true },
+    select: { dni: true, fullName: true, isPublic: true, verifiedAt: true },
   });
   if (!existente) throw new NoEncontrado(`No existe la persona ${id}.`);
 
@@ -730,6 +868,10 @@ export async function actualizarPersona(
         fullName: datos.fullName,
         description: datos.description,
         source: datos.source,
+        sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
+        // La fecha se vuelve a sellar solo cuando la ficha PASA a publicarse: corregir
+        // una falta de ortografía no puede borrar cuándo se verificó la fuente.
+        verifiedAt: datos.isPublic && !existente.isPublic ? new Date() : existente.verifiedAt,
         isPublic: datos.isPublic,
         // Las etiquetas se reemplazan enteras: es lo que el formulario envía.
         tags: { deleteMany: {}, create: datos.tagIds.map((tagId) => ({ tagId })) },
@@ -745,7 +887,12 @@ export async function actualizarPersona(
       userAgent,
       metadata: {
         antes: { dni: existente.dni, fullName: existente.fullName, isPublic: existente.isPublic },
-        despues: { dni: datos.dni, fullName: datos.fullName, isPublic: datos.isPublic },
+        despues: {
+          dni: datos.dni,
+          fullName: datos.fullName,
+          isPublic: datos.isPublic,
+          sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
+        },
         tagIds: datos.tagIds,
       },
     });

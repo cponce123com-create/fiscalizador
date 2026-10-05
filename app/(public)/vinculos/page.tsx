@@ -14,7 +14,7 @@ import {
   TablaFila,
 } from '@/components/ui/data';
 import { Seccion } from '@/components/ui/seccion';
-import { formatearMonto } from '@/lib/utils';
+import { formatearFechaHora, formatearMonto } from '@/lib/utils';
 import { detalleDeEtiqueta, resumenVinculos, vinculosPorEtiqueta } from '@/services/personsService';
 
 export const dynamic = 'force-dynamic';
@@ -73,6 +73,13 @@ export default async function PaginaVinculos() {
           del Portal de Transparencia. El DNI de las personas no se publica.
         </p>
       </Aviso>
+
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        Cada proveedor dice cómo se le vincula. <strong>Deducido del RUC</strong> significa que el DNI
+        de la persona aparece dentro del RUC del proveedor: es un dato comprobable con el número, no
+        una afirmación de nadie. <strong>Declarado</strong> significa que la administración afirmó el
+        vínculo a mano, y es el que hay que revisar si se cree incorrecto.
+      </p>
 
       {conDatos.length === 0 ? (
         <EstadoVacio
@@ -147,7 +154,22 @@ export default async function PaginaVinculos() {
                         {formatearMonto(proveedor.considerado)}
                       </TablaCelda>
 
-                      <TablaCelda className="text-sm">{proveedor.personas.join(', ')}</TablaCelda>
+                      <TablaCelda className="text-sm">
+                        {proveedor.deducidos.length > 0 ? (
+                          <span className="block">
+                            {proveedor.deducidos.join(', ')}{' '}
+                            <span className="text-xs text-muted-foreground">
+                              (deducido del RUC)
+                            </span>
+                          </span>
+                        ) : null}
+                        {proveedor.declarados.length > 0 ? (
+                          <span className="block">
+                            {proveedor.declarados.join(', ')}{' '}
+                            <span className="text-xs text-muted-foreground">(declarado)</span>
+                          </span>
+                        ) : null}
+                      </TablaCelda>
                     </TablaFila>
                   ))}
                 </TablaCuerpo>
@@ -162,12 +184,28 @@ export default async function PaginaVinculos() {
                       <p className="text-sm font-medium text-foreground">
                         {persona.fullName}
                         <Insignia tono="neutro" className="ml-2">
-                          declarado
+                          afirmación de la administración
                         </Insignia>
                       </p>
                       <p className="text-sm text-muted-foreground">{persona.description}</p>
                       <p className="text-xs text-muted-foreground">
                         <span className="font-medium">Fuente:</span> {persona.source}
+                        {persona.sourceUrl ? (
+                          <>
+                            {' · '}
+                            <a
+                              href={persona.sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline underline-offset-2"
+                            >
+                              ver la fuente
+                            </a>
+                          </>
+                        ) : null}
+                        {persona.verifiedAt
+                          ? ` · verificada el ${formatearFechaHora(persona.verifiedAt)}`
+                          : ''}
                       </p>
                     </li>
                   ))}

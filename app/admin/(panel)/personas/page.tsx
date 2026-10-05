@@ -33,7 +33,7 @@ import { AreaTexto, Campo, Etiqueta, GrupoCampo } from '@/components/ui/form';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
 import { NoEncontrado } from '@/lib/errors';
-import { formatearMonto } from '@/lib/utils';
+import { formatearFechaHora, formatearMonto } from '@/lib/utils';
 import {
   listarEtiquetas,
   listarPersonas,
@@ -75,6 +75,7 @@ function CamposPersona({
     fullName: string;
     description: string;
     source: string;
+    sourceUrl: string | null;
     isPublic: boolean;
     etiquetas: readonly { id: string }[];
   };
@@ -133,7 +134,7 @@ function CamposPersona({
         etiqueta="Fuente"
         htmlFor={`${idPrefijo}-fuente`}
         obligatorio
-        ayuda="De dónde sale el dato: un acta, una resolución, una nota de prensa."
+        ayuda="De dónde sale el dato: un acta, una resolución, una nota de prensa. Para publicar se exige que sea concreta."
       >
         <Campo
           id={`${idPrefijo}-fuente`}
@@ -142,6 +143,21 @@ function CamposPersona({
           maxLength={500}
           defaultValue={persona?.source}
           placeholder="Acta de proclamación de candidatos, Jurado Nacional de Elecciones."
+        />
+      </GrupoCampo>
+
+      <GrupoCampo
+        etiqueta="Enlace a la fuente"
+        htmlFor={`${idPrefijo}-fuente-url`}
+        ayuda="Opcional. Si la fuente está en internet, el enlace permite comprobarla."
+      >
+        <Campo
+          id={`${idPrefijo}-fuente-url`}
+          name="sourceUrl"
+          type="url"
+          maxLength={500}
+          defaultValue={persona?.sourceUrl ?? ''}
+          placeholder="https://ejemplo.pe/acta-de-proclamacion.pdf"
         />
       </GrupoCampo>
 
@@ -177,14 +193,21 @@ function CamposPersona({
         )}
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex items-start gap-2 text-sm">
         <input
           type="checkbox"
           name="isPublic"
-          defaultChecked={persona?.isPublic ?? true}
-          className="h-4 w-4 rounded border-input text-primary"
+          defaultChecked={persona?.isPublic ?? false}
+          className="mt-0.5 h-4 w-4 rounded border-input text-primary"
         />
-        Publicar en la sección «Vínculos declarados» del portal
+        <span>
+          Publicar en la sección «Vínculos declarados» del portal
+          <span className="block text-xs text-muted-foreground">
+            Desmarcada por defecto: una ficha se publica cuando alguien lo decide. Para publicar
+            hace falta una fuente concreta (al menos 12 caracteres) y que la ficha señale a algún
+            proveedor; sin vínculos no sale al portal aunque esté marcada.
+          </span>
+        </span>
       </label>
     </>
   );
@@ -245,9 +268,11 @@ export default async function PaginaPersonas({
 
       <Aviso tono="info" titulo="Lo que se publica y lo que no" icono={<Info className="h-4 w-4" />}>
         En <Link href="/vinculos" className="underline underline-offset-2">Vínculos declarados</Link>{' '}
-        se publican el nombre, la descripción y la fuente de cada ficha, junto con los proveedores
-        vinculados y cuánto han recibido. El DNI no se publica nunca. Cada alta, cambio y baja queda
-        en la auditoría.
+        se publican el nombre, la descripción, la fuente y, si la hay, su enlace, junto con los
+        proveedores vinculados y cuánto han recibido. Una ficha solo sale al portal si está
+        <strong> publicada</strong>, tiene una <strong>fuente concreta</strong> y señala a
+        <strong> algún proveedor</strong>. El DNI no se publica nunca. Cada alta, cambio y baja
+        queda en la auditoría.
       </Aviso>
 
       {puedeEscribir ? (
@@ -281,14 +306,19 @@ export default async function PaginaPersonas({
                 <TarjetaDescripcion>
                   DNI {ficha.dni} · {ficha.etiquetas.map((etiqueta) => etiqueta.label).join(', ') || 'sin etiquetas'} ·{' '}
                   {vinculos.length} proveedor(es) vinculado(s)
+                  {ficha.verifiedAt
+                    ? ` · fuente verificada el ${formatearFechaHora(ficha.verifiedAt)}`
+                    : ''}
                 </TarjetaDescripcion>
               </div>
 
               <div className="flex items-center gap-3">
-                {ficha.isPublic ? (
+                {!ficha.isPublic ? (
+                  <Insignia tono="neutro">oculta</Insignia>
+                ) : vinculos.length > 0 ? (
                   <Insignia tono="exito">publicada</Insignia>
                 ) : (
-                  <Insignia tono="neutro">oculta</Insignia>
+                  <Insignia tono="advertencia">sin vínculos: no se publica</Insignia>
                 )}
 
                 <Link
@@ -554,10 +584,12 @@ export default async function PaginaPersonas({
                 <TablaCelda className="tabular text-right">{persona.proveedores}</TablaCelda>
 
                 <TablaCelda>
-                  {persona.isPublic ? (
+                  {!persona.isPublic ? (
+                    <Insignia tono="neutro">oculta</Insignia>
+                  ) : persona.proveedores > 0 ? (
                     <Insignia tono="exito">publicada</Insignia>
                   ) : (
-                    <Insignia tono="neutro">oculta</Insignia>
+                    <Insignia tono="advertencia">sin vínculos: no se publica</Insignia>
                   )}
                 </TablaCelda>
 

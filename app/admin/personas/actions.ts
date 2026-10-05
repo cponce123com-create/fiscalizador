@@ -37,6 +37,7 @@ const esquemaEntrada = z.object({
   fullName: z.string().max(200),
   description: z.string().max(4000),
   source: z.string().max(500),
+  sourceUrl: z.string().max(500),
   isPublic: z.boolean(),
   tagIds: z.array(z.string().max(64)).max(50),
 });
@@ -55,6 +56,7 @@ function entradaPersona(formData: FormData) {
     fullName: texto(formData.get('fullName')),
     description: texto(formData.get('description')),
     source: texto(formData.get('source')),
+    sourceUrl: texto(formData.get('sourceUrl')),
     // La casilla solo viaja cuando está marcada.
     isPublic: formData.get('isPublic') !== null,
     tagIds: formData

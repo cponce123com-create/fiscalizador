@@ -531,8 +531,18 @@ model Person {
   slug        String  @unique
   description String
   source      String
+  /// Enlace a la fuente (resolución, portal, nota de prensa). Opcional: no toda
+  /// fuente está en internet, pero cuando lo está conviene poder comprobarla.
+  sourceUrl   String?
+  /// Cuándo se verificó la fuente y se decidió publicar. Lo sella el servicio al
+  /// publicar la ficha; no se teclea a mano.
+  verifiedAt  DateTime?
   /// Permite mantener una persona fuera del portal sin borrarla.
-  isPublic    Boolean @default(true)
+  ///
+  /// El valor por defecto es NO publicar: una ficha sale al portal cuando un
+  /// administrador lo decide, con su fuente. Antes el defecto era lo contrario, así
+  /// que dar de alta a una persona la publicaba sin querer.
+  isPublic    Boolean @default(false)
 
   createdById String?
   createdAt   DateTime @default(now())
