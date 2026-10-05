@@ -82,6 +82,16 @@ export type AnalizarResult = {
   loteMismoChecksum: LotePrevio | null;
   /** Cuánto de este libro ya está en el portal, comparando por contenido. */
   duplicadoContenido: DuplicadoContenido;
+  /**
+   * Datos de las filas que se importarían y tienen algún hallazgo, con sus hallazgos.
+   *
+   * Se devuelven aparte de la vista previa porque son las que el administrador tiene
+   * que juzgar: un mensaje suelto («el monto no se pudo interpretar») no dice de qué
+   * fila se trata, y sin los datos de la fila no hay forma de decidir si se deja
+   * fuera. Las filas con ERROR no están aquí: no se importan, así que no hay nada que
+   * decidir sobre ellas.
+   */
+  filasConHallazgos: PreviewRow[];
 };
 
 export type PreviewRow = {
@@ -102,6 +112,8 @@ export type ConfirmarResult = {
   ordenesInsertadas: number;
   /** Filas que no se insertaron porque ya estaban en el portal. */
   ordenesOmitidasPorDuplicado: number;
+  /** Filas que no se insertaron porque el administrador las dejó fuera. */
+  ordenesExcluidasPorDecision: number;
   proveedoresCreados: number;
   proveedoresExistentes: number;
   variantesDetectadas: number;
@@ -109,6 +121,9 @@ export type ConfirmarResult = {
 };
 
 const LIMITE_PREVIEW = 10;
+
+/** Tope de filas con hallazgos que se devuelven para revisarlas una a una. */
+const LIMITE_FILAS_CON_HALLAZGOS = 500;
 
 /** Periodo en formato `YYYY-MM`. */
 export function periodoDe(year: number, month: number): string {
@@ -310,11 +325,17 @@ function aPreview(orden: ValidatedOrder): PreviewRow {
  *
  * Se extrae para que `analizar` y `confirmar` compartan EXACTAMENTE la misma
  * lógica. Si divergieran, lo validado y lo importado no serían lo mismo.
+ *
+ * `filasExcluidas` son los números de fila que el administrador dejó fuera al revisar
+ * los hallazgos. Se descartan aquí, antes de que nadie las use: si se filtraran más
+ * tarde, una fila excluida todavía crearía su proveedor y su resumen por gestión.
+ * El resumen de validación NO cambia: describe el archivo, no lo que se importa.
  */
 function procesarBuffer(
   buffer: Buffer,
   catalogos: Catalogos,
   mappingOverride?: { position: number; field: InternalField | null; isPublic: boolean }[],
+  filasExcluidas: readonly number[] = [],
 ) {
   const hoja: RawSheet = parseSpreadsheet(buffer);
   const mappings = mapColumns(hoja.headers, hoja.rows);
@@ -342,7 +363,20 @@ function procesarBuffer(
     managementPeriods: catalogos.managementPeriods,
   });
 
-  return { hoja, mappings: mappingsFinales, validacion };
+  const excluidas = new Set(filasExcluidas);
+
+  if (excluidas.size === 0) {
+    return { hoja, mappings: mappingsFinales, validacion };
+  }
+
+  return {
+    hoja,
+    mappings: mappingsFinales,
+    validacion: {
+      ...validacion,
+      orders: validacion.orders.filter((orden) => !excluidas.has(orden.sourceRow)),
+    },
+  };
 }
 
 /**
@@ -489,6 +523,11 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     columns: mappings,
     camposFaltantes,
     preview: validacion.orders.slice(0, LIMITE_PREVIEW).map(aPreview),
+    // Las que hay que juzgar: se importarían, pero traen algo que revisar.
+    filasConHallazgos: validacion.orders
+      .filter((orden) => orden.issues.length > 0)
+      .slice(0, LIMITE_FILAS_CON_HALLAZGOS)
+      .map(aPreview),
     summary: validacion.summary,
     issues: validacion.issues,
     lotesMismoPeriodo,
@@ -510,6 +549,12 @@ export type ConfirmarInput = {
    * reimportar un libro no debe duplicar lo que ya está.
    */
   omitirDuplicados?: boolean;
+  /**
+   * Números de fila del libro que el administrador dejó fuera a propósito, después
+   * de revisar sus hallazgos. Se descartan antes de insertar, así que tampoco cuentan
+   * para los proveedores ni para los resúmenes por gestión.
+   */
+  filasExcluidas?: number[];
 };
 
 /**
@@ -526,6 +571,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     mappingOverride,
     reemplazarPeriodo,
     omitirDuplicados = true,
+    filasExcluidas = [],
   } = input;
 
   const lote = await prisma.importBatch.findUnique({ where: { id: importBatchId } });
@@ -571,11 +617,16 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
   try {
     const catalogos = await cargarCatalogos();
     const buffer = await getStorage().read(lote.storageKey);
-    const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride);
+    const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
 
     const { ip, userAgent } = request
       ? contextoDePeticion(request)
       : { ip: null, userAgent: null };
+
+    // Las que el administrador dejó fuera: la diferencia entre lo que el archivo tenía
+    // válido y lo que queda por importar.
+    const ordenesExcluidasPorDecision =
+      validacion.summary.successfulRows - validacion.orders.length;
 
     let proveedoresCreados = 0;
     let proveedoresExistentes = 0;
@@ -701,6 +752,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             totalRows: validacion.summary.totalRows,
             insertedOrders: filasAInsertar.length,
             skippedDuplicates: filas.length - filasAInsertar.length,
+            excludedByAdmin: ordenesExcluidasPorDecision,
             errorRows: validacion.summary.errorRows,
             warningRows: validacion.summary.warningRows,
             cancelledRows: validacion.summary.cancelledRows,
@@ -734,6 +786,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
       status: estadoFinal,
       ordenesInsertadas,
       ordenesOmitidasPorDuplicado,
+      ordenesExcluidasPorDecision,
       proveedoresCreados,
       proveedoresExistentes,
       variantesDetectadas,

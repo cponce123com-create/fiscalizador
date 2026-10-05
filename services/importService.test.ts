@@ -582,3 +582,103 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
     await prisma.importBatch.delete({ where: { id: lote.id } });
   });
 });
+
+describe.skipIf(!hayBaseDeDatos)('decisiones sobre las filas antes de importar', () => {
+  let svc: typeof import('@/services/importService');
+  let prisma: typeof import('@/lib/prisma').prisma;
+  let storage: typeof import('@/services/storageService');
+
+  const NOMBRE = 'libro-exclusion-2023-07.xlsx';
+  // Inventados, pero con el dígito verificador válido: si no lo fuera, cada fila
+  // traería su propia advertencia y la prueba no mediría lo que quiere medir.
+  const RUC_LIMPIO = '20444444445';
+  const RUC_AVISO = '20555555556';
+
+  let analisis: Awaited<ReturnType<typeof svc.analizar>>;
+  let clave: string | null = null;
+
+  beforeAll(async () => {
+    svc = await import('@/services/importService');
+    ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+
+    analisis = await svc.analizar({
+      buffer: libro([
+        fila(1, '2023-07-05 00:00:00.0', 'EX-1', RUC_LIMPIO, 'LIMPIO UNO S.A.C.'),
+        fila(2, '2023-07-06 00:00:00.0', 'EX-2', RUC_LIMPIO, 'LIMPIO DOS S.A.C.'),
+        // Sin razón social: advertencia. Se importaría tal cual, y es la fila que se va
+        // a dejar fuera en la segunda prueba.
+        fila(3, '2023-07-07 00:00:00.0', 'EX-3', RUC_AVISO, ''),
+        // Sin RUC: error. No se puede importar: una orden necesita proveedor.
+        fila(4, '2023-07-08 00:00:00.0', 'EX-4', '', ''),
+      ]),
+      originalFilename: NOMBRE,
+      year: 2023,
+      month: 7,
+      importType: 'CONSOLIDADO',
+      userId: null,
+    });
+
+    const lote = await prisma.importBatch.findUnique({
+      where: { id: analisis.importBatchId },
+      select: { storageKey: true },
+    });
+    clave = lote?.storageKey ?? null;
+  });
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { originalFilename: NOMBRE } });
+    await prisma.supplier.deleteMany({ where: { ruc: { in: [RUC_LIMPIO, RUC_AVISO] } } });
+    await prisma.auditLog.deleteMany({ where: { entityId: analisis.importBatchId } });
+
+    if (clave) {
+      await storage
+        .getStorage()
+        .remove(clave)
+        .catch(() => undefined);
+    }
+  });
+
+  it('devuelve las filas que se importarían con algo que revisar, con sus datos', () => {
+    expect(analisis.filasConHallazgos).toHaveLength(1);
+
+    const fila = analisis.filasConHallazgos[0]!;
+
+    expect(fila.orderNumber).toBe('EX-3');
+    expect(fila.ruc).toBe(RUC_AVISO);
+    expect(fila.issues.map((issue) => issue.code)).toContain('PROVEEDOR_NOMBRE_VACIO');
+
+    // Solo están las que se pueden importar: las que tienen un error no se pueden
+    // incluir ni excluir, no hay nada que decidir sobre ellas.
+    expect(
+      analisis.filasConHallazgos.some((candidata) =>
+        candidata.issues.some((issue) => issue.severity === 'ERROR'),
+      ),
+    ).toBe(false);
+  });
+
+  it('deja fuera la fila indicada, sin crear su proveedor ni su resumen', async () => {
+    const aviso = analisis.filasConHallazgos[0]!;
+
+    const resultado = await svc.confirmar({
+      importBatchId: analisis.importBatchId,
+      userId: null,
+      reemplazarPeriodo: true,
+      filasExcluidas: [aviso.sourceRow],
+    });
+
+    expect(resultado.ordenesInsertadas).toBe(2);
+    expect(resultado.ordenesExcluidasPorDecision).toBe(1);
+
+    // Las dos filas limpias entraron y la dejada fuera no.
+    expect(await prisma.order.count({ where: { ruc: RUC_LIMPIO } })).toBe(2);
+    expect(await prisma.order.count({ where: { orderNumber: 'EX-3' } })).toBe(0);
+    expect(await prisma.order.count({ where: { orderNumber: 'EX-4' } })).toBe(0);
+
+    // El proveedor de la fila dejada fuera no llega a existir: si se filtrara más
+    // tarde, quedaría una ficha en cero en el listado público.
+    expect(
+      await prisma.supplier.findUnique({ where: { ruc: RUC_AVISO }, select: { id: true } }),
+    ).toBeNull();
+  });
+});

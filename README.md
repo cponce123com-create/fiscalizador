@@ -225,6 +225,22 @@ El cuerpo de la petición **no lleva filas**, solo el identificador del lote y l
 correcciones de mapeo. Es deliberado: si el navegador pudiera enviar las filas ya
 normalizadas, podría insertar registros que no existen en el archivo original.
 
+### Decidir fila a fila
+
+Antes de confirmar, la pantalla de revisión muestra **las filas que se importarían y
+traen algún hallazgo**, con sus datos (número de orden, proveedor, fecha y monto) y el
+motivo. Cada una lleva un interruptor para **dejarla fuera**: la fila no se inserta, y
+tampoco se crea su proveedor ni su resumen por gestión.
+
+No todas se pueden incluir. Las que tienen un **error** —sin número de orden o sin un
+RUC válido— no se importan y no hay nada que decidir sobre ellas: una orden necesita
+número y proveedor para poder guardarse. La pantalla las lista aparte, con el motivo,
+para poder corregirlas en el archivo de origen y volver a analizarlo.
+
+La decisión viaja como una **lista de números de fila**, no como datos: el servidor
+vuelve a leer el archivo guardado y descarta esas filas, igual que hace con las
+correcciones de mapeo. Queda registrada en la auditoría del lote.
+
 ### Eliminar una importación
 
 Desde `/admin/importaciones` (rol ADMIN o superior) se puede borrar una importación

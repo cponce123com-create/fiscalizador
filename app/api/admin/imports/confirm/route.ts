@@ -33,6 +33,12 @@ const cuerpoSchema = z.object({
    * reimportado no debe duplicar lo que ya está.
    */
   omitirDuplicados: z.boolean().optional().default(true),
+  /**
+   * Números de fila del libro que el administrador dejó fuera al revisar los
+   * hallazgos. Es una DECISIÓN, no un dato: el servidor vuelve a leer el archivo y
+   * descarta esas filas, así que el navegador no puede colar registros que no existen.
+   */
+  filasExcluidas: z.array(z.number().int().min(1).max(1_000_000)).max(20_000).optional(),
   mapping: z
     .array(
       z.object({
@@ -69,6 +75,7 @@ export async function POST(request: Request): Promise<Response> {
       mappingOverride: parsed.data.mapping,
       reemplazarPeriodo: parsed.data.reemplazarPeriodo,
       omitirDuplicados: parsed.data.omitirDuplicados,
+      filasExcluidas: parsed.data.filasExcluidas,
     });
 
     return okJson(resultado, 200);

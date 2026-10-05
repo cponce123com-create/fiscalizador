@@ -98,6 +98,11 @@ type ArchivoEnCola = {
   deteccion: PeriodoRespuesta | null;
   analisis: AnalizarRespuesta | null;
   mapeo: FilaMapeo[];
+  /**
+   * Filas del libro que el administrador dejó fuera después de revisar los hallazgos.
+   * Es distinto de `incluido`, que decide sobre el libro entero.
+   */
+  excluidas: number[];
   incluido: boolean;
   reemplazar: boolean;
   resultado: ConfirmarRespuesta | null;
@@ -226,6 +231,7 @@ export function ImportacionPorLotes() {
         deteccion: null,
         analisis: null,
         mapeo: [],
+        excluidas: [],
         incluido: true,
         reemplazar: false,
         resultado: null,
@@ -311,6 +317,8 @@ export function ImportacionPorLotes() {
           estado: 'analizado',
           analisis: datos,
           mapeo: mapeoDesdeAnalisis(datos),
+          // Un análisis nuevo parte sin decisiones tomadas.
+          excluidas: [],
           incluido: !(mismoArchivo || yaImportado || sinColumnas || sinFilas),
           motivoExclusion: mismoArchivo
             ? 'Ya se importó un archivo con este mismo contenido.'
@@ -364,6 +372,8 @@ export function ImportacionPorLotes() {
               // Las filas que ya están en el portal no se vuelven a insertar: así
               // reimportar un libro corregido no duplica lo que no ha cambiado.
               omitirDuplicados: true,
+              // Las filas que el administrador dejó fuera al revisar los hallazgos.
+              filasExcluidas: archivo.excluidas,
               mapping: archivo.mapeo,
             }),
           },
@@ -782,6 +792,9 @@ export function ImportacionPorLotes() {
                         {archivo.resultado.ordenesInsertadas} órdenes insertadas
                         {archivo.resultado.ordenesOmitidasPorDuplicado > 0
                           ? ` · ${archivo.resultado.ordenesOmitidasPorDuplicado} omitidas por estar ya en el portal`
+                          : null}
+                        {archivo.resultado.ordenesExcluidasPorDecision > 0
+                          ? ` · ${archivo.resultado.ordenesExcluidasPorDecision} dejadas fuera por ti`
                           : null}{' '}
                         · {archivo.resultado.proveedoresCreados} proveedores nuevos ·{' '}
                         {archivo.resultado.proveedoresExistentes} ya existentes ·{' '}
@@ -793,6 +806,14 @@ export function ImportacionPorLotes() {
                       <DetalleAnalisis
                         analisis={analisis}
                         mapeo={archivo.mapeo}
+                        excluidas={new Set(archivo.excluidas)}
+                        onAlternarExclusion={(sourceRow) =>
+                          actualizar(archivo.id, {
+                            excluidas: archivo.excluidas.includes(sourceRow)
+                              ? archivo.excluidas.filter((fila) => fila !== sourceRow)
+                              : [...archivo.excluidas, sourceRow],
+                          })
+                        }
                         onCambioMapeo={(position, cambios) =>
                           actualizar(archivo.id, {
                             mapeo: archivo.mapeo.map((fila) =>

@@ -81,6 +81,8 @@ export const analizarRespuestaSchema = z.object({
   columns: z.array(columnaSchema),
   camposFaltantes: z.array(z.string()),
   preview: z.array(previewSchema),
+  /** Filas que se importarían y traen algo que revisar, con sus hallazgos. */
+  filasConHallazgos: z.array(previewSchema),
   summary: resumenSchema,
   issues: z.array(issueSchema),
   lotesMismoPeriodo: z.array(lotePrevioSchema),
@@ -102,6 +104,7 @@ export const confirmarRespuestaSchema = z.object({
   status: z.enum(['COMPLETED', 'COMPLETED_WITH_WARNINGS']),
   ordenesInsertadas: z.number(),
   ordenesOmitidasPorDuplicado: z.number(),
+  ordenesExcluidasPorDecision: z.number(),
   proveedoresCreados: z.number(),
   proveedoresExistentes: z.number(),
   variantesDetectadas: z.number(),

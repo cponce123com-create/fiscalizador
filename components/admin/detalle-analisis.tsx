@@ -107,15 +107,42 @@ export function DetalleAnalisis({
   analisis,
   mapeo,
   onCambioMapeo,
+  excluidas,
+  onAlternarExclusion,
 }: {
   analisis: AnalizarRespuesta;
   mapeo: FilaMapeo[];
   onCambioMapeo: (position: number, cambios: Partial<FilaMapeo>) => void;
+  /** Filas que el administrador dejó fuera después de revisar los hallazgos. */
+  excluidas: ReadonlySet<number>;
+  onAlternarExclusion: (sourceRow: number) => void;
 }) {
-  const { summary, issues, preview, columns, camposFaltantes, sheetName, sheetNames, version } =
-    analisis;
+  const {
+    summary,
+    issues,
+    preview,
+    columns,
+    camposFaltantes,
+    sheetName,
+    sheetNames,
+    version,
+    filasConHallazgos,
+  } = analisis;
 
   const sinAsignar = mapeo.filter((fila) => fila.field === null).length;
+
+  // Las filas con error no se importan y no hay nada que decidir sobre ellas: no
+  // tienen número de orden o RUC con el que guardarlas. Se agrupan para poder decir
+  // cuáles son y por qué, sin mezclarlas con las que sí se importan.
+  const hallazgosDeError = issues.filter((issue) => issue.severity === 'ERROR');
+  const filasDeError = [...new Set(hallazgosDeError.map((issue) => issue.sourceRow))]
+    .sort((a, b) => a - b)
+    .map((sourceRow) => ({
+      sourceRow,
+      issues: hallazgosDeError.filter((issue) => issue.sourceRow === sourceRow),
+    }));
+
+  const filasAImportar = summary.successfulRows - excluidas.size;
 
   return (
     <div className="flex flex-col gap-6">
@@ -303,57 +330,145 @@ export function DetalleAnalisis({
         </TarjetaContenido>
       </Tarjeta>
 
-      {issues.length > 0 ? (
+      {filasConHallazgos.length > 0 || filasDeError.length > 0 ? (
         <Tarjeta>
           <TarjetaEncabezado>
             <TarjetaTitulo>Hallazgos del análisis</TarjetaTitulo>
             <TarjetaDescripcion>
-              {issues.length} hallazgo(s). Un error impide importar esa fila; una advertencia no
-              bloquea nada y la decide el administrador.
+              {filasConHallazgos.length > 0
+                ? `${filasConHallazgos.length} fila(s) se importarían con algo que revisar: mira los datos y deja fuera las que no quieras. `
+                : ''}
+              {filasDeError.length > 0
+                ? `${filasDeError.length} fila(s) no se pueden importar y quedan fuera solas.`
+                : ''}
             </TarjetaDescripcion>
           </TarjetaEncabezado>
 
-          <TarjetaContenido className="p-0">
-            <Tabla>
-              <TablaEncabezado>
-                <TablaFila>
-                  <TablaCeldaEncabezado>Fila</TablaCeldaEncabezado>
-                  <TablaCeldaEncabezado>Gravedad</TablaCeldaEncabezado>
-                  <TablaCeldaEncabezado>Detalle</TablaCeldaEncabezado>
-                  <TablaCeldaEncabezado>Valor</TablaCeldaEncabezado>
-                </TablaFila>
-              </TablaEncabezado>
+          <TarjetaContenido className="flex flex-col gap-4">
+            {filasConHallazgos.length > 0 ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Se importarán{' '}
+                  <span className="font-medium text-foreground">{filasAImportar}</span> de{' '}
+                  {summary.successfulRows} filas válidas
+                  {excluidas.size > 0
+                    ? `: has dejado fuera ${excluidas.size}.`
+                    : ' y ahora mismo no has dejado ninguna fuera.'}
+                </p>
 
-              <TablaCuerpo>
-                {issues.slice(0, 100).map((issue, indice) => (
-                  <TablaFila key={`${issue.sourceRow}-${issue.code}-${indice}`}>
-                    <TablaCelda className="tabular">{issue.sourceRow}</TablaCelda>
-                    <TablaCelda>
-                      <Insignia tono={TONO_POR_SEVERIDAD[issue.severity]}>
-                        {ETIQUETA_SEVERIDAD[issue.severity]}
-                      </Insignia>
-                    </TablaCelda>
-                    <TablaCelda>
-                      {issue.message}
-                      {issue.columnName ? (
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          ({issue.columnName})
-                        </span>
-                      ) : null}
-                    </TablaCelda>
-                    <TablaCelda className="text-xs text-muted-foreground">
-                      {issue.rawValue ?? '—'}
-                    </TablaCelda>
-                  </TablaFila>
-                ))}
-              </TablaCuerpo>
-            </Tabla>
+                <Tabla>
+                  <TablaEncabezado>
+                    <TablaFila>
+                      <TablaCeldaEncabezado>Fila</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado>Nº orden</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado>Proveedor</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado>Emisión</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado className="text-right">Monto</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado>Qué revisar</TablaCeldaEncabezado>
+                      <TablaCeldaEncabezado>¿Se importa?</TablaCeldaEncabezado>
+                    </TablaFila>
+                  </TablaEncabezado>
 
-            {issues.length > 100 ? (
-              <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">
-                Se muestran los primeros 100 hallazgos de {issues.length}. El resto queda registrado
-                en el lote.
-              </p>
+                  <TablaCuerpo>
+                    {filasConHallazgos.map((fila) => {
+                      const fuera = excluidas.has(fila.sourceRow);
+
+                      return (
+                        <TablaFila key={fila.sourceRow}>
+                          <TablaCelda className="tabular text-muted-foreground">
+                            {fila.sourceRow}
+                          </TablaCelda>
+
+                          <TablaCelda className="font-medium">{fila.orderNumber}</TablaCelda>
+
+                          <TablaCelda className="max-w-[16rem]" title={fila.supplierName ?? ''}>
+                            <span className="block truncate">{fila.supplierName ?? '—'}</span>
+                            <span className="tabular block text-xs text-muted-foreground">
+                              {fila.ruc ?? 'sin RUC'}
+                            </span>
+                          </TablaCelda>
+
+                          <TablaCelda className="tabular">{fila.issueDate ?? '—'}</TablaCelda>
+
+                          <TablaCelda className="tabular text-right">
+                            {fila.amount !== null
+                              ? formatearCentavos(Math.round(Number(fila.amount) * 100))
+                              : '—'}
+                          </TablaCelda>
+
+                          <TablaCelda>
+                            <span className="flex flex-col gap-1.5">
+                              {fila.issues.map((issue, indice) => (
+                                <span
+                                  key={`${issue.code}-${indice}`}
+                                  className="flex items-start gap-2"
+                                >
+                                  <Insignia tono={TONO_POR_SEVERIDAD[issue.severity]}>
+                                    {ETIQUETA_SEVERIDAD[issue.severity]}
+                                  </Insignia>
+                                  <span className="text-sm">
+                                    {issue.message}
+                                    {issue.rawValue ? (
+                                      <span className="text-xs text-muted-foreground">
+                                        {' '}
+                                        «{issue.rawValue}»
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </span>
+                              ))}
+                            </span>
+                          </TablaCelda>
+
+                          <TablaCelda>
+                            <Interruptor
+                              id={`importar-fila-${fila.sourceRow}`}
+                              etiqueta={fuera ? 'Fuera' : 'Se importa'}
+                              nombreAccesible={`Importar la fila ${fila.sourceRow}`}
+                              checked={!fuera}
+                              onChange={() => onAlternarExclusion(fila.sourceRow)}
+                            />
+                          </TablaCelda>
+                        </TablaFila>
+                      );
+                    })}
+                  </TablaCuerpo>
+                </Tabla>
+              </>
+            ) : null}
+
+            {filasDeError.length > 0 ? (
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
+                <p className="text-sm font-semibold text-foreground">
+                  Estas filas no se pueden importar
+                </p>
+
+                <ul className="flex flex-col gap-2">
+                  {filasDeError.map((fila) => (
+                    <li key={fila.sourceRow} className="flex items-start gap-2 text-sm">
+                      <span className="tabular shrink-0 font-medium">Fila {fila.sourceRow}</span>
+                      <span className="flex flex-col gap-1">
+                        {fila.issues.map((issue, indice) => (
+                          <span key={`${issue.code}-${indice}`}>
+                            {issue.message}
+                            {issue.rawValue ? (
+                              <span className="text-xs text-muted-foreground">
+                                {' '}
+                                «{issue.rawValue}»
+                              </span>
+                            ) : null}
+                          </span>
+                        ))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-xs text-muted-foreground">
+                  Una orden necesita número y proveedor para poder guardarse: sin eso no hay fila que
+                  importar. Si quieres recuperarlas, corrige el archivo y vuelve a analizarlo.
+                </p>
+              </div>
             ) : null}
           </TarjetaContenido>
         </Tarjeta>
