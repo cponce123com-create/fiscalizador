@@ -48,6 +48,39 @@ export interface StorageDriver {
 
 const EXTENSIONES_PERMITIDAS = new Set(['.xls', '.xlsx', '.csv']);
 
+const MENSAJES_ERRNO: Record<string, string> = {
+  EACCES: 'permiso denegado',
+  ENOENT: 'la ruta no existe',
+  EPERM: 'operación no permitida',
+  EROFS: 'el sistema de archivos es de solo lectura',
+  ENOSPC: 'no queda espacio en el disco',
+  ENOTDIR: 'la ruta pasa por un archivo y no por un directorio',
+};
+
+/**
+ * Traduce un fallo del sistema de archivos a algo que se pueda leer y accionar.
+ *
+ * Existe porque un `STORAGE_LOCAL_DIR` mal puesto en el servidor —por ejemplo,
+ * apuntando a un disco que no está montado— hacía que TODA importación devolviera
+ * un 500 sin explicación, y la única forma de saber qué pasaba era leer los
+ * registros del servidor. El código de error (`EACCES`, `ENOENT`…) dice justo lo
+ * que hay que arreglar y no revela rutas.
+ */
+export function describirFalloDeAlmacenamiento(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'error desconocido';
+  }
+
+  const codigo = (error as NodeJS.ErrnoException).code;
+
+  if (typeof codigo !== 'string' || codigo === '') {
+    return error.name;
+  }
+
+  const descripcion = MENSAJES_ERRNO[codigo];
+  return descripcion ? `${codigo} (${descripcion})` : codigo;
+}
+
 /** Extensión en minúsculas, validada contra la lista permitida. */
 export function extensionSegura(filename: string): string {
   const ext = path.extname(filename).toLowerCase();
@@ -97,6 +130,11 @@ class LocalStorageDriver implements StorageDriver {
   }
 }
 
+/** Driver de disco local sobre una raíz concreta. Se exporta para poder probarlo. */
+export function crearAlmacenamientoLocal(raiz: string): StorageDriver {
+  return new LocalStorageDriver(raiz);
+}
+
 let driver: StorageDriver | null = null;
 
 /** Devuelve el driver configurado por `STORAGE_DRIVER`. */
@@ -110,7 +148,7 @@ export function getStorage(): StorageDriver {
     );
   }
 
-  driver = new LocalStorageDriver(path.resolve(env.STORAGE_LOCAL_DIR));
+  driver = crearAlmacenamientoLocal(path.resolve(env.STORAGE_LOCAL_DIR));
   return driver;
 }
 

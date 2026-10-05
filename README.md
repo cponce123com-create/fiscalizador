@@ -320,8 +320,8 @@ npm run verify      # Importación completa contra la base de datos real
 ./scripts/verificar-login.sh   # Autenticación de extremo a extremo
 ```
 
-`npm test` incluye una prueba que lee el libro real
-(`docs/reference/Lista-OCOS-2023-06.xls`) y comprueba que las cifras coinciden
+`npm test` incluye pruebas que contrastan las cifras que publica el portal con las del
+libro de referencia (`docs/reference/Lista-OCOS-2023-06.xls`): comprueban que coinciden
 exactamente con las medidas durante el desarrollo:
 
 | Métrica | Valor |
@@ -336,11 +336,17 @@ Si el importador deja de reproducir estas cifras, la prueba falla. Es la red de
 seguridad que impide que un cambio de formato o de redondeo pase desapercibido.
 
 Las pruebas de integración se ejecutan **contra la base de datos real** y se saltan
-solas si no hay `DATABASE_URL`. Crean y borran sus propios datos (proveedores de
-prueba, fichas de verificación, lotes de importación y sus archivos), así que se pueden
-repetir sin dejar rastro. Comprueban, entre otras cosas, que reimportar un libro **no
-aumenta** el número de órdenes y que el DNI dentro del RUC de una persona natural
+solas si no hay `DATABASE_URL`. La mayoría crea y borra sus propios datos (proveedores
+de prueba, fichas de verificación, lotes de importación y sus archivos), así que se
+pueden repetir sin dejar rastro; comprueban, entre otras cosas, que reimportar un libro
+**no aumenta** el número de órdenes y que el DNI dentro del RUC de una persona natural
 encuentra su ficha.
+
+**Las pruebas que contrastan cifras necesitan el libro cargado**: contrastan lo que
+publica el portal, así que con una base vacía no tienen nada que comprobar y fallan
+diciéndolo, en lugar de fallar una a una con un mensaje que no explica nada. En un
+portal vacío, el orden es `npm run verify` (carga el libro de referencia) y después
+`npm test`.
 
 ---
 
@@ -363,6 +369,14 @@ encuentra su ficha.
    se guardan en disco. En Render el disco de un servicio web es **efímero**: los
    archivos se perderían en cada despliegue. Hay que usar un volumen persistente o
    Cloudinary (adaptador ya previsto).
+
+   Ojo con `STORAGE_LOCAL_DIR`: si apunta a un disco que no está montado —por ejemplo
+   `/var/data/uploads` cuando el disco no se ha creado, porque los discos persistentes
+   requieren plan de pago— el directorio no se puede crear y **toda importación falla**.
+   Desde esta entrega el error lo dice con su código (`EACCES (permiso denegado)`,
+   `ENOENT (la ruta no existe)`…) en lugar de devolver un 500 sin explicación, pero
+   conviene comprobarlo antes de dar un despliegue por bueno: sube un libro y mira que
+   el análisis llegue a la pantalla de revisión.
 3. **`AUTH_SECRET` distinto por entorno** y nunca reutilizado.
 4. **Añadir 2FA** para las cuentas administrativas (previsto en el pliego).
 

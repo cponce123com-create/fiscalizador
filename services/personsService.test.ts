@@ -52,8 +52,16 @@ describe.skipIf(!hayBaseDeDatos)('personsService contra la base real', () => {
       LIMIT 1
     `;
 
-    rucNatural = naturales[0]!.ruc;
-    rucEmpresa = empresas[0]!.ruc;
+    if (!naturales[0] || !empresas[0]) {
+      throw new Error(
+        'Estas pruebas comprueban la deducción del DNI contra proveedores reales del ' +
+          'portal, y ahora mismo no hay ninguno con órdenes. Carga el libro de ' +
+          'referencia (`npm run verify`, o impórtalo desde el panel) antes de correrlas.',
+      );
+    }
+
+    rucNatural = naturales[0].ruc;
+    rucEmpresa = empresas[0].ruc;
     // El DNI vive en los ocho dígitos centrales del RUC de una persona natural.
     dniReal = rucNatural.slice(2, 10);
 

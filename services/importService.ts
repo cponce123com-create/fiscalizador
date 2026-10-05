@@ -9,7 +9,7 @@ import {
   type InternalField,
 } from '@/services/mappingService';
 import { computeChecksum, parseSpreadsheet, type RawSheet } from '@/services/parseService';
-import { getStorage } from '@/services/storageService';
+import { describirFalloDeAlmacenamiento, getStorage } from '@/services/storageService';
 import { recalcularResumenGestion, resolverProveedor } from '@/services/supplierService';
 import {
   validateRows,
@@ -346,6 +346,29 @@ function procesarBuffer(
 }
 
 /**
+ * Guarda el archivo original, traduciendo el fallo si el disco no lo admite.
+ *
+ * El archivo original NUNCA se descarta (es la evidencia de la que sale cada dato),
+ * así que si no se puede guardar la importación se detiene. Pero se detiene
+ * diciendo por qué: un fallo de almacenamiento sin explicación es indistinguible de
+ * un error del programa, y en un servidor eso obliga a leer los registros para
+ * averiguar algo tan simple como que el directorio no existe.
+ */
+async function guardarArchivoOriginal(buffer: Buffer, filename: string, checksum: string) {
+  try {
+    return await getStorage().save({ buffer, filename, checksum });
+  } catch (error) {
+    console.error('No se pudo guardar el archivo original de la importación:', error);
+
+    throw new ErrorDeNegocio(
+      'No se pudo guardar el archivo original en el almacenamiento ' +
+        `(${describirFalloDeAlmacenamiento(error)}). Revisa STORAGE_LOCAL_DIR: el ` +
+        'directorio tiene que existir y el servicio tiene que poder escribir en él.',
+    );
+  }
+}
+
+/**
  * FASE 1 — analizar.
  *
  * Guarda el archivo original y deja un `ImportBatch` en estado VALIDATING con
@@ -403,11 +426,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   const version = (ultimaVersion?.version ?? 0) + 1;
 
   // El archivo original se guarda SIEMPRE, antes de cualquier decisión.
-  const almacenado = await getStorage().save({
-    buffer,
-    filename: originalFilename,
-    checksum,
-  });
+  const almacenado = await guardarArchivoOriginal(buffer, originalFilename, checksum);
 
   // Gestión: si todas las filas caen en la misma, se deja fijada en el lote.
   const gestiones = new Set(

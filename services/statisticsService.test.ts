@@ -27,6 +27,19 @@ describe.skipIf(!hayBaseDeDatos)('statisticsService contra la base real', () => 
   beforeAll(async () => {
     svc = await import('@/services/statisticsService');
     filtros = await import('@/lib/filtros');
+
+    // Estas pruebas contrastan las cifras publicadas del libro de referencia
+    // (2023-06). Si el portal no lo tiene cargado, cada una fallaría por su cuenta con
+    // un mensaje que no explica nada: mejor decirlo una vez, y claro.
+    const { prisma } = await import('@/lib/prisma');
+
+    if ((await prisma.order.count()) === 0) {
+      throw new Error(
+        'El portal no tiene ninguna orden cargada. Estas pruebas contrastan las cifras ' +
+          'del libro de referencia: ejecuta `npm run verify` (o importa ' +
+          'docs/reference/Lista-OCOS-2023-06.xls) antes de correrlas.',
+      );
+    }
   });
 
   describe('resumen general (las tarjetas)', () => {

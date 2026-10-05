@@ -176,10 +176,64 @@ describe.skipIf(!hayBaseDeDatos)('detectarPeriodo contra la base real', () => {
 describe.skipIf(!hayBaseDeDatos)('analizarDuplicadosDeContenido contra la base real', () => {
   let svc: typeof import('@/services/importService');
   let prisma: typeof import('@/lib/prisma').prisma;
+  let storage: typeof import('@/services/storageService');
+
+  const NOMBRE = 'libro-duplicados-1999-03.xlsx';
+  const RUC = '20666666666';
+
+  let loteId = '';
+  let clave: string | null = null;
+  let claves: string[] = [];
 
   beforeAll(async () => {
     svc = await import('@/services/importService');
     ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+
+    // La prueba se siembra sus propias órdenes en lugar de leer las del portal: una
+    // base recién vaciada es un estado normal, y estas pruebas tienen que pasar
+    // igual.
+    const analisis = await svc.analizar({
+      buffer: libro([
+        fila(1, '1999-03-05 00:00:00.0', 'DUP-1', RUC, 'PRUEBA DUPLICADOS S.A.C.'),
+        fila(2, '1999-03-06 00:00:00.0', 'DUP-2', RUC, 'PRUEBA DUPLICADOS S.A.C.'),
+      ]),
+      originalFilename: NOMBRE,
+      year: 1999,
+      month: 3,
+      importType: 'CONSOLIDADO',
+      userId: null,
+    });
+
+    loteId = analisis.importBatchId;
+
+    const lote = await prisma.importBatch.findUnique({
+      where: { id: loteId },
+      select: { storageKey: true },
+    });
+    clave = lote?.storageKey ?? null;
+
+    await svc.confirmar({ importBatchId: loteId, userId: null, reemplazarPeriodo: true });
+
+    const ordenes = await prisma.order.findMany({
+      where: { importBatchId: loteId },
+      orderBy: { sourceRow: 'asc' },
+      select: { dedupeKey: true },
+    });
+    claves = ordenes.map((orden) => orden.dedupeKey);
+  });
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { originalFilename: NOMBRE } });
+    await prisma.supplier.deleteMany({ where: { ruc: RUC } });
+    await prisma.auditLog.deleteMany({ where: { entityId: loteId } });
+
+    if (clave) {
+      await storage
+        .getStorage()
+        .remove(clave)
+        .catch(() => undefined);
+    }
   });
 
   it('ignora las filas sin clave y no consulta nada', async () => {
@@ -189,12 +243,7 @@ describe.skipIf(!hayBaseDeDatos)('analizarDuplicadosDeContenido contra la base r
   });
 
   it('reconoce las claves que ya están en el portal', async () => {
-    const yaImportadas = await prisma.order.findMany({
-      select: { dedupeKey: true },
-      orderBy: { id: 'asc' },
-      take: 5,
-    });
-    const claves = yaImportadas.map((orden) => orden.dedupeKey);
+    expect(claves).toHaveLength(2);
 
     const r = await svc.analizarDuplicadosDeContenido([
       ...claves,
@@ -207,13 +256,7 @@ describe.skipIf(!hayBaseDeDatos)('analizarDuplicadosDeContenido contra la base r
   });
 
   it('cuenta dos veces una clave repetida que ya está en el portal', async () => {
-    const una = await prisma.order.findFirst({
-      select: { dedupeKey: true },
-      orderBy: { id: 'asc' },
-    });
-    expect(una).not.toBeNull();
-
-    const r = await svc.analizarDuplicadosDeContenido([una!.dedupeKey, una!.dedupeKey]);
+    const r = await svc.analizarDuplicadosDeContenido([claves[0]!, claves[0]!]);
 
     expect(r.filasRepetidas).toBe(2);
     expect(r.filasNuevas).toBe(0);
@@ -326,7 +369,15 @@ describe.skipIf(!hayBaseDeDatos)('reimportar un libro no duplica sus órdenes', 
       expect(await prisma.order.count({ where: { ruc: RUC } })).toBe(3);
     } finally {
       // Los lotes se llevan sus órdenes y hallazgos por cascada.
+      const creados = await prisma.importBatch.findMany({
+        where: { originalFilename: NOMBRE },
+        select: { id: true },
+      });
+
       await prisma.importBatch.deleteMany({ where: { originalFilename: NOMBRE } });
+      await prisma.auditLog.deleteMany({
+        where: { entityId: { in: creados.map((lote) => lote.id) } },
+      });
       if (!existiaAntes) await prisma.supplier.deleteMany({ where: { ruc: RUC } });
       for (const clave of claves) {
         await storage
