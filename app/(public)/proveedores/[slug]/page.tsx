@@ -1,0 +1,251 @@
+import type { Metadata } from 'next';
+import { ArrowLeft, Building2 } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+
+import { GraficoBarras, type BarraGrafico } from '@/components/publico/grafico-barras';
+import { GraficoEvolucion, type PuntoGrafico } from '@/components/publico/grafico-evolucion';
+import { Paginacion } from '@/components/publico/paginacion';
+import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
+import { Aviso, Insignia } from '@/components/ui/data';
+import { Seccion } from '@/components/ui/seccion';
+import { leerFiltros } from '@/lib/filtros';
+import { formatearFecha, formatearMonto } from '@/lib/utils';
+import { listarOrdenes, perfilProveedor } from '@/services/statisticsService';
+
+/**
+ * Perfil público de un proveedor.
+ *
+ * Reúne lo que el pliego pide para esta pantalla: los tres montos separados, el
+ * periodo en que aparece, su reparto por gestión, año y mes, y el listado completo
+ * de sus órdenes. El perfil se busca por `slug` —legible y estable— y no por el
+ * identificador interno.
+ */
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const perfil = await perfilProveedor(slug);
+
+  if (!perfil) return { title: 'Proveedor no encontrado' };
+
+  return {
+    title: perfil.nombre,
+    description: `${perfil.nombre} (RUC ${perfil.ruc}): ${perfil.ordenes} órdenes y ${formatearMonto(
+      perfil.totalConsiderado,
+    )} de monto considerado.`,
+  };
+}
+
+export default async function PaginaProveedor({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const { slug } = await params;
+  const perfil = await perfilProveedor(slug);
+
+  if (!perfil) notFound();
+
+  // El proveedor se fija aquí, no se toma de la URL: así el parámetro `proveedor`
+  // no puede usarse para mezclar órdenes de dos proveedores en la misma pantalla.
+  const filtros = { ...leerFiltros(await searchParams), proveedorId: perfil.id };
+  const ordenes = await listarOrdenes(filtros);
+
+  // Los enlaces de paginación no repiten el identificador: ya está en la ruta.
+  const filtrosEnlaces = { ...filtros, proveedorId: null };
+
+  const evolucionDegenerada = perfil.porAnio.length < 2 && perfil.porMes.length < 2;
+
+  const barrasGestion: BarraGrafico[] = perfil.porGestion.map((fila) => ({
+    etiqueta: `Gestión ${fila.etiqueta}`,
+    valor: Number(fila.considerado),
+    exacto: fila.considerado,
+    detalle: `${fila.ordenes} ${fila.ordenes === 1 ? 'orden' : 'órdenes'}`,
+  }));
+
+  const puntosAnuales: PuntoGrafico[] = perfil.porAnio.map((punto) => ({
+    periodo: punto.etiqueta,
+    valor: Number(punto.considerado),
+    exacto: punto.considerado,
+    ordenes: punto.ordenes,
+  }));
+
+  const puntosMensuales: PuntoGrafico[] = perfil.porMes.map((punto) => ({
+    periodo: punto.etiqueta,
+    valor: Number(punto.considerado),
+    exacto: punto.considerado,
+    ordenes: punto.ordenes,
+  }));
+
+  return (
+    <div className="flex flex-col gap-8">
+      <Link
+        href="/proveedores"
+        className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+        Todos los proveedores
+      </Link>
+
+      <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">
+        {perfil.fotoUrl ? (
+          <Image
+            src={perfil.fotoUrl}
+            alt={`Fotografía de ${perfil.nombre}`}
+            width={96}
+            height={96}
+            className="h-24 w-24 shrink-0 rounded-lg object-cover"
+          />
+        ) : (
+          <span
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            aria-hidden="true"
+          >
+            <Building2 className="h-10 w-10" />
+          </span>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <h1 className="text-xl font-semibold sm:text-2xl">{perfil.nombre}</h1>
+          <p className="tabular text-sm text-muted-foreground">RUC {perfil.ruc}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Insignia tono="neutro">{perfil.tipo}</Insignia>
+            {perfil.anuladas > 0 ? (
+              <Insignia tono="error">
+                {perfil.anuladas} {perfil.anuladas === 1 ? 'orden anulada' : 'órdenes anuladas'} · no
+                suma{perfil.anuladas === 1 ? '' : 'n'}
+              </Insignia>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-lg border border-primary/30 bg-card p-6 shadow-sm ring-1 ring-primary/15 lg:col-span-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Monto considerado
+          </p>
+          <p className="tabular mt-2 text-4xl font-semibold text-primary sm:text-5xl">
+            {formatearMonto(perfil.totalConsiderado)}
+          </p>
+          <p className="mt-3 max-w-xl text-sm text-muted-foreground">
+            Es el gasto que de verdad cuenta. Sobre un total registrado de{' '}
+            <span className="tabular font-medium text-foreground">
+              {formatearMonto(perfil.totalRegistrado)}
+            </span>
+            .
+          </p>
+        </div>
+
+        <div className="flex flex-col justify-between rounded-lg border border-border bg-card p-6 shadow-sm">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Monto anulado
+            </p>
+            <p className="tabular mt-2 text-2xl font-semibold text-destructive">
+              {formatearMonto(perfil.totalAnulado)}
+            </p>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {perfil.anuladas === 1
+              ? '1 orden anulada. Existe y se muestra en el listado, pero no suma.'
+              : `${perfil.anuladas} órdenes anuladas. Existen y se muestran, pero no suman.`}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Dato etiqueta="Órdenes" valor={perfil.ordenes.toLocaleString('es-PE')} />
+        <Dato
+          etiqueta="Primera aparición"
+          valor={perfil.primeraAparicion ? formatearFecha(perfil.primeraAparicion) : '—'}
+        />
+        <Dato
+          etiqueta="Última aparición"
+          valor={perfil.ultimaAparicion ? formatearFecha(perfil.ultimaAparicion) : '—'}
+        />
+        <Dato
+          etiqueta="Años con registros"
+          valor={perfil.aniosPresentes.length > 0 ? perfil.aniosPresentes.join(', ') : '—'}
+        />
+      </div>
+
+      <Seccion
+        titulo="Gasto por gestión"
+        descripcion="Reparto del monto considerado entre los periodos de gobierno."
+      >
+        <GraficoBarras barras={barrasGestion} etiquetaSerie="Monto considerado" />
+      </Seccion>
+
+      <Seccion
+        titulo="Evolución del gasto"
+        descripcion="Comparación entre años y entre meses."
+      >
+        {evolucionDegenerada ? (
+          <Aviso tono="info" titulo="Todavía no hay evolución que mostrar">
+            Este proveedor solo aparece en un periodo, así que no hay tendencia que comparar. La
+            vista se completará al importar libros de otros meses o años.
+          </Aviso>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <GraficoEvolucion
+              puntos={puntosMensuales}
+              etiquetaSerie="Monto considerado"
+              nombrePeriodo="mes"
+            />
+            <GraficoEvolucion
+              puntos={puntosAnuales}
+              etiquetaSerie="Monto considerado"
+              nombrePeriodo="año"
+            />
+          </div>
+        )}
+      </Seccion>
+
+      <Seccion
+        titulo="Órdenes registradas"
+        descripcion="Todas las órdenes del proveedor, incluidas las anuladas."
+      >
+        <Paginacion
+          filtros={filtrosEnlaces}
+          total={ordenes.total}
+          ruta={`/proveedores/${slug}`}
+        />
+
+        <TablaOrdenes ordenes={ordenes.filas} mostrarProveedor={false} />
+
+        <Paginacion
+          filtros={filtrosEnlaces}
+          total={ordenes.total}
+          ruta={`/proveedores/${slug}`}
+        />
+      </Seccion>
+    </div>
+  );
+}
+
+function Dato({
+  etiqueta,
+  valor,
+  detalle,
+}: {
+  etiqueta: string;
+  valor: string;
+  detalle?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{etiqueta}</p>
+      <p className="tabular mt-2 text-2xl font-semibold text-foreground">{valor}</p>
+      {detalle ? <p className="mt-1 text-xs text-muted-foreground">{detalle}</p> : null}
+    </div>
+  );
+}

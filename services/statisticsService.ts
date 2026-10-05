@@ -1,3 +1,5 @@
+import type { Prisma } from '@/lib/generated/prisma/client';
+import { type Filtros, rangoDeFechas } from '@/lib/filtros';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -447,4 +449,669 @@ export async function datosPortada(): Promise<DatosPortada> {
     ]);
 
   return { resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos };
+}
+
+// =============================================================================
+// Listados paginados
+// =============================================================================
+
+export type ResultadoPaginado<T> = {
+  filas: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
+};
+
+/** Años con órdenes. Alimenta los desplegables y el filtro por mes suelto. */
+export async function aniosDisponibles(): Promise<number[]> {
+  const filas = await prisma.$queryRaw<Array<{ anio: string }>>`
+    SELECT DISTINCT to_char("issueDate", 'YYYY') AS anio
+    FROM "Order"
+    WHERE "issueDate" IS NOT NULL
+    ORDER BY 1 DESC
+  `;
+
+  return filas.map((fila) => Number(fila.anio)).filter((anio) => Number.isFinite(anio));
+}
+
+/**
+ * Traduce los filtros de la URL a una condición de Prisma.
+ *
+ * Las condiciones se acumulan en un array y se combinan con `AND`, en lugar de
+ * anidar objetos. Así la búsqueda por texto —que necesita su propio `OR`— no
+ * pisa a los demás filtros.
+ */
+async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
+  const condiciones: Prisma.OrderWhereInput[] = [];
+
+  const rango = rangoDeFechas(filtros);
+  if (rango) {
+    condiciones.push({ issueDate: { gte: rango.gte, lt: rango.lt } });
+  }
+
+  // Un mes sin año no cabe en un solo rango. En vez de descartarlo en silencio, se
+  // construye una condición por cada año presente: `?mes=6` significa «junio de
+  // cualquier año».
+  if (filtros.mes !== null && filtros.anio === null) {
+    const anios = await aniosDisponibles();
+
+    if (anios.length === 0) {
+      // Sin años cargados no hay nada que buscar. Un `in` vacío no devuelve filas.
+      condiciones.push({ id: { in: [] } });
+    } else {
+      condiciones.push({
+        OR: anios.map((anio) => ({
+          issueDate: {
+            gte: new Date(Date.UTC(anio, filtros.mes! - 1, 1)),
+            lt: new Date(Date.UTC(anio, filtros.mes!, 1)),
+          },
+        })),
+      });
+    }
+  }
+
+  if (filtros.gestionId) condiciones.push({ managementPeriodId: filtros.gestionId });
+  if (filtros.tipoOrdenId) condiciones.push({ orderTypeId: filtros.tipoOrdenId });
+  if (filtros.estadoId) condiciones.push({ statusId: filtros.estadoId });
+  if (filtros.proveedorId) condiciones.push({ supplierId: filtros.proveedorId });
+  if (filtros.tipoRuc) condiciones.push({ supplier: { rucPrefix: filtros.tipoRuc } });
+
+  if (filtros.texto) {
+    const t = filtros.texto;
+    condiciones.push({
+      OR: [
+        { orderNumber: { contains: t, mode: 'insensitive' } },
+        { description: { contains: t, mode: 'insensitive' } },
+        { siafNumber: { contains: t, mode: 'insensitive' } },
+        { ruc: { contains: t } },
+        { supplier: { name: { contains: t, mode: 'insensitive' } } },
+      ],
+    });
+  }
+
+  return condiciones.length > 0 ? { AND: condiciones } : {};
+}
+
+/** Orden solicitado, siempre con un desempate para que la paginación sea estable. */
+function ordenDeOrdenes(filtros: Filtros): Prisma.OrderOrderByWithRelationInput[] {
+  const direccion = filtros.direccion;
+
+  if (filtros.orden === 'monto') {
+    return [{ amount: direccion }, { orderNumber: 'asc' }];
+  }
+  if (filtros.orden === 'proveedor') {
+    return [{ supplier: { name: direccion } }, { issueDate: 'desc' }, { sourceRow: 'asc' }];
+  }
+  return [{ issueDate: direccion }, { sourceRow: 'asc' }];
+}
+
+export type FilaOrdenListado = {
+  id: string;
+  orderNumber: string;
+  issueDate: Date | null;
+  /** Puede faltar: la columna es opcional en el archivo de origen. */
+  description: string | null;
+  amount: string | null;
+  ruc: string;
+  isCancelled: boolean;
+  tipo: string | null;
+  estado: string | null;
+  proveedor: string;
+  proveedorSlug: string;
+};
+
+/**
+ * Listado público de órdenes, paginado.
+ *
+ * La paginación se hace con `skip`/`take` en la consulta, no trayendo todo y
+ * cortando después: es lo que exige la sección 22 del pliego («no cargar miles de
+ * registros al navegador»).
+ */
+export async function listarOrdenes(
+  filtros: Filtros,
+): Promise<ResultadoPaginado<FilaOrdenListado>> {
+  const where = await construirWhereOrdenes(filtros);
+
+  const [total, ordenes] = await Promise.all([
+    prisma.order.count({ where }),
+    prisma.order.findMany({
+      where,
+      orderBy: ordenDeOrdenes(filtros),
+      skip: (filtros.pagina - 1) * filtros.porPagina,
+      take: filtros.porPagina,
+      select: {
+        id: true,
+        orderNumber: true,
+        issueDate: true,
+        description: true,
+        amount: true,
+        ruc: true,
+        isCancelled: true,
+        orderType: { select: { code: true } },
+        status: { select: { label: true } },
+        supplier: { select: { name: true, slug: true } },
+      },
+    }),
+  ]);
+
+  return {
+    filas: ordenes.map((orden) => ({
+      id: orden.id,
+      orderNumber: orden.orderNumber,
+      issueDate: orden.issueDate,
+      description: orden.description,
+      amount: orden.amount === null ? null : orden.amount.toFixed(2),
+      ruc: orden.ruc,
+      isCancelled: orden.isCancelled,
+      tipo: orden.orderType?.code ?? null,
+      estado: orden.status?.label ?? null,
+      proveedor: orden.supplier.name,
+      proveedorSlug: orden.supplier.slug,
+    })),
+    total,
+    pagina: filtros.pagina,
+    porPagina: filtros.porPagina,
+    totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
+  };
+}
+
+/** Opciones de los desplegables de filtro. */
+export async function opcionesDeFiltros(): Promise<{
+  anios: number[];
+  gestiones: { id: string; nombre: string }[];
+  tiposOrden: { id: string; etiqueta: string }[];
+  estados: { id: string; etiqueta: string }[];
+}> {
+  const [anios, gestiones, tiposOrden, estados] = await Promise.all([
+    aniosDisponibles(),
+    prisma.managementPeriod.findMany({
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    }),
+    prisma.orderType.findMany({
+      orderBy: { code: 'asc' },
+      select: { id: true, code: true, label: true },
+    }),
+    prisma.orderStatus.findMany({
+      orderBy: { label: 'asc' },
+      select: { id: true, label: true },
+    }),
+  ]);
+
+  return {
+    anios,
+    gestiones: gestiones.map((g) => ({ id: g.id, nombre: g.name })),
+    tiposOrden: tiposOrden.map((t) => ({
+      id: t.id,
+      etiqueta: t.label ? `${t.code} · ${t.label}` : t.code,
+    })),
+    estados: estados.map((e) => ({ id: e.id, etiqueta: e.label })),
+  };
+}
+
+// =============================================================================
+// Proveedores
+// =============================================================================
+
+/** Etiqueta en español del tipo de proveedor, tal como lo define el pliego. */
+export function etiquetaTipoProveedor(tipo: string | null): string {
+  switch (tipo) {
+    case 'PERSONA_NATURAL':
+      return 'Persona natural';
+    case 'PERSONA_JURIDICA':
+      return 'Persona jurídica';
+    case 'OTRO':
+      return 'Otro';
+    default:
+      return 'Sin determinar';
+  }
+}
+
+export type FilaProveedorListado = {
+  id: string;
+  ruc: string;
+  nombre: string;
+  slug: string;
+  tipo: string;
+  ordenes: number;
+  considerado: string;
+  primeraAparicion: string | null;
+  ultimaAparicion: string | null;
+};
+
+/**
+ * Listado de proveedores, alfabético y paginado.
+ *
+ * Las agregaciones (número de órdenes, monto, primera y última aparición) se
+ * calculan en PostgreSQL con `GROUP BY`, y solo se traen las filas de la página
+ * pedida. Traer los 72 proveedores con sus 103 órdenes para sumar en el servidor
+ * de Next.js funcionaría hoy y no funcionaría con un año entero de libros.
+ */
+export async function listarProveedores(
+  filtros: Filtros,
+): Promise<ResultadoPaginado<FilaProveedorListado>> {
+  const texto = filtros.texto ?? '';
+  const tipoRuc = filtros.tipoRuc ?? '';
+
+  const [conteo, filas] = await Promise.all([
+    prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT COUNT(*)::int AS n
+      FROM "Supplier" s
+      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+    `,
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        ruc: string;
+        name: string;
+        slug: string;
+        supplierType: string | null;
+        ordenes: number;
+        considerado: string;
+        primera: string | null;
+        ultima: string | null;
+      }>
+    >`
+      SELECT
+        s.id,
+        s.ruc,
+        s.name,
+        s.slug,
+        s."supplierType",
+        COUNT(o.id)::int AS ordenes,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado,
+        to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
+        to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima
+      FROM "Supplier" s
+      LEFT JOIN "Order" o ON o."supplierId" = s.id
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+      GROUP BY s.id, s.ruc, s.name, s.slug, s."supplierType"
+      ORDER BY s.name ASC
+      LIMIT ${filtros.porPagina} OFFSET ${(filtros.pagina - 1) * filtros.porPagina}
+    `,
+  ]);
+
+  const total = conteo[0]?.n ?? 0;
+
+  return {
+    filas: filas.map((fila) => ({
+      id: fila.id,
+      ruc: fila.ruc,
+      nombre: fila.name,
+      slug: fila.slug,
+      tipo: etiquetaTipoProveedor(fila.supplierType),
+      ordenes: aNumero(fila.ordenes),
+      considerado: aDecimal2(fila.considerado),
+      primeraAparicion: fila.primera,
+      ultimaAparicion: fila.ultima,
+    })),
+    total,
+    pagina: filtros.pagina,
+    porPagina: filtros.porPagina,
+    totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
+  };
+}
+
+// =============================================================================
+// Perfil del proveedor
+// =============================================================================
+
+export type PerfilProveedor = {
+  id: string;
+  ruc: string;
+  nombre: string;
+  slug: string;
+  tipo: string;
+  fotoUrl: string | null;
+  ordenes: number;
+  anuladas: number;
+  totalRegistrado: string;
+  totalAnulado: string;
+  totalConsiderado: string;
+  primeraAparicion: string | null;
+  ultimaAparicion: string | null;
+  aniosPresentes: number[];
+  porGestion: { etiqueta: string; ordenes: number; considerado: string }[];
+  porAnio: { etiqueta: string; ordenes: number; considerado: string }[];
+  porMes: { etiqueta: string; ordenes: number; considerado: string }[];
+};
+
+/**
+ * Perfil público de un proveedor, buscado por su identificador legible.
+ *
+ * Se devuelven los tres montos por separado —registrado, anulado y considerado—
+ * porque es lo que la sección 14 del pliego exige dejar claro: una orden anulada
+ * existe y se muestra, pero no suma.
+ */
+export async function perfilProveedor(slug: string): Promise<PerfilProveedor | null> {
+  const proveedor = await prisma.supplier.findUnique({
+    where: { slug },
+    select: { id: true, ruc: true, name: true, slug: true, supplierType: true, photoUrl: true },
+  });
+
+  if (!proveedor) return null;
+
+  const [totales, gestion, anio, mes] = await Promise.all([
+    prisma.$queryRaw<
+      Array<{
+        ordenes: number;
+        anuladas: number;
+        registrado: string;
+        anulado: string;
+        considerado: string;
+        primera: string | null;
+        ultima: string | null;
+      }>
+    >`
+      SELECT
+        COUNT(*)::int AS ordenes,
+        COUNT(*) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+        COALESCE(SUM(o.amount), 0)::text AS registrado,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = true), 0)::text AS anulado,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado,
+        to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
+        to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima
+      FROM "Order" o
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."supplierId" = ${proveedor.id}
+    `,
+    prisma.$queryRaw<Array<{ etiqueta: string; ordenes: number; considerado: string }>>`
+      SELECT
+        g.name AS etiqueta,
+        COUNT(o.id)::int AS ordenes,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado
+      FROM "Order" o
+      JOIN "ManagementPeriod" g ON g.id = o."managementPeriodId"
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."supplierId" = ${proveedor.id}
+      GROUP BY g.name
+      ORDER BY g.name
+    `,
+    prisma.$queryRaw<Array<{ etiqueta: string; ordenes: number; considerado: string }>>`
+      SELECT
+        to_char(o."issueDate", 'YYYY') AS etiqueta,
+        COUNT(*)::int AS ordenes,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado
+      FROM "Order" o
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
+      GROUP BY 1
+      ORDER BY 1
+    `,
+    prisma.$queryRaw<Array<{ etiqueta: string; ordenes: number; considerado: string }>>`
+      SELECT
+        to_char(o."issueDate", 'YYYY-MM') AS etiqueta,
+        COUNT(*)::int AS ordenes,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado
+      FROM "Order" o
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
+      GROUP BY 1
+      ORDER BY 1
+    `,
+  ]);
+
+  const t = totales[0];
+
+  const mapear = (filas: Array<{ etiqueta: string; ordenes: number; considerado: string }>) =>
+    filas.map((fila) => ({
+      etiqueta: fila.etiqueta,
+      ordenes: aNumero(fila.ordenes),
+      considerado: aDecimal2(fila.considerado),
+    }));
+
+  return {
+    id: proveedor.id,
+    ruc: proveedor.ruc,
+    nombre: proveedor.name,
+    slug: proveedor.slug,
+    tipo: etiquetaTipoProveedor(proveedor.supplierType),
+    fotoUrl: proveedor.photoUrl,
+    ordenes: aNumero(t?.ordenes),
+    anuladas: aNumero(t?.anuladas),
+    totalRegistrado: aDecimal2(t?.registrado),
+    totalAnulado: aDecimal2(t?.anulado),
+    totalConsiderado: aDecimal2(t?.considerado),
+    primeraAparicion: t?.primera ?? null,
+    ultimaAparicion: t?.ultima ?? null,
+    aniosPresentes: anio.map((fila) => Number(fila.etiqueta)).filter((n) => Number.isFinite(n)),
+    porGestion: mapear(gestion),
+    porAnio: mapear(anio),
+    porMes: mapear(mes),
+  };
+}
+
+// =============================================================================
+// Ranking
+// =============================================================================
+
+export type FilaRankingCompleto = {
+  posicion: number;
+  supplierId: string;
+  ruc: string;
+  nombre: string;
+  slug: string;
+  ordenes: number;
+  anuladas: number;
+  registrado: string;
+  anulado: string;
+  considerado: string;
+  peso: number;
+};
+
+/**
+ * Ranking de proveedores por monto considerado, con filtros.
+ *
+ * El pliego pide separar RUC 10 y RUC 20 (sección 15): aquí llega ya filtrado, y
+ * la posición se calcula sobre el conjunto filtrado, no sobre el total global.
+ * Si no fuera así, filtrar por RUC 20 mostraría posiciones 1, 4, 7… sin sentido.
+ */
+export async function rankingCompleto(
+  filtros: Filtros,
+): Promise<ResultadoPaginado<FilaRankingCompleto>> {
+  const texto = filtros.texto ?? '';
+  const tipoRuc = filtros.tipoRuc ?? '';
+  // Mismo patrón que los demás filtros: cadena vacía significa «sin filtrar».
+  const gestion = filtros.gestionId ?? '';
+
+  const [conteo, filas] = await Promise.all([
+    prisma.$queryRaw<Array<{ n: number }>>`
+      SELECT COUNT(*)::int AS n
+      FROM "Supplier" s
+      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+    `,
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        ruc: string;
+        name: string;
+        slug: string;
+        ordenes: number;
+        anuladas: number;
+        registrado: string;
+        anulado: string;
+        considerado: string;
+        total_considerado: string;
+      }>
+    >`
+      SELECT
+        s.id,
+        s.ruc,
+        s.name,
+        s.slug,
+        COUNT(o.id)::int AS ordenes,
+        COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+        COALESCE(SUM(o.amount), 0)::text AS registrado,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = true), 0)::text AS anulado,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        )::text AS considerado,
+        COALESCE(
+          SUM(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true)) OVER (),
+          0
+        )::text AS total_considerado
+      FROM "Supplier" s
+      JOIN "Order" o ON o."supplierId" = s.id
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+        AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
+      GROUP BY s.id, s.ruc, s.name, s.slug
+      ORDER BY COALESCE(
+        SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+        0
+      ) DESC, s.name ASC
+      LIMIT ${filtros.porPagina} OFFSET ${(filtros.pagina - 1) * filtros.porPagina}
+    `,
+  ]);
+
+  const total = conteo[0]?.n ?? 0;
+  const totalConsiderado = Number(filas[0]?.total_considerado ?? 0);
+  const desplazamiento = (filtros.pagina - 1) * filtros.porPagina;
+
+  return {
+    filas: filas.map((fila, indice) => ({
+      posicion: desplazamiento + indice + 1,
+      supplierId: fila.id,
+      ruc: fila.ruc,
+      nombre: fila.name,
+      slug: fila.slug,
+      ordenes: aNumero(fila.ordenes),
+      anuladas: aNumero(fila.anuladas),
+      registrado: aDecimal2(fila.registrado),
+      anulado: aDecimal2(fila.anulado),
+      considerado: aDecimal2(fila.considerado),
+      peso: porcentaje(Number(fila.considerado), totalConsiderado),
+    })),
+    total,
+    pagina: filtros.pagina,
+    porPagina: filtros.porPagina,
+    totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
+  };
+}
+
+// =============================================================================
+// Historial por gestiones
+// =============================================================================
+
+export type FilaMultiGestion = {
+  supplierId: string;
+  ruc: string;
+  nombre: string;
+  slug: string;
+  gestiones: number;
+  detalle: { gestion: string; ordenes: number; considerado: string }[];
+  totalConsiderado: string;
+};
+
+/**
+ * Proveedores que aparecen en más de una gestión.
+ *
+ * Es el objetivo de `/historial` según la sección 18 del pliego: detectar quién
+ * ha trabajado con la entidad a lo largo de varios periodos de gobierno.
+ *
+ * Con un único libro cargado no devuelve nada, y eso es correcto: no hay ningún
+ * proveedor que aparezca en dos gestiones todavía.
+ */
+export async function proveedoresMultiGestion(
+  minimoGestiones = 2,
+): Promise<{ filas: FilaMultiGestion[]; maximoGestiones: number; totalProveedores: number }> {
+  const [filas, resumen] = await Promise.all([
+    prisma.$queryRaw<
+      Array<{
+        id: string;
+        ruc: string;
+        name: string;
+        slug: string;
+        gestiones: number;
+        detalle: { gestion: string; ordenes: number; considerado: string }[];
+        total: string;
+      }>
+    >`
+      SELECT
+        s.id,
+        s.ruc,
+        s.name,
+        s.slug,
+        COUNT(DISTINCT sub."managementPeriodId")::int AS gestiones,
+        json_agg(
+          json_build_object(
+            'gestion', g.name,
+            'ordenes', sub.ordenes,
+            'considerado', sub.considerado::text
+          )
+          ORDER BY g.name
+        ) AS detalle,
+        SUM(sub.considerado)::text AS total
+      FROM "Supplier" s
+      JOIN (
+        SELECT
+          o."supplierId",
+          o."managementPeriodId",
+          COUNT(*)::int AS ordenes,
+          COALESCE(
+            SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+            0
+          ) AS considerado
+        FROM "Order" o
+        LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+        WHERE o."managementPeriodId" IS NOT NULL
+        GROUP BY o."supplierId", o."managementPeriodId"
+      ) sub ON sub."supplierId" = s.id
+      JOIN "ManagementPeriod" g ON g.id = sub."managementPeriodId"
+      GROUP BY s.id, s.ruc, s.name, s.slug
+      HAVING COUNT(DISTINCT sub."managementPeriodId") >= ${minimoGestiones}
+      ORDER BY SUM(sub.considerado) DESC
+    `,
+    prisma.$queryRaw<Array<{ maximo: number; total: number }>>`
+      SELECT
+        COALESCE(MAX(gestiones), 0)::int AS maximo,
+        COUNT(*)::int AS total
+      FROM (
+        SELECT o."supplierId", COUNT(DISTINCT o."managementPeriodId") AS gestiones
+        FROM "Order" o
+        WHERE o."managementPeriodId" IS NOT NULL
+        GROUP BY o."supplierId"
+      ) x
+    `,
+  ]);
+
+  return {
+    filas: filas.map((fila) => ({
+      supplierId: fila.id,
+      ruc: fila.ruc,
+      nombre: fila.name,
+      slug: fila.slug,
+      gestiones: aNumero(fila.gestiones),
+      detalle: (fila.detalle ?? []).map((d) => ({
+        gestion: d.gestion,
+        ordenes: aNumero(d.ordenes),
+        considerado: aDecimal2(d.considerado),
+      })),
+      totalConsiderado: aDecimal2(fila.total),
+    })),
+    maximoGestiones: aNumero(resumen[0]?.maximo),
+    totalProveedores: aNumero(resumen[0]?.total),
+  };
 }

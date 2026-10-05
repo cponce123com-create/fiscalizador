@@ -8,6 +8,7 @@ import { RankingProveedores } from '@/components/publico/ranking-proveedores';
 import { TarjetasResumen } from '@/components/publico/tarjetas-resumen';
 import { UltimosRegistros } from '@/components/publico/ultimos-registros';
 import { Aviso } from '@/components/ui/data';
+import { Seccion } from '@/components/ui/seccion';
 import { datosPortada } from '@/services/statisticsService';
 
 /**
@@ -167,34 +168,5 @@ export default async function PortadaPublica() {
         <UltimosRegistros registros={datos.ultimos} />
       </Seccion>
     </div>
-  );
-}
-
-function Seccion({
-  titulo,
-  descripcion,
-  accion,
-  children,
-}: {
-  titulo: string;
-  descripcion?: string;
-  accion?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  const id = titulo.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-
-  return (
-    <section aria-labelledby={id} className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div className="flex flex-col gap-1">
-          <h2 id={id} className="text-lg font-semibold">
-            {titulo}
-          </h2>
-          {descripcion ? <p className="text-sm text-muted-foreground">{descripcion}</p> : null}
-        </div>
-        {accion}
-      </div>
-      {children}
-    </section>
   );
 }

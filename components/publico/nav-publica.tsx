@@ -8,14 +8,18 @@ import { cn } from '@/lib/utils';
 /**
  * Navegación pública.
  *
- * Solo enlaza las secciones que existen. En esta fase son «Inicio» y
- * «Metodología»; Órdenes, Proveedores, Ranking, Historial y Estadísticas se
- * añadirán al construirlas. Un enlace a una página que no existe da 404 al
- * ciudadano, y en un portal de transparencia eso cuesta credibilidad.
+ * Solo enlaza las secciones que existen: Inicio, Órdenes, Proveedores, Ranking,
+ * Historial y Metodología. Las Estadísticas comparadas se añadirán al construirlas.
+ * Un enlace a una página que no existe da 404 al ciudadano, y en un portal de
+ * transparencia eso cuesta credibilidad.
  */
 
 const ENLACES = [
   { href: '/', etiqueta: 'Inicio' },
+  { href: '/ordenes', etiqueta: 'Órdenes' },
+  { href: '/proveedores', etiqueta: 'Proveedores' },
+  { href: '/ranking', etiqueta: 'Ranking' },
+  { href: '/historial', etiqueta: 'Historial' },
   { href: '/metodologia', etiqueta: 'Metodología' },
 ] as const;
 
