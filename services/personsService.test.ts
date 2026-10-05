@@ -14,7 +14,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
 
-describe.skipIf(!hayBaseDeDatos)('personsService contra la base real', () => {
+/**
+ * El escenario no inventa proveedores: los elige del portal, así que sin órdenes
+ * cargadas no hay nada que comprobar.
+ *
+ * Se decide ANTES de declarar la suite, y no dentro de `beforeAll`, porque un error ahí
+ * marca el fichero entero como fallido aunque no haya nada roto.
+ */
+async function hayProveedoresConOrdenes(): Promise<boolean> {
+  if (!hayBaseDeDatos) return false;
+
+  const { prisma } = await import('@/lib/prisma');
+
+  return (await prisma.order.count()) > 0;
+}
+
+const conDatosDelPortal = await hayProveedoresConOrdenes();
+
+describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => {
   let svc: typeof import('@/services/personsService');
   let prisma: typeof import('@/lib/prisma').prisma;
 

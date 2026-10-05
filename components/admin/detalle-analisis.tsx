@@ -23,6 +23,7 @@ import { Interruptor, Selector } from '@/components/ui/form';
 import type { AnalizarRespuesta, IssueRespuesta } from '@/lib/api/cliente';
 import { formatearCentavos } from '@/lib/utils';
 import { CAMPOS_INTERNOS, type InternalField } from '@/services/mappingService';
+import type { IssueCode } from '@/services/validationService';
 
 /**
  * Detalle de un análisis: resumen, columnas detectadas, vista previa y hallazgos.
@@ -61,6 +62,53 @@ export function mapeoDesdeAnalisis(analisis: AnalizarRespuesta): FilaMapeo[] {
     field: columna.field !== null && esCampoInterno(columna.field) ? columna.field : null,
     isPublic: columna.isPublic,
   }));
+}
+
+/**
+ * Recuento de lo que hay que mirar en un libro.
+ *
+ * Existe para poder decidir de un vistazo, sobre una tanda de libros, cuáles hay que
+ * abrir y cuáles se pueden importar tal cual: los detalles ya están en el análisis.
+ */
+export type ResumenHallazgos = {
+  /** Filas repetidas dentro del propio libro. */
+  repetidas: number;
+  /** Filas cuya fecha de emisión no cae en ninguna gestión registrada. */
+  sinGestion: number;
+  /** Filas con alguna advertencia. */
+  conAviso: number;
+  /** Filas con algún error: no se importan. */
+  conError: number;
+  /** Filas que ya están en el portal, comparando por contenido. */
+  yaEnElPortal: number;
+  /** El libro ya se importó antes, con el mismo contenido. */
+  yaImportado: boolean;
+};
+
+export function resumirHallazgos(analisis: AnalizarRespuesta): ResumenHallazgos {
+  const cuantos = (code: IssueCode) =>
+    analisis.issues.filter((issue) => issue.code === code).length;
+
+  return {
+    repetidas: cuantos('DUPLICADO_EN_LOTE'),
+    sinGestion: cuantos('SIN_GESTION'),
+    conAviso: analisis.summary.warningRows,
+    conError: analisis.summary.errorRows,
+    yaEnElPortal: analisis.duplicadoContenido.filasRepetidas,
+    yaImportado: analisis.loteMismoChecksum !== null,
+  };
+}
+
+/** ¿Hay algo que mirar en este libro antes de importarlo? */
+export function tieneAlgoQueRevisar(resumen: ResumenHallazgos): boolean {
+  return (
+    resumen.repetidas > 0 ||
+    resumen.sinGestion > 0 ||
+    resumen.conAviso > 0 ||
+    resumen.conError > 0 ||
+    resumen.yaEnElPortal > 0 ||
+    resumen.yaImportado
+  );
 }
 
 const TONO_POR_SEVERIDAD: Record<IssueRespuesta['severity'], 'error' | 'advertencia' | 'info'> = {

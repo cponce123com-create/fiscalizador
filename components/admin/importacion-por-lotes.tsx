@@ -17,6 +17,8 @@ import {
   DetalleAnalisis,
   ResumenCifra,
   mapeoDesdeAnalisis,
+  resumirHallazgos,
+  tieneAlgoQueRevisar,
   type FilaMapeo,
 } from '@/components/admin/detalle-analisis';
 import { ZonaDeCarga } from '@/components/admin/zona-de-carga';
@@ -151,6 +153,7 @@ export function ImportacionPorLotes() {
   const [analizando, setAnalizando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
+  const [soloConHallazgos, setSoloConHallazgos] = useState(false);
 
   const anios = Array.from({ length: ahora.getFullYear() - 2009 }, (_, i) => 2010 + i);
   const periodoPorDefecto = periodoDeAnioMes(ahora.getFullYear(), ahora.getMonth() + 1);
@@ -168,6 +171,14 @@ export function ImportacionPorLotes() {
     (archivo) => archivo.incluido && archivo.estado === 'analizado',
   );
   const importados = enRevision.filter((archivo) => archivo.estado === 'importado');
+
+  // Los libros que traen algo que mirar, para poder ir directo a ellos.
+  const conHallazgos = enRevision.filter((archivo) => {
+    const analisis = archivo.analisis;
+    return analisis !== null && tieneAlgoQueRevisar(resumirHallazgos(analisis));
+  });
+
+  const librosVisibles = soloConHallazgos ? conHallazgos : enRevision;
 
   const totales = incluidos.reduce(
     (acumulado, archivo) => {
@@ -629,13 +640,32 @@ export function ImportacionPorLotes() {
             </TarjetaContenido>
           </Tarjeta>
 
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {conHallazgos.length === 0
+                ? 'Ningún libro trae algo que revisar: se pueden importar todos tal cual.'
+                : `${conHallazgos.length} de ${enRevision.length} libro(s) traen algo que revisar.`}
+            </p>
+
+            {conHallazgos.length > 0 && conHallazgos.length < enRevision.length ? (
+              <Interruptor
+                id="solo-con-hallazgos"
+                etiqueta={`Ver solo esos (${conHallazgos.length})`}
+                checked={soloConHallazgos}
+                onChange={setSoloConHallazgos}
+              />
+            ) : null}
+          </div>
+
           <div className="flex flex-col gap-4">
-            {enRevision.map((archivo) => {
+            {librosVisibles.map((archivo) => {
               const analisis = archivo.analisis;
               if (!analisis) return null;
 
               const necesitaDecision =
                 analisis.lotesMismoPeriodo.length > 0 || analisis.loteMismoChecksum !== null;
+
+              const resumen = resumirHallazgos(analisis);
 
               return (
                 <Tarjeta key={archivo.id}>
@@ -648,6 +678,40 @@ export function ImportacionPorLotes() {
                           de {analisis.summary.totalRows} · considerado{' '}
                           {formatearCentavos(analisis.summary.consideredCents)}
                         </TarjetaDescripcion>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          {!tieneAlgoQueRevisar(resumen) ? (
+                            <Insignia tono="exito">sin hallazgos</Insignia>
+                          ) : null}
+
+                          {resumen.yaImportado ? (
+                            <Insignia tono="advertencia">ya importado</Insignia>
+                          ) : null}
+
+                          {resumen.yaEnElPortal > 0 ? (
+                            <Insignia tono="info">
+                              {resumen.yaEnElPortal} fila(s) ya en el portal
+                            </Insignia>
+                          ) : null}
+
+                          {resumen.repetidas > 0 ? (
+                            <Insignia tono="advertencia">
+                              {resumen.repetidas} repetida(s) en el libro
+                            </Insignia>
+                          ) : null}
+
+                          {resumen.sinGestion > 0 ? (
+                            <Insignia tono="info">{resumen.sinGestion} sin gestión</Insignia>
+                          ) : null}
+
+                          {resumen.conAviso > 0 ? (
+                            <Insignia tono="advertencia">{resumen.conAviso} con aviso</Insignia>
+                          ) : null}
+
+                          {resumen.conError > 0 ? (
+                            <Insignia tono="error">{resumen.conError} con error</Insignia>
+                          ) : null}
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-3">

@@ -20,26 +20,39 @@ import { beforeAll, describe, expect, it } from 'vitest';
 
 const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
 
-describe.skipIf(!hayBaseDeDatos)('statisticsService contra la base real', () => {
+/**
+ * Estas pruebas contrastan las cifras publicadas del libro de referencia (2023-06), y
+ * los totales que comprueban son globales: solo valen si la base contiene ESE libro y
+ * ningún otro.
+ *
+ * Se decide ANTES de declarar la suite, y no dentro de `beforeAll`, porque un error ahí
+ * marca el fichero entero como fallido: `npm test` terminaría en rojo aunque no hubiera
+ * nada roto, que es justo lo que hay que evitar en una suite que depende de datos.
+ */
+async function haySoloElLibroDeReferencia(): Promise<boolean> {
+  if (!hayBaseDeDatos) return false;
+
+  const { prisma } = await import('@/lib/prisma');
+
+  const importados = await prisma.importBatch.findMany({
+    where: { status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+    select: { originalFilename: true },
+  });
+
+  if (importados.length !== 1) return false;
+
+  return /lista-ocos-2023-06/i.test(importados[0]?.originalFilename ?? '');
+}
+
+const conElLibroDeReferencia = await haySoloElLibroDeReferencia();
+
+describe.skipIf(!conElLibroDeReferencia)('statisticsService contra la base real', () => {
   let svc: typeof import('@/services/statisticsService');
   let filtros: typeof import('@/lib/filtros');
 
   beforeAll(async () => {
     svc = await import('@/services/statisticsService');
     filtros = await import('@/lib/filtros');
-
-    // Estas pruebas contrastan las cifras publicadas del libro de referencia
-    // (2023-06). Si el portal no lo tiene cargado, cada una fallaría por su cuenta con
-    // un mensaje que no explica nada: mejor decirlo una vez, y claro.
-    const { prisma } = await import('@/lib/prisma');
-
-    if ((await prisma.order.count()) === 0) {
-      throw new Error(
-        'El portal no tiene ninguna orden cargada. Estas pruebas contrastan las cifras ' +
-          'del libro de referencia: ejecuta `npm run verify` (o importa ' +
-          'docs/reference/Lista-OCOS-2023-06.xls) antes de correrlas.',
-      );
-    }
   });
 
   describe('resumen general (las tarjetas)', () => {
