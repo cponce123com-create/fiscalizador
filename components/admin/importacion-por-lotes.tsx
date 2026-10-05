@@ -362,7 +362,7 @@ export function ImportacionPorLotes() {
 
       try {
         const datos = await pedirJson(
-          '/admin/imports/confirm',
+          '/api/admin/imports/confirm',
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
