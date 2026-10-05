@@ -34,6 +34,23 @@ librería.
 
 ---
 
+## Salud
+
+### `GET /api/health`
+
+Sin autenticación. Lo usa el health check de Render.
+
+Consulta la base de datos de verdad: si solo devolviera 200 sin consultar nada,
+reportaría "sano" aunque PostgreSQL estuviera caído y Render no reiniciaría el
+servicio cuando hiciera falta.
+
+| Respuesta | Cuerpo |
+|---|---|
+| `200` | `{ "ok": true, "base": "accesible" }` |
+| `503` | `{ "ok": false, "base": "inaccesible" }` |
+
+---
+
 ## Importador
 
 ### `POST /api/admin/imports/analyze`

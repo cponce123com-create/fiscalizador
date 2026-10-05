@@ -1,0 +1,108 @@
+# =============================================================================
+# Blueprint de Render
+# =============================================================================
+# Despliegue del Portal de Transparencia.
+#
+# Cómo usarlo:
+#   1. Render → New → Blueprint
+#   2. Conecta el repositorio cponce123com-create/fiscalizador
+#   3. Render lee este archivo y pide los valores marcados con `sync: false`
+#
+# Las credenciales NO viven aquí: se introducen en el panel de Render y quedan
+# cifradas en su base de datos. Este archivo se versiona.
+
+services:
+  - type: web
+    name: fiscalizador
+    runtime: node
+    plan: starter
+    # Ohio (us-east-2) porque el proyecto de Neon está en esa misma región
+    # (ep-ancient-unit-…us-east-2.aws.neon.tech). Misma región = menos latencia
+    # por consulta, y aquí se hacen muchas.
+    region: ohio
+    branch: main
+    autoDeploy: true
+
+    # `npm ci` (no `npm install`): instala exactamente lo que dice el lockfile.
+    # El `postinstall` del package.json ejecuta `prisma generate`, así que el
+    # cliente queda listo para el build.
+    buildCommand: npm ci && npm run build
+
+    # Las migraciones se aplican ANTES de arrancar. Si se hiciera en el arranque,
+    # cada reinicio intentaría migrar y varias instancias competirían entre sí.
+    # Requiere plan de pago. En el plan gratuito, ver la nota al final.
+    preDeployCommand: npx prisma migrate deploy
+
+    startCommand: npm start
+
+    # Comprueba la base de datos de verdad (ver app/api/health/route.ts).
+    healthCheckPath: /api/health
+
+    envVars:
+      # --- Node -----------------------------------------------------------------
+      # Prisma 7.10 arrastra un paquete que declara Node >= 22.
+      - key: NODE_VERSION
+        value: "22"
+
+      # --- Base de datos --------------------------------------------------------
+      # `sync: false` = Render pide el valor al crear el servicio y lo guarda
+      # cifrado. Nunca se escribe en el repositorio.
+      - key: DATABASE_URL
+        sync: false
+
+      - key: DIRECT_URL
+        sync: false
+
+      # --- Autenticación --------------------------------------------------------
+      # Render genera un valor aleatorio; no hay que inventarlo ni compartirlo.
+      - key: AUTH_SECRET
+        generateValue: true
+
+      # --- Almacenamiento de archivos originales --------------------------------
+      # Apunta al disco persistente declarado más abajo. Sin disco, el disco del
+      # servicio es efímero y los archivos originales se perderían en cada
+      # despliegue: son la evidencia de la que salió cada dato.
+      - key: STORAGE_DRIVER
+        value: local
+
+      - key: STORAGE_LOCAL_DIR
+        value: /var/data/uploads
+
+      # --- Seed (opcional) ------------------------------------------------------
+      # Solo hacen falta para crear el primer SUPERADMIN en una base vacía.
+      # La base actual ya está sembrada, así que pueden dejarse sin definir.
+      - key: SEED_SUPERADMIN_EMAIL
+        sync: false
+
+      - key: SEED_SUPERADMIN_PASSWORD
+        sync: false
+
+    disk:
+      name: archivos-originales
+      mountPath: /var/data
+      sizeGB: 1
+
+# =============================================================================
+# Notas
+# =============================================================================
+#
+# PLAN GRATUITO
+#   `preDeployCommand` y los discos persistentes requieren plan de pago.
+#   En el plan gratuito:
+#     - Quita el bloque `disk` y las dos variables de STORAGE_*, o asume que los
+#       archivos originales se pierden en cada despliegue.
+#     - Sustituye el preDeployCommand moviéndolo al arranque:
+#           startCommand: npx prisma migrate deploy && npm start
+#       Es menos limpio (varias instancias podrían migrar a la vez), pero con una
+#       sola instancia es aceptable.
+#     - El servicio se suspende tras 15 minutos de inactividad y tarda en
+#       despertar, así que el primer acceso del día será lento.
+#
+# APLICAR EL SEED UNA VEZ
+#   En una base vacía hay que ejecutar `npm run db:seed` una vez (Shell de Render
+#   o desde local apuntando a la misma base). Crea los catálogos de estados,
+#   tipos y gestiones, la visibilidad de columnas y el usuario SUPERADMIN.
+#
+# ROTAR LA CONTRASEÑA DE NEON
+#   Pendiente desde la configuración inicial. Al rotarla hay que actualizar
+#   DATABASE_URL y DIRECT_URL en el panel de Render.
