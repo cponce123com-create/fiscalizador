@@ -11,17 +11,20 @@ nunca la fuente de presentación.
 
 ## Estado actual
 
-Esta entrega cubre las **Fases 1 a 5** del plan: base del proyecto, modelo de datos
-completo, autenticación y el **importador funcionando de extremo a extremo**,
-verificado contra el libro real del portal.
+Esta entrega cubre las **Fases 1 a 10** del plan: base del proyecto, modelo de datos
+completo, autenticación, el **importador funcionando de extremo a extremo**
+—verificado contra el libro real del portal— y el **portal público** completo
+(portada, órdenes, proveedores, ranking, historial y estadísticas).
 
 **Incluido:** esquema completo, migraciones, seed, autenticación con roles,
 importador en dos fases con validación y normalización, auditoría, panel de
-administración, tabla de órdenes paginada en servidor y pruebas automatizadas.
+administración, listados públicos paginados y filtrados en servidor, perfil de
+proveedor, ranking con pesos, historial por gestiones, estadísticas comparadas con
+concentración del gasto, gráficos y pruebas automatizadas.
 
-**Pendiente (fases posteriores):** dashboard público, ranking de proveedores,
-historial por gestiones, fotografías de proveedores en Cloudinary, SEO, asistente
-con IA, optimización fina y despliegue.
+**Pendiente (fases posteriores):** fotografías de proveedores en Cloudinary,
+auditoría visible en el panel, SEO, asistente con IA, optimización fina y
+despliegue.
 
 Documentación relacionada:
 
@@ -125,6 +128,7 @@ services/                Lógica de negocio (sin HTTP, sin React)
   validationService.ts   Reglas de validación y cálculo de montos
   normalizationService   → normalization.ts (RUC, montos, fechas, texto)
   supplierService.ts     Alta de proveedores y resúmenes por gestión
+  statisticsService.ts   Agregaciones del portal público (listados, ranking, estadísticas)
   storageService.ts      Almacenamiento de archivos originales
   auditService.ts        Registro de auditoría
 ```

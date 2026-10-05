@@ -654,4 +654,108 @@ describe.skipIf(!hayBaseDeDatos)('statisticsService contra la base real', () => 
       expect(codigos.some((c) => c.startsWith('O/S'))).toBe(true);
     });
   });
+
+  describe('comparativa por gestión (estadísticas)', () => {
+    it('incluye las tres gestiones, con solo una cargada', async () => {
+      const filas = await svc.comparativaPorGestion();
+
+      expect(filas).toHaveLength(3);
+      expect(filas.map((f) => f.gestion)).toEqual(['2015-2018', '2019-2022', '2023-2026']);
+    });
+
+    it('reproduce los montos de la gestión con datos', async () => {
+      const filas = await svc.comparativaPorGestion();
+      const conDatos = filas.find((f) => f.gestion === '2023-2026');
+
+      expect(conDatos?.ordenes).toBe(103);
+      expect(conDatos?.anuladas).toBe(1);
+      expect(conDatos?.proveedores).toBe(72);
+      expect(conDatos?.registrado).toBe('1066136.59');
+      expect(conDatos?.anulado).toBe('38994.87');
+      expect(conDatos?.considerado).toBe('1027141.72');
+    });
+
+    it('calcula el peso contra el total del portal', async () => {
+      const filas = await svc.comparativaPorGestion();
+      const conDatos = filas.find((f) => f.gestion === '2023-2026');
+
+      expect(conDatos?.peso).toBe(100);
+      // Los pesos suman el 100%: solo una gestión tiene datos.
+      const suma = filas.reduce((a, f) => a + f.peso, 0);
+      expect(suma).toBeCloseTo(100, 0);
+    });
+
+    it('calcula el ticket medio de la gestión con datos', async () => {
+      const filas = await svc.comparativaPorGestion();
+      const conDatos = filas.find((f) => f.gestion === '2023-2026');
+
+      // 1027141.72 / 103 = 9972.2497…
+      expect(conDatos?.ticketMedio).toBe('9972.25');
+    });
+
+    it('las gestiones sin datos quedan en cero, no en null', async () => {
+      const filas = await svc.comparativaPorGestion();
+      const vacias = filas.filter((f) => f.ordenes === 0);
+
+      expect(vacias).toHaveLength(2);
+      for (const fila of vacias) {
+        expect(fila.registrado).toBe('0.00');
+        expect(fila.anulado).toBe('0.00');
+        expect(fila.considerado).toBe('0.00');
+        expect(fila.proveedores).toBe(0);
+        expect(fila.anuladas).toBe(0);
+        expect(fila.peso).toBe(0);
+        expect(fila.ticketMedio).toBe('0.00');
+      }
+    });
+
+    it('los montos de cada gestión suman los totales del portal', async () => {
+      const [filas, resumen] = await Promise.all([
+        svc.comparativaPorGestion(),
+        svc.resumenGeneral(),
+      ]);
+
+      const centavos = (v: string) => Math.round(Number(v) * 100);
+      const suma = filas.reduce((a, f) => a + centavos(f.considerado), 0);
+      expect(suma).toBe(centavos(resumen.totalConsiderado));
+    });
+  });
+
+  describe('concentración del gasto', () => {
+    it('informa del total de proveedores y del monto considerado', async () => {
+      const r = await svc.concentracionGasto();
+
+      expect(r.totalProveedores).toBe(72);
+      expect(r.totalConsiderado).toBe('1027141.72');
+    });
+
+    it('el mayor proveedor es URRUCHI, con su monto exacto', async () => {
+      const r = await svc.concentracionGasto();
+      const top1 = r.cortes.find((c) => c.proveedores === 1);
+
+      expect(top1?.considerado).toBe('370716.09');
+      expect(top1?.peso).toBeCloseTo(36.1, 1);
+    });
+
+    it('los cortes son acumulados y crecientes', async () => {
+      const r = await svc.concentracionGasto();
+      const montos = r.cortes.map((c) => Number(c.considerado));
+
+      for (let i = 1; i < montos.length; i++) {
+        expect(montos[i]).toBeGreaterThanOrEqual(montos[i - 1] as number);
+      }
+      // El corte mayor no puede superar el total.
+      expect(montos[montos.length - 1]).toBeLessThanOrEqual(Number(r.totalConsiderado));
+    });
+
+    it('devuelve los cuatro cortes esperados', async () => {
+      const r = await svc.concentracionGasto();
+
+      expect(r.cortes.map((c) => c.proveedores)).toEqual([1, 5, 10, 20]);
+      for (const corte of r.cortes) {
+        expect(corte.peso).toBeGreaterThan(0);
+        expect(corte.peso).toBeLessThanOrEqual(100);
+      }
+    });
+  });
 });

@@ -289,6 +289,184 @@ export async function gastoPorGestion(): Promise<FilaGestion[]> {
 }
 
 // =============================================================================
+// Comparativa entre gestiones (estadísticas)
+// =============================================================================
+
+export type FilaComparativa = {
+  gestion: string;
+  ordenes: number;
+  anuladas: number;
+  proveedores: number;
+  registrado: string;
+  anulado: string;
+  considerado: string;
+  /** Peso del monto considerado sobre el total del portal, en porcentaje. */
+  peso: number;
+  /** Monto considerado medio por orden. */
+  ticketMedio: string;
+};
+
+/**
+ * Comparación del gasto entre gestiones de gobierno.
+ *
+ * Es la tabla que responde a «¿cuánto se gastó en cada gestión?» sin obligar al
+ * ciudadano a recorrer tres pantallas. Se incluyen las gestiones sin datos: una
+ * fila en cero explica que el periodo existe y no está cargado, que es distinto de
+ * no existir.
+ *
+ * Los tres montos van separados por la misma razón que en el resto del portal: una
+ * orden anulada se cuenta, pero no suma al considerado.
+ */
+export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
+  const filas = await prisma.$queryRaw<
+    Array<{
+      gestion: string;
+      ordenes: number;
+      anuladas: number;
+      proveedores: number;
+      registrado: string;
+      anulado: string;
+      considerado: string;
+    }>
+  >`
+    SELECT
+      g.name AS gestion,
+      COUNT(o.id)::int AS ordenes,
+      COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+      COUNT(DISTINCT o."supplierId")::int AS proveedores,
+      COALESCE(SUM(o.amount), 0)::text AS registrado,
+      COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = true), 0)::text AS anulado,
+      COALESCE(
+        SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+        0
+      )::text AS considerado
+    FROM "ManagementPeriod" g
+    LEFT JOIN "Order" o ON o."managementPeriodId" = g.id
+    LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    GROUP BY g.name
+    ORDER BY g.name
+  `;
+
+  // El peso se calcula contra el total del portal, no contra la fila mayor: así la
+  // suma de los pesos de todas las gestiones es el 100%.
+  const total = filas.reduce((acumulado, fila) => acumulado + Number(fila.considerado), 0);
+
+  return filas.map((fila) => {
+    const ordenes = aNumero(fila.ordenes);
+    const considerado = aDecimal2(fila.considerado);
+
+    return {
+      gestion: fila.gestion,
+      ordenes,
+      anuladas: aNumero(fila.anuladas),
+      proveedores: aNumero(fila.proveedores),
+      registrado: aDecimal2(fila.registrado),
+      anulado: aDecimal2(fila.anulado),
+      considerado,
+      peso: porcentaje(Number(considerado), total),
+      ticketMedio: ordenes > 0 ? (Number(considerado) / ordenes).toFixed(2) : '0.00',
+    };
+  });
+}
+
+// =============================================================================
+// Concentración del gasto
+// =============================================================================
+
+export type CorteConcentracion = {
+  /** Cuántos proveedores entran en el corte. */
+  proveedores: number;
+  considerado: string;
+  /** Parte del monto considerado total que concentran, en porcentaje. */
+  peso: number;
+};
+
+export type ConcentracionGasto = {
+  totalProveedores: number;
+  totalConsiderado: string;
+  cortes: CorteConcentracion[];
+};
+
+/**
+ * Cuánto del gasto se concentra en los mayores proveedores.
+ *
+ * La suma acumulada se resuelve con una función de ventana en PostgreSQL —ordenada
+ * por monto— y solo se devuelven los cortes pedidos, no la lista entera de
+ * proveedores. El reparto exacto entre proveedores está en el ranking; aquí interesa
+ * la forma de la concentración.
+ *
+ * Los cortes están fijados en la consulta (1, 5, 10 y 20) porque son los que muestra
+ * la página. Hacerlos dinámicos obligaría a componer SQL con `IN`, que es justo lo
+ * que este módulo evita.
+ */
+export async function concentracionGasto(): Promise<ConcentracionGasto> {
+  const filas = await prisma.$queryRaw<
+    Array<{
+      totalProveedores: number;
+      totalConsiderado: string;
+      top1: string;
+      top5: string;
+      top10: string;
+      top20: string;
+    }>
+  >`
+    WITH por_proveedor AS (
+      SELECT
+        s.id,
+        COALESCE(
+          SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
+          0
+        ) AS considerado
+      FROM "Supplier" s
+      LEFT JOIN "Order" o ON o."supplierId" = s.id
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      GROUP BY s.id
+    ),
+    acumulado AS (
+      SELECT
+        ROW_NUMBER() OVER (ORDER BY p.considerado DESC, p.id) AS posicion,
+        SUM(p.considerado) OVER (
+          ORDER BY p.considerado DESC, p.id
+          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS corrido
+      FROM por_proveedor p
+    )
+    SELECT
+      COUNT(*)::int AS "totalProveedores",
+      COALESCE(MAX(a.corrido), 0)::text AS "totalConsiderado",
+      COALESCE(MAX(a.corrido) FILTER (WHERE a.posicion <= 1), 0)::text AS "top1",
+      COALESCE(MAX(a.corrido) FILTER (WHERE a.posicion <= 5), 0)::text AS "top5",
+      COALESCE(MAX(a.corrido) FILTER (WHERE a.posicion <= 10), 0)::text AS "top10",
+      COALESCE(MAX(a.corrido) FILTER (WHERE a.posicion <= 20), 0)::text AS "top20"
+    FROM acumulado a
+  `;
+
+  const fila = filas[0];
+  const totalConsiderado = aDecimal2(fila?.totalConsiderado);
+  const total = Number(totalConsiderado);
+
+  const valores: Array<{ proveedores: number; valor: string | undefined }> = [
+    { proveedores: 1, valor: fila?.top1 },
+    { proveedores: 5, valor: fila?.top5 },
+    { proveedores: 10, valor: fila?.top10 },
+    { proveedores: 20, valor: fila?.top20 },
+  ];
+
+  return {
+    totalProveedores: aNumero(fila?.totalProveedores),
+    totalConsiderado,
+    cortes: valores.map((corte) => {
+      const considerado = aDecimal2(corte.valor);
+      return {
+        proveedores: corte.proveedores,
+        considerado,
+        peso: porcentaje(Number(considerado), total),
+      };
+    }),
+  };
+}
+
+// =============================================================================
 // Tipos de contratación
 // =============================================================================
 

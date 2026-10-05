@@ -8,18 +8,17 @@ import { cn } from '@/lib/utils';
 /**
  * Navegación pública.
  *
- * Solo enlaza las secciones que existen: Inicio, Órdenes, Proveedores, Ranking,
- * Historial y Metodología. Las Estadísticas comparadas se añadirán al construirlas.
- * Un enlace a una página que no existe da 404 al ciudadano, y en un portal de
- * transparencia eso cuesta credibilidad.
+ * Enlaza todas las secciones del portal ciudadano: Inicio, Órdenes, Proveedores,
+ * Ranking, Historial, Estadísticas y Metodología. Si se añade una sección nueva,
+ * hay que añadirla aquí: una página que no se enlaza no existe para el ciudadano.
  */
-
 const ENLACES = [
   { href: '/', etiqueta: 'Inicio' },
   { href: '/ordenes', etiqueta: 'Órdenes' },
   { href: '/proveedores', etiqueta: 'Proveedores' },
   { href: '/ranking', etiqueta: 'Ranking' },
   { href: '/historial', etiqueta: 'Historial' },
+  { href: '/estadisticas', etiqueta: 'Estadísticas' },
   { href: '/metodologia', etiqueta: 'Metodología' },
 ] as const;
 
