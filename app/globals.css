@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* =============================================================================
+   Tokens de diseño
+   =============================================================================
+   Tailwind v4 se configura desde CSS, no con tailwind.config.js. Los tokens se
+   declaran como variables y se exponen a las utilidades dentro de @theme, de
+   modo que bg-background, text-muted-foreground o border-border existen como
+   clases reales.
+
+   El modo oscuro sigue la preferencia del sistema: no hay selector manual, así
+   que el contraste se define una sola vez para cada esquema.
+   ============================================================================= */
+
+:root {
+  --background: #f6f8fb;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+
+  --muted: #eef2f7;
+  --muted-foreground: #5a6b82;
+
+  --border: #dde4ed;
+  --input: #c3cedd;
+  --ring: #1d4ed8;
+
+  --primary: #1d4ed8;
+  --primary-foreground: #ffffff;
+
+  --destructive: #c02626;
+  --destructive-foreground: #ffffff;
+
+  --success: #15803d;
+  --success-foreground: #ffffff;
+
+  --warning: #a16207;
+  --warning-foreground: #ffffff;
+
+  --radius: 0.625rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0b1220;
+    --foreground: #e8edf5;
+
+    --card: #131c2e;
+    --card-foreground: #e8edf5;
+
+    --muted: #1b2537;
+    --muted-foreground: #9aa9bf;
+
+    --border: #263349;
+    --input: #33425c;
+    --ring: #60a5fa;
+
+    --primary: #3b82f6;
+    --primary-foreground: #08111f;
+
+    --destructive: #ef4444;
+    --destructive-foreground: #08111f;
+
+    --success: #22c55e;
+    --success-foreground: #08111f;
+
+    --warning: #f59e0b;
+    --warning-foreground: #08111f;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+/* Los montos se leen en columnas: los dígitos deben alinearse verticalmente. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

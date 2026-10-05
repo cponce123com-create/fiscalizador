@@ -1,0 +1,530 @@
+// =============================================================================
+// Portal de Transparencia OC/OS — Esquema de datos
+// =============================================================================
+// Principios (ver docs/prompt.md secciones 37, 44 y 24):
+//   - `amount` es Decimal(14,2), NUNCA Float. Exactitud antes que comodidad.
+//   - `rawData` conserva el registro original; lo normalizado es una proyección.
+//   - Los estados, tipos de orden y tipos de contratación son CATÁLOGOS en base
+//     de datos, no cadenas codificadas en el código.
+//   - `isCancelled` se deriva del catálogo OrderStatus, nunca de coincidencia
+//     textual sobre el valor crudo.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+// Prisma 7 ya no admite `url` en el bloque datasource. La cadena de conexión
+// para las migraciones vive en `prisma.config.ts` (DIRECT_URL) y el runtime la
+// recibe a través del driver adapter (@prisma/adapter-pg), construido en
+// `lib/prisma.ts` con DATABASE_URL (host con pooling).
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum Role {
+  SUPERADMIN
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum SupplierType {
+  PERSONA_NATURAL
+  PERSONA_JURIDICA
+  OTRO
+  DESCONOCIDO
+}
+
+enum ImportStatus {
+  UPLOADED
+  VALIDATING
+  PROCESSING
+  COMPLETED
+  COMPLETED_WITH_WARNINGS
+  FAILED
+}
+
+enum ImportType {
+  ORDENES_COMPRA
+  ORDENES_SERVICIO
+  CONSOLIDADO
+}
+
+enum IssueSeverity {
+  ERROR
+  WARNING
+  INFO
+}
+
+enum ColumnDataType {
+  STRING
+  INTEGER
+  DECIMAL
+  DATE
+  BOOLEAN
+}
+
+enum AliasSource {
+  IMPORT
+  MANUAL
+}
+
+enum AliasDecision {
+  PENDING
+  MERGED
+  KEPT_SEPARATE
+  IGNORED
+}
+
+enum AuditAction {
+  LOGIN
+  LOGOUT
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  MERGE_SUPPLIER
+  CHANGE_PHOTO
+  CHANGE_COLUMN_VISIBILITY
+  CHANGE_SETTINGS
+}
+
+// =============================================================================
+// AUTENTICACIÓN (Auth.js v5 + @auth/prisma-adapter)
+// =============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(VIEWER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  importBatches ImportBatch[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expires])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =============================================================================
+// CATÁLOGOS CONFIGURABLES
+// =============================================================================
+
+/// Periodo de gestión (p. ej. "2023-2026"). Deliberadamente NO codificado en el
+/// código: se agrega una gestión nueva sin tocar ni desplegar la aplicación.
+model ManagementPeriod {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orders        Order[]
+  summaries     SupplierManagementSummary[]
+  importBatches ImportBatch[]
+
+  @@index([startDate])
+  @@index([endDate])
+}
+
+/// Catálogo de estados. `aliases` contiene las variantes normalizadas que el
+/// importador debe reconocer (ANULADA, ANULADO, CANCELADA, ...).
+model OrderStatus {
+  id                 String   @id @default(cuid())
+  code               String   @unique
+  label              String
+  aliases            String[] @default([])
+  countsEconomically Boolean  @default(true)
+  isCancelled        Boolean  @default(false)
+  isUnknown          Boolean  @default(false)
+  position           Int      @default(0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders Order[]
+
+  @@index([isCancelled])
+  @@index([countsEconomically])
+}
+
+model OrderType {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  aliases   String[] @default([])
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+model ContractType {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  label     String
+  aliases   String[] @default([])
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
+}
+
+/// Visibilidad pública de columnas. Es GLOBAL por campo interno (no por lote de
+/// importación): desactivar una columna nunca la borra de la base de datos y
+/// puede reactivarse sin reimportar (docs/prompt.md secciones 6 y 44).
+model ColumnVisibility {
+  id            String   @id @default(cuid())
+  internalField String   @unique
+  label         String
+  description   String?
+  isPublic      Boolean  @default(true)
+  position      Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// IMPORTACIÓN
+// =============================================================================
+
+model ImportBatch {
+  id               String       @id @default(cuid())
+  filename         String
+  originalFilename String
+  year             Int
+  month            Int
+  period           String
+  importType       ImportType
+  version          Int          @default(1)
+  checksum         String
+  status           ImportStatus @default(UPLOADED)
+
+  totalRows      Int @default(0)
+  successfulRows Int @default(0)
+  warningRows    Int @default(0)
+  errorRows      Int @default(0)
+
+  originalFileUrl String?
+  storageKey      String?
+
+  uploadedById String?
+  uploadedAt   DateTime @default(now())
+
+  processingStartedAt  DateTime?
+  processingFinishedAt DateTime?
+  errorMessage         String?
+
+  managementPeriodId String?
+  managementPeriod   ManagementPeriod? @relation(fields: [managementPeriodId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  uploadedBy User? @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  columns ImportColumn[]
+  orders  Order[]
+  issues  ImportIssue[]
+
+  // Un mismo periodo puede reimportarse, pero cada intento es una versión nueva
+  // y explícita. Nunca se sobrescribe silenciosamente (docs/prompt.md sección 8).
+  @@unique([year, month, importType, version])
+  @@index([period])
+  @@index([status])
+  @@index([checksum])
+  @@index([uploadedById])
+}
+
+/// Registro de una columna detectada en un lote concreto, con el mapeo que el
+/// administrador confirmó. Permite reutilizar el mapeo en importaciones futuras.
+model ImportColumn {
+  id            String         @id @default(cuid())
+  importBatchId String
+  position      Int
+  originalName  String
+  internalField String?
+  dataType      ColumnDataType @default(STRING)
+  isPublic      Boolean        @default(true)
+  isRequired    Boolean        @default(false)
+  description   String?
+  confidence    Float?
+  sampleValues  Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@unique([importBatchId, originalName])
+  @@index([importBatchId])
+  @@index([internalField])
+}
+
+/// Hallazgo de validación de una fila. No bloquea la importación por sí solo:
+/// el administrador decide (docs/prompt.md sección 30).
+model ImportIssue {
+  id            String        @id @default(cuid())
+  importBatchId String
+  severity      IssueSeverity
+  code          String
+  message       String
+  sourceRow     Int?
+  columnName    String?
+  rawValue      String?
+  createdAt     DateTime      @default(now())
+
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  @@index([importBatchId, severity])
+  @@index([code])
+}
+
+// =============================================================================
+// PROVEEDORES
+// =============================================================================
+
+model Supplier {
+  id                 String       @id @default(cuid())
+  ruc                String       @unique
+  name               String
+  normalizedName     String
+  slug               String       @unique
+  supplierType       SupplierType @default(DESCONOCIDO)
+  rucPrefix          String?
+  photoUrl           String?
+  cloudinaryPublicId String?
+
+  firstSeenAt DateTime?
+  lastSeenAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  orders    Order[]
+  aliases   SupplierAlias[]
+  photos    SupplierPhoto[]
+  summaries SupplierManagementSummary[]
+
+  @@index([ruc])
+  @@index([normalizedName])
+  @@index([supplierType])
+  @@index([name])
+}
+
+/// Variantes de razón social detectadas para un mismo RUC. NUNCA se fusionan
+/// automáticamente: quedan en PENDING hasta que un administrador decide.
+model SupplierAlias {
+  id             String        @id @default(cuid())
+  supplierId     String
+  name           String
+  normalizedName String
+  source         AliasSource   @default(IMPORT)
+  decision       AliasDecision @default(PENDING)
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime      @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, normalizedName])
+  @@index([normalizedName])
+  @@index([decision])
+}
+
+model SupplierPhoto {
+  id                 String   @id @default(cuid())
+  supplierId         String
+  cloudinaryPublicId String
+  secureUrl          String
+  width              Int?
+  height             Int?
+  bytes              Int?
+  isPrimary          Boolean  @default(false)
+  uploadedById       String?
+  createdAt          DateTime @default(now())
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([isPrimary])
+}
+
+// =============================================================================
+// ÓRDENES
+// =============================================================================
+
+model Order {
+  id            String      @id @default(cuid())
+  importBatchId String
+  importBatch   ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+
+  rowNumber      Int?
+  sourceRow      Int?
+  orderNumber    String
+  orderTypeId    String?
+  contractTypeId String?
+  description    String?
+  siafNumber     String?
+
+  issueDate      DateTime? @db.Date
+  commitmentDate DateTime? @db.Date
+
+  statusId  String?
+  rawStatus String?
+
+  /// Monto registrado. Nullable a propósito: si el origen trae un valor no
+  /// parseable, se conserva el texto en `rawAmount` y la fila queda marcada con
+  /// un ImportIssue en lugar de convertirse en 0 de forma silenciosa.
+  amount    Decimal? @db.Decimal(14, 2)
+  rawAmount String?
+
+  isCancelled Boolean @default(false)
+
+  ruc        String
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  managementPeriodId String?
+  managementPeriod   ManagementPeriod? @relation(fields: [managementPeriodId], references: [id], onDelete: SetNull)
+
+  /// Representación original de la fila tal como venía en el archivo fuente.
+  rawData Json
+
+  /// Clave de deduplicación: orderNumber|ruc|amount|issueDate. Permite detectar
+  /// reimportaciones sin recorrer toda la tabla.
+  dedupeKey String
+
+  orderType    OrderType?    @relation(fields: [orderTypeId], references: [id], onDelete: SetNull)
+  contractType ContractType? @relation(fields: [contractTypeId], references: [id], onDelete: SetNull)
+  status       OrderStatus?  @relation(fields: [statusId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ruc])
+  @@index([supplierId])
+  @@index([issueDate])
+  @@index([statusId])
+  @@index([importBatchId])
+  @@index([managementPeriodId])
+  @@index([dedupeKey])
+  @@index([statusId, issueDate])
+  @@index([supplierId, issueDate])
+  @@index([orderNumber])
+}
+
+/// Agregado materializado por (proveedor, gestión). Evita recalcular sumas de
+/// millones de filas en cada consulta del perfil o del historial.
+model SupplierManagementSummary {
+  id                 String           @id @default(cuid())
+  supplierId         String
+  managementPeriodId String
+  managementPeriod   ManagementPeriod @relation(fields: [managementPeriodId], references: [id], onDelete: Cascade)
+
+  orderCount       Int     @default(0)
+  cancelledCount   Int     @default(0)
+  totalAmount      Decimal @default(0) @db.Decimal(14, 2)
+  cancelledAmount  Decimal @default(0) @db.Decimal(14, 2)
+  consideredAmount Decimal @default(0) @db.Decimal(14, 2)
+
+  firstIssueDate DateTime? @db.Date
+  lastIssueDate  DateTime? @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, managementPeriodId])
+  @@index([managementPeriodId])
+  @@index([consideredAmount])
+}
+
+// =============================================================================
+// AUDITORÍA
+// =============================================================================
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  action    AuditAction
+  entity    String
+  entityId  String?
+  ip        String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
