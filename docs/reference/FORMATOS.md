@@ -80,13 +80,18 @@ Si el importador deja de reproducirlas, una prueba falla.
 
 | Métrica | Valor |
 |---|---|
-| Monto registrado | `S/ 1.066.136,59` |
-| Monto anulado | `S/ 38.994,87` |
-| **Monto considerado** | **`S/ 1.027.141,72`** |
+| Monto registrado | `S/ 1,066,136.59` |
+| Monto anulado | `S/ 38,994.87` |
+| **Monto considerado** | **`S/ 1,027,141.72`** |
 | Órdenes | 103 |
 | Proveedores distintos | 72 |
 | RUC 10 (persona natural) | 66 filas |
 | RUC 20 (persona jurídica) | 37 filas |
+
+> Las cifras de RUC 10 y RUC 20 de esta tabla cuentan **filas del libro**. La portada
+> del portal muestra **proveedores distintos** (56 y 16), que es otra métrica: un
+> mismo proveedor puede tener varias órdenes. Ambas son correctas y no se
+> contradicen.
 
 Las sumas se comprueban **en centavos enteros**, no en coma flotante: es la misma
 razón por la que la columna `Order.amount` es `Decimal(14,2)` y no `Float`.

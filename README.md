@@ -225,9 +225,9 @@ exactamente con las medidas durante el desarrollo:
 |---|---|
 | Órdenes | 103 |
 | Proveedores | 72 |
-| Monto registrado | `S/ 1.066.136,59` |
-| Monto anulado | `S/ 38.994,87` |
-| **Monto considerado** | **`S/ 1.027.141,72`** |
+| Monto registrado | `S/ 1,066,136.59` |
+| Monto anulado | `S/ 38,994.87` |
+| **Monto considerado** | **`S/ 1,027,141.72`** |
 
 Si el importador deja de reproducir estas cifras, la prueba falla. Es la red de
 seguridad que impide que un cambio de formato o de redondeo pase desapercibido.
