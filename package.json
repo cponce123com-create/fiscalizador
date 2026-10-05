@@ -19,7 +19,8 @@
     "postinstall": "prisma generate",
     "verify": "tsx scripts/verificar-importacion.ts",
     "usuarios": "tsx scripts/gestionar-usuario.ts",
-    "usuarios:listar": "tsx scripts/listar-usuarios.ts"
+    "usuarios:listar": "tsx scripts/listar-usuarios.ts",
+    "usuarios:superadmin": "tsx scripts/gestionar-usuario.ts --desde-env"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

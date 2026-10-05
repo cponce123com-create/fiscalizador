@@ -39,19 +39,34 @@ type Argumentos = {
 };
 
 function analizarArgumentos(argv: readonly string[]): Argumentos {
+  const desdeEnv = argv.includes('--desde-env');
+
   const obtener = (bandera: string): string | null => {
     const indice = argv.indexOf(bandera);
     if (indice === -1) return null;
     return argv[indice + 1] ?? null;
   };
 
-  const email = obtener('--email');
-  if (!email) {
-    const ejemplo = 'NUEVA_PASSWORD="..." npm run usuarios -- --email admin@example.com';
+  // Con `--desde-env` el correo y la contraseña salen de `.env`
+  // (SEED_SUPERADMIN_EMAIL y SEED_SUPERADMIN_PASSWORD). Es el modo pensado para
+  // quien acaba de editar esas variables: un solo comando y quedan aplicadas.
+  const email = desdeEnv ? (process.env.SEED_SUPERADMIN_EMAIL ?? null) : obtener('--email');
 
-    throw new Error(
-      ['Falta --email.', '', 'Ejemplo:', '  ' + ejemplo].join(String.fromCharCode(10)),
-    );
+  if (!email) {
+    const lineas = desdeEnv
+      ? [
+          'Falta SEED_SUPERADMIN_EMAIL en el archivo .env.',
+          '',
+          'Añádela y vuelve a ejecutar el comando.',
+        ]
+      : [
+          'Falta --email.',
+          '',
+          'Ejemplo:',
+          '  NUEVA_PASSWORD="..." npm run usuarios -- --email admin@example.com',
+        ];
+
+    throw new Error(lineas.join(String.fromCharCode(10)));
   }
 
   const passwordArgumento = obtener('--password');
@@ -63,11 +78,15 @@ function analizarArgumentos(argv: readonly string[]): Argumentos {
 
   return {
     email: email.trim().toLowerCase(),
-    password: passwordArgumento ?? process.env.NUEVA_PASSWORD ?? null,
+    password: desdeEnv
+      ? (process.env.SEED_SUPERADMIN_PASSWORD ?? null)
+      : (passwordArgumento ?? process.env.NUEVA_PASSWORD ?? null),
     passwordPorArgumento: Boolean(passwordArgumento),
-    rol: (rol as Role | null) ?? null,
+    // El propósito de `--desde-env` es que esas credenciales funcionen, así que
+    // la cuenta se crea si no existe y es superadministradora por defecto.
+    rol: (rol as Role | null) ?? (desdeEnv ? 'SUPERADMIN' : null),
     nombre: obtener('--nombre'),
-    crear: argv.includes('--crear'),
+    crear: argv.includes('--crear') || desdeEnv,
     desactivar: argv.includes('--desactivar'),
     eliminar: argv.includes('--eliminar'),
   };
