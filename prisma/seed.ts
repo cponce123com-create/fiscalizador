@@ -215,10 +215,37 @@ async function sembrarSuperadmin() {
   // argon2id con los parámetros por defecto de @node-rs/argon2.
   const passwordHash = await hash(password);
 
-  await prisma.user.upsert({
+  const existente = await prisma.user.findUnique({
     where: { email },
-    update: { role: 'SUPERADMIN', isActive: true },
-    create: {
+    select: { id: true },
+  });
+
+  if (existente) {
+    // A propósito NO se toca `passwordHash`: reejecutar el seed no debe resetear
+    // la contraseña de un administrador en activo. Pero hay que decirlo, porque
+    // es exactamente lo que espera quien acaba de cambiar la variable y no ve
+    // ningún efecto.
+    await prisma.user.update({
+      where: { id: existente.id },
+      data: { role: 'SUPERADMIN', isActive: true },
+    });
+
+    console.log(
+      [
+        `Superadmin: ${email} ya existía. Se actualizaron el rol y el estado.`,
+        '',
+        '  LA CONTRASEÑA NO SE HA CAMBIADO.',
+        '  SEED_SUPERADMIN_PASSWORD solo se usa al crear la cuenta, así que cambiar',
+        '  la variable no afecta a una cuenta que ya existe. Para cambiarla de verdad:',
+        '',
+        `    NUEVA_PASSWORD="..." npx tsx scripts/gestionar-usuario.ts --email ${email}`,
+      ].join(String.fromCharCode(10)),
+    );
+    return;
+  }
+
+  await prisma.user.create({
+    data: {
       email,
       name: 'Superadministrador',
       passwordHash,
@@ -227,7 +254,7 @@ async function sembrarSuperadmin() {
     },
   });
 
-  console.log(`Superadmin: ${email} listo.`);
+  console.log(`Superadmin: ${email} creado.`);
 }
 
 async function main() {
