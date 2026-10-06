@@ -54,7 +54,9 @@ scrapers/
 │   ├── datosabiertos.py     Plataforma Nacional de Datos Abiertos (la vía recomendada)
 │   ├── orquestador.py       Planifica, ejecuta y escribe las salidas
 │   └── __main__.py          Línea de comandos
-├── tests/                   101 pruebas con la biblioteca estándar
+├── tests/                   116 pruebas con la biblioteca estándar
+├── herramientas/
+│   └── prueba_de_humo.py    El circuito completo contra una fuente real
 ├── docs/
 │   ├── reconocimiento.md    Evidencia del reconocimiento de las dos fuentes
 │   └── estructura-de-datos.md  Campos de salida y su origen
@@ -106,6 +108,9 @@ python -m ocos --config config.example.yaml --origen seace
 
 # Con registro en archivo (una línea JSON por evento, apto para procesarlo)
 python -m ocos --config config.example.yaml --log salida/ocos.log
+
+# Prueba de humo: el circuito completo contra una fuente real (necesita red)
+python herramientas/prueba_de_humo.py --config config.example.yaml
 ```
 
 Códigos de salida, pensados para un cron: `0` todo bien, `1` hubo errores, `2` la
@@ -170,7 +175,9 @@ Los campos y su origen están en
 python -m unittest discover -s tests -t . -v
 ```
 
-101 pruebas, sin dependencias externas. Cubren, entre otras cosas:
+116 pruebas. **Sin dependencias externas**: las que necesitan `openpyxl` o `xlrd` se
+saltan solas si no están instalados, así que la batería corre igual en un entorno
+limpio. Cubren, entre otras cosas:
 
 * RUC: se usan RUC reales y públicos (el que la propia administración publica en su
   formulario) y casos con el dígito de control alterado.
@@ -199,11 +206,16 @@ el alias «proveedor» encajaba dentro de «RUC Proveedor» (el nombre salía si
    falla**, que es lo que permite medirlo de verdad.
 3. **La vía de ficheros del portal está probada con HTML real, pero no con un libro real**
    descargado: en las cinco entidades comprobadas no había ninguno. Los lectores de Excel
-   no se han podido ejecutar aquí (no hay `xlrd` en este entorno).
-4. **`gimpysolver` es GPL.** Revísalo si vas a distribuir esto.
-5. **Cloudinary no está implementado** en este scraper (el portal sí lo tiene previsto).
+   sí están probados (`.xlsx` con `openpyxl` y `.csv` con la biblioteca estándar, incluida
+   la detección de la cabecera bajo las filas de título). El `.xls` clásico no se ha podido
+   probar: no se encontró ningún fichero de ese formato que descargar.
+4. **La vía de datos abiertos sí está verificada de punta a punta** con un conjunto real
+   (GORE Áncash, 4.131 órdenes): búsqueda, página del conjunto, descarga, lectura y
+   normalización. Reproducible con `python herramientas/prueba_de_humo.py`.
+5. **`gimpysolver` es GPL.** Revísalo si vas a distribuir esto.
+6. **Cloudinary no está implementado** en este scraper (el portal sí lo tiene previsto).
    Se admiten `local` y `s3`.
-6. **La paginación de SEACE** se apoya en un enlace «Siguiente». Si el buscador pagina por
+7. **La paginación de SEACE** se apoya en un enlace «Siguiente». Si el buscador pagina por
    postback con otro texto, habrá que añadir el selector.
 
 ## Aviso de uso
