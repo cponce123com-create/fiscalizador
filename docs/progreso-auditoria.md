@@ -231,3 +231,29 @@ para pasar en una base vacía (varias se siembran sus propios datos).
 - No inventar correos, URLs, nombres ni datos de prueba reales: datos ficticios evidentes.
 - No debilitar ningún control de permisos.
 - Nada de `queryRawUnsafe`, `dangerouslySetInnerHTML` ni secretos en el repositorio.
+
+---
+
+## Notas posteriores al despliegue
+
+El primer despliegue en Render (commit `e96b934`) sirvió para ver el portal en producción.
+De ahí salieron tres observaciones, y una se corrigió:
+
+- **`ETIMEDOUT` al arrancar (corregido).** En los registros del arranque, Prisma falló al
+  consultar la base con `ETIMEDOUT`. La causa era el arranque en frío de Neon: sin un tope
+  de conexión, el intento se colgaba hasta el timeout del sistema operativo (cerca de dos
+  minutos). Se pusieron **topes al pool** (`connectionTimeoutMillis: 10s`, `keepAlive`,
+  `idleTimeoutMillis`, `max`) en `lib/prisma.ts` y un **despertar con reintentos**
+  (`lib/reintentos.ts`, con pruebas) que `instrumentation.ts` lanza al arrancar el
+  servidor, antes de atender peticiones. Verificado con una base inalcanzable: la petición
+  falla en ~10 s en lugar de ~2 min, se reintenta cuatro veces y el servidor no se cae.
+- **Aviso de SSL de `pg` (pendiente; es de configuración).** `pg` avisa de que
+  `sslmode=require` (o similar) se trata como `verify-full` y cambiará de significado en su
+  v9. Conviene poner `?sslmode=verify-full` en `DATABASE_URL` y `DIRECT_URL` en Render.
+- **9 vulnerabilidades `high` (sin acción).** Todas en dependencias de desarrollo
+  (`eslint-config-next`, CLI de `prisma`), no en el runtime; arreglarlas exige cambios de
+  versión mayor.
+
+Verificado tras el cambio: `typecheck`, `lint`, `npx vitest run` (233 pasan, 74 se saltan) y
+`build`. En producción, la portada y `/estadisticas` responden en menos de un segundo y las
+cabeceras de la tarea 5 están vivas.
