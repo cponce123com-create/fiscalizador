@@ -394,3 +394,31 @@ comando pasa sin `.next` ni `next-env.d.ts`.
 Lo encontró el CI al subir la rama, no las pruebas locales: en local `.next` existía de
 compilaciones anteriores y el error quedaba tapado. Es el argumento a favor de que el CI
 compile en limpio.
+
+### Y un segundo fallo, este en las pruebas
+
+Con el typecheck arreglado, el CI llegó por primera vez al paso de pruebas y falló en dos de
+`catalogService`: comprueban que no se puede borrar un estado ni una gestión que estén usando
+órdenes, pero **daban por hecho que la base ya tenía órdenes**. En local las hay, de
+importaciones anteriores; el CI siembra una base limpia y no hay ninguna, así que el borrado
+salía bien y la prueba fallaba.
+
+Se arreglaron creando ellas mismas la orden que necesitan (con su lote y su proveedor) y
+borrándola después, que es lo que ya hacían otras pruebas del repositorio. Se prefirió eso a
+saltarse la prueba con un guardia de «¿hay datos?»: la regla se comprueba ahora también en el
+CI, en lugar de quedarse sin comprobar justo donde más importa.
+
+**Conclusión incómoda y útil**: hasta hoy, el CI **nunca había pasado**. Falla en el typecheck
+en cualquier clon limpio, así que los pasos siguientes (pruebas y compilación) no se
+ejecutaban jamás. Un CI en rojo permanente no avisa de nada.
+
+### Cobertura medida en el CI
+
+El CI da **82,37 % statements · 76,72 % branches · 84,11 % functions · 84,75 % lines**, más
+alto que en local (80,19 / 74,35 / 81,32 / 82,97). No es una contradicción: en el CI se saltan
+las pruebas que necesitan datos del portal, y esos ficheros (`personsService`,
+`catalogService`) están por debajo de la media, así que al no cargarse suben el porcentaje.
+
+Los umbrales están puestos sobre la cifra **más baja de las dos** (78 / 73 / 80 / 80), que es
+la única forma de que la batería pase en ambos entornos. `branches` es lo único por debajo del
+80 % en los dos.
