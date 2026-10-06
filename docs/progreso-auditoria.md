@@ -32,7 +32,7 @@ Se actualiza al cerrar cada tarea.
 | 3 | Login: límite de intentos y auditoría de fallos | **Hecha**, pendiente de revisión |
 | 4 | Importador: atomicidad y recuperación | **Hecha**, pendiente de revisión |
 | 5 | Cabeceras de seguridad | **Hecha**, pendiente de revisión |
-| 6 | Calidad y operación | Siguiente |
+| 6 | Calidad y operación | **Hecha**, pendiente de revisión |
 
 ## 1. Publicación segura de personas (hecha)
 
@@ -195,18 +195,34 @@ decisiones se tomaron**:
 no hay nonce; endurecerla exigiría generar el nonce en el middleware y aplicarlo a todas
 las rutas.
 
-## 6. Calidad y operación
+## 6. Calidad y operación (hecha)
 
 - `.github/workflows/ci.yml`: en cada push y pull request, Node 22, `npm ci`,
-  `npm run typecheck`, `npm run lint`, `npm test`. Sin secretos: si `lib/env.ts` exige
-  variables al importarse, valores ficticios solo para el paso de pruebas.
-- `.env.example` con todas las variables de `lib/env.ts` y las nuevas, sin valores reales,
-  y `.gitignore` con `!.env.example`.
-- En `auth.config.ts`, cambiar `trustHost: true` por la lectura de `AUTH_TRUST_HOST` solo
-  si se puede garantizar que el login en producción sigue funcionando; si no, dejarlo y
-  documentar por qué.
-- En `services/auditService.ts`, dejar claro en el comentario de `contextoDePeticion` que
-  la IP es orientativa.
+  `npm run typecheck`, `npm run lint`, `npm run db:deploy && npm run db:seed` y `npm test`.
+  Se añadió un **PostgreSQL 16 efímero** como servicio: los valores ficticios del plan no
+  bastaban, porque las pruebas de integración se ejecutan en cuanto `DATABASE_URL` existe y
+  fallarían al no poder conectar. Con un Postgres de verdad se ejecutan de verdad, y las que
+  necesitan datos del portal se saltan solas. No hay secretos: el contenedor vive y muere con
+  el job y `AUTH_SECRET` es ficticio.
+- `.env.example` con todas las variables de `lib/env.ts` (se añadió `STORAGE_LOCAL_DIR` y una
+  nota de `NODE_ENV`) más `NEXT_PUBLIC_CONTACTO_CORRECCIONES`, y `.gitignore` con
+  `!.env.example`, así que la plantilla ya se versiona.
+- `auth.config.ts`: se **deja** `trustHost: true` y se documenta por qué. Moverlo a
+  `AUTH_TRUST_HOST` obligaría a definir la variable en Render y, si faltara, el login de
+  producción dejaría de funcionar sin avisar; como no se puede garantizar que siga
+  funcionando, se mantiene el valor seguro con su explicación.
+- `services/auditService.ts`: el comentario de `contextoDePeticion` ahora dice que la IP es
+  orientativa (falsificable, compartida tras un NAT) y que solo sirve para la auditoría y el
+  límite de intentos, nunca para decidir permisos.
+- Verificado: `npm run typecheck`, `npm run lint`, `npx vitest run` (227 pasan, 74 se saltan)
+  y `npm run build`. Además se ejecutaron contra la base real `npm run db:deploy` (sin
+  migraciones pendientes) y `npm run db:seed` (idempotente), que son los pasos que añade el
+  CI, y el workflow se validó como YAML. **No** se pudo ejecutar el CI completo contra un
+  Postgres recién creado: en este entorno no hay PostgreSQL ni Docker.
+
+**Pendiente de decisión**: nada nuevo. Queda sin verificar en un runner real que la suite esté
+entera en verde sobre una base recién sembrada; se apoya en que las pruebas están escritas
+para pasar en una base vacía (varias se siembran sus propios datos).
 
 ## Reglas que no se deben romper
 
