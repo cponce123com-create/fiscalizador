@@ -52,37 +52,79 @@ export default async function PaginaVinculos() {
     })),
   );
 
-  const evidencias = await prisma.personSupplierLink.findMany({where:{sourceUrl:{not:null},verifiedAt:{not:null},person:{isPublic:true}},select:{id:true,note:true,sourceUrl:true,validFrom:true,validUntil:true,verifiedAt:true,person:{select:{fullName:true}},supplier:{select:{name:true}}}});
+  const evidencias = await prisma.personSupplierLink.findMany({
+    where: { sourceUrl: { not: null }, verifiedAt: { not: null }, person: { isPublic: true } },
+    select: {
+      id: true,
+      note: true,
+      sourceUrl: true,
+      validFrom: true,
+      validUntil: true,
+      verifiedAt: true,
+      person: { select: { fullName: true } },
+      supplier: { select: { name: true } },
+    },
+  });
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">Vínculos declarados</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">
           Proveedores que contrataron con la municipalidad y que la administración de este portal ha
-          vinculado con personas señaladas: aportantes de campaña, postulantes a regidor, comunicadores
-          o familiares de políticos.
+          vinculado con personas señaladas: aportantes de campaña, postulantes a regidor,
+          comunicadores o familiares de políticos.
         </p>
       </header>
 
-      <Aviso tono="advertencia" titulo="Qué es y qué no es esta sección" icono={<Scale className="h-5 w-5" />}>
+      <Aviso
+        tono="advertencia"
+        titulo="Qué es y qué no es esta sección"
+        icono={<Scale className="h-5 w-5" />}
+      >
         <p>
-          Los vínculos de esta página los <strong>declara la administración del portal</strong> a partir
-          de información pública y de sus propios registros. Cada ficha indica qué se afirma y de dónde
-          sale. <strong>No es una conclusión legal, ni una imputación, ni una prueba de delito.</strong>
+          Los vínculos de esta página los <strong>declara la administración del portal</strong> a
+          partir de información pública y de sus propios registros. Cada ficha indica qué se afirma
+          y de dónde sale.{' '}
+          <strong>No es una conclusión legal, ni una imputación, ni una prueba de delito.</strong>
         </p>
         <p className="mt-2">
-          Los montos son los mismos que ya publican las demás secciones del portal y salen de los libros
-          del Portal de Transparencia. El DNI de las personas no se publica.
+          Los montos son los mismos que ya publican las demás secciones del portal y salen de los
+          libros del Portal de Transparencia. El DNI de las personas no se publica.
         </p>
       </Aviso>
 
       <p className="max-w-3xl text-sm text-muted-foreground">
-        Cada proveedor dice cómo se le vincula. <strong>Coincidencia de identificadores</strong> significa que el DNI
-        de la persona aparece dentro del RUC del proveedor: requiere comprobar la identidad y no demuestra por sí solo una relación política. <strong>Declarado</strong> significa que la administración afirmó el
-        vínculo a mano, y es el que hay que revisar si se cree incorrecto.
+        Cada proveedor dice cómo se le vincula. <strong>Coincidencia de identificadores</strong>{' '}
+        significa que el DNI de la persona aparece dentro del RUC del proveedor: requiere comprobar
+        la identidad y no demuestra por sí solo una relación política. <strong>Declarado</strong>{' '}
+        significa que la administración afirmó el vínculo a mano, y es el que hay que revisar si se
+        cree incorrecto.
       </p>
 
-      <section className="flex flex-col gap-3"><h2 className="text-xl font-semibold">Evidencias de vínculos declarados</h2><p>Los montos corresponden a todas las órdenes vigentes del proveedor, y no se atribuyen a la persona ni al periodo de una relación. Una coincidencia de identificadores RUC/DNI no demuestra un vínculo político, conflicto de interés ni irregularidad.</p>{evidencias.map(e=><div key={e.id} className="rounded border p-3"><p>{e.person.fullName} · {e.supplier.name}: {e.note}</p><a className="underline" href={e.sourceUrl!} rel="noopener noreferrer" target="_blank">Consultar evidencia de la relación</a><p>Vigencia documentada: {e.validFrom?.toISOString().slice(0,10)??'inicio no informado'} — {e.validUntil?.toISOString().slice(0,10)??'fin no informado'}. Revisión editorial: {formatearFechaHora(e.verifiedAt)}</p></div>)}</section>
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xl font-semibold">Evidencias de vínculos declarados</h2>
+        <p>
+          Los montos corresponden a todas las órdenes vigentes del proveedor, y no se atribuyen a la
+          persona ni al periodo de una relación. Una coincidencia de identificadores RUC/DNI no
+          demuestra un vínculo político, conflicto de interés ni irregularidad.
+        </p>
+        {evidencias.map((e) => (
+          <div key={e.id} className="rounded border p-3">
+            <p>
+              {e.person.fullName} · {e.supplier.name}: {e.note}
+            </p>
+            <a className="underline" href={e.sourceUrl!} rel="noopener noreferrer" target="_blank">
+              Consultar evidencia de la relación
+            </a>
+            <p>
+              Vigencia documentada:{' '}
+              {e.validFrom?.toISOString().slice(0, 10) ?? 'inicio no informado'} —{' '}
+              {e.validUntil?.toISOString().slice(0, 10) ?? 'fin no informado'}. Revisión editorial:{' '}
+              {formatearFechaHora(e.verifiedAt)}
+            </p>
+          </div>
+        ))}
+      </section>
       {conDatos.length === 0 ? (
         <EstadoVacio
           titulo="Todavía no hay vínculos declarados"
@@ -114,8 +156,9 @@ export default async function PaginaVinculos() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              El monto considerado excluye las órdenes anuladas y las de estados excluidos del análisis,
-              igual que en el resto del portal. Un proveedor vinculado a dos personas cuenta una sola vez.
+              El monto considerado excluye las órdenes anuladas y las de estados excluidos del
+              análisis, igual que en el resto del portal. Un proveedor vinculado a dos personas
+              cuenta una sola vez.
             </p>
           </section>
 
@@ -239,7 +282,6 @@ function Cifra({
   valor: string;
   destacado?: boolean;
 }) {
-
   return (
     <div
       className={
@@ -248,7 +290,9 @@ function Cifra({
           : 'rounded-lg border border-border bg-card p-5 shadow-sm'
       }
     >
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{etiqueta}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {etiqueta}
+      </p>
       <p
         className={
           destacado

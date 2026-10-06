@@ -19,7 +19,11 @@ export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <p className="p-3 text-sm text-muted-foreground">Comparación de órdenes disponibles, no de pagos ni de presupuestos completos. Revise Fuentes y cobertura antes de comparar gestiones. El promedio incluye únicamente órdenes con monto conocido y estado incluido en el análisis.</p>
+      <p className="p-3 text-sm text-muted-foreground">
+        Comparación de órdenes disponibles, no de pagos ni de presupuestos completos. Revise Fuentes
+        y cobertura antes de comparar gestiones. El promedio incluye únicamente órdenes con monto
+        conocido y estado incluido en el análisis.
+      </p>
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
           <tr>

@@ -173,7 +173,10 @@ describe('parseService contra el archivo real (Lista-OCOS-2023-06.xls)', () => {
       conteo.set(nro, (conteo.get(nro) ?? 0) + 1);
     }
 
-    const duplicados = [...conteo.entries()].filter(([, n]) => n > 1).map(([nro]) => nro).sort();
+    const duplicados = [...conteo.entries()]
+      .filter(([, n]) => n > 1)
+      .map(([nro]) => nro)
+      .sort();
 
     expect(conteo.size).toBe(101);
     expect(duplicados).toEqual(['238', '245']);
@@ -229,11 +232,23 @@ describe('parseService contra el archivo real (Lista-OCOS-2023-06.xls)', () => {
   });
 });
 
-describe('filas físicas de una hoja con huecos',()=>{
- it('conserva tanto las filas vacías iniciales como las intermedias',()=>{
- const w=XLSX.utils.book_new();XLSX.utils.book_append_sheet(w,XLSX.utils.aoa_to_sheet([[],[],['Número de orden','RUC','Monto'],['1','20541487710','100'],[],['2','20541487710','120']]),'Evidencia');
- const hoja=parseSpreadsheet(Buffer.from(XLSX.write(w,{type:'array',bookType:'xlsx'})));
- expect(hoja.headerRowIndex).toBe(2);
- expect(hoja.sourceRows).toEqual([4,6]);
- });
+describe('filas físicas de una hoja con huecos', () => {
+  it('conserva tanto las filas vacías iniciales como las intermedias', () => {
+    const w = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      w,
+      XLSX.utils.aoa_to_sheet([
+        [],
+        [],
+        ['Número de orden', 'RUC', 'Monto'],
+        ['1', '20541487710', '100'],
+        [],
+        ['2', '20541487710', '120'],
+      ]),
+      'Evidencia',
+    );
+    const hoja = parseSpreadsheet(Buffer.from(XLSX.write(w, { type: 'array', bookType: 'xlsx' })));
+    expect(hoja.headerRowIndex).toBe(2);
+    expect(hoja.sourceRows).toEqual([4, 6]);
+  });
 });

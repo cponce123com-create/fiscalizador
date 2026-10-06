@@ -30,7 +30,10 @@ export const metadata: Metadata = {
 };
 
 export default async function PortadaPublica() {
-  const [datos, pendientes] = await Promise.all([datosPortada(), prisma.importBatch.count({ where: { requiresReview: true } })]);
+  const [datos, pendientes] = await Promise.all([
+    datosPortada(),
+    prisma.importBatch.count({ where: { requiresReview: true } }),
+  ]);
   const { resumen } = datos;
 
   // Los dos gráficos de evolución son idénticos cuando solo hay un periodo. En vez
@@ -83,13 +86,23 @@ export default async function PortadaPublica() {
           Órdenes de compra y de servicio registradas por la municipalidad
         </h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Consulta y análisis de los libros mensuales publicados en el Portal de Transparencia.
-          Cada cifra de esta página procede de un registro del archivo original y puede
-          rastrearse hasta él.
+          Consulta y análisis de los libros mensuales publicados en el Portal de Transparencia. Cada
+          cifra de esta página procede de un registro del archivo original y puede rastrearse hasta
+          él.
         </p>
       </div>
 
-      <p className="rounded border p-4 text-sm">Las cifras corresponden a órdenes en libros vigentes disponibles; no son pagos realizados ni el presupuesto municipal completo. <Link href="/fuentes" className="underline">Consultar fuentes, actualización y cobertura</Link>. {pendientes > 0 ? `${pendientes} versiones antiguas requieren revisión y están excluidas de los totales; su ausencia no significa gasto cero.` : ''}</p>
+      <p className="rounded border p-4 text-sm">
+        Las cifras corresponden a órdenes en libros vigentes disponibles; no son pagos realizados ni
+        el presupuesto municipal completo.{' '}
+        <Link href="/fuentes" className="underline">
+          Consultar fuentes, actualización y cobertura
+        </Link>
+        .{' '}
+        {pendientes > 0
+          ? `${pendientes} versiones antiguas requieren revisión y están excluidas de los totales; su ausencia no significa gasto cero.`
+          : ''}
+      </p>
       <TarjetasResumen resumen={resumen} />
 
       <Seccion
@@ -98,7 +111,8 @@ export default async function PortadaPublica() {
       >
         <GraficoBarras barras={barrasContratacion} etiquetaSerie="Monto considerado" />
         <p className="text-xs text-muted-foreground">
-          Los importes del gráfico son los <strong>considerados</strong>: excluyen anuladas y estados fuera del análisis. No acreditan pagos.
+          Los importes del gráfico son los <strong>considerados</strong>: excluyen anuladas y
+          estados fuera del análisis. No acreditan pagos.
         </p>
       </Seccion>
 
@@ -115,13 +129,16 @@ export default async function PortadaPublica() {
           descripcion="Comparación entre meses y entre años."
         >
           <Aviso tono="info" titulo="Todavía no hay evolución que mostrar">
-            Con un único periodo cargado ({resumen.primerPeriodo}) no hay tendencia que comparar:
-            un gráfico de un solo punto parece un error. Estas dos vistas se completarán solas al
+            Con un único periodo cargado ({resumen.primerPeriodo}) no hay tendencia que comparar: un
+            gráfico de un solo punto parece un error. Estas dos vistas se completarán solas al
             importar los siguientes libros mensuales.
           </Aviso>
         </Seccion>
       ) : (
-        <Seccion titulo="Evolución del monto de órdenes" descripcion="Comparación entre meses y entre años.">
+        <Seccion
+          titulo="Evolución del monto de órdenes"
+          descripcion="Comparación entre meses y entre años."
+        >
           <div className="grid gap-4 lg:grid-cols-2">
             <GraficoEvolucion
               puntos={puntosMensuales}

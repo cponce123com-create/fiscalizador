@@ -669,8 +669,16 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
 
   if (input.sourceUrl) {
     let valido = false;
-    try { const url = new URL(input.sourceUrl); valido = ['http:', 'https:'].includes(url.protocol) && input.sourceUrl.length <= 500; } catch { /* URL inválida. */ }
-    if (!valido) throw new ErrorDeNegocio('La fuente debe ser una URL http(s) válida de hasta 500 caracteres.');
+    try {
+      const url = new URL(input.sourceUrl);
+      valido = ['http:', 'https:'].includes(url.protocol) && input.sourceUrl.length <= 500;
+    } catch {
+      /* URL inválida. */
+    }
+    if (!valido)
+      throw new ErrorDeNegocio(
+        'La fuente debe ser una URL http(s) válida de hasta 500 caracteres.',
+      );
   }
   const lote = await prisma.importBatch.findUnique({ where: { id: importBatchId } });
   if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
@@ -759,13 +767,13 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     const catalogos = await cargarCatalogos();
     const buffer = await getStorage().read(lote.storageKey);
     if (computeChecksum(buffer) !== lote.checksum) {
-      throw new ErrorDeNegocio('La huella del archivo no coincide con el original. No se publicó la importación.');
+      throw new ErrorDeNegocio(
+        'La huella del archivo no coincide con el original. No se publicó la importación.',
+      );
     }
     const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
 
-    const { ip, userAgent } = request
-      ? contextoDePeticion(request)
-      : { ip: null, userAgent: null };
+    const { ip, userAgent } = request ? contextoDePeticion(request) : { ip: null, userAgent: null };
 
     // Las que el administrador dejó fuera: la diferencia entre lo que el archivo tenía
     // válido y lo que queda por importar.
@@ -788,21 +796,42 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         const vigentes = await tx.importBatch.findMany({
           where: { year: lote.year, month: lote.month, isCurrent: true, id: { not: lote.id } },
         });
-        if (lote.importType !== 'CONSOLIDADO' && vigentes.some((b) => b.importType === 'CONSOLIDADO')) {
-          throw new ErrorDeNegocio('El periodo tiene un consolidado vigente. Reemplázalo con un consolidado completo para no perder OC u OS.');
+        if (
+          lote.importType !== 'CONSOLIDADO' &&
+          vigentes.some((b) => b.importType === 'CONSOLIDADO')
+        ) {
+          throw new ErrorDeNegocio(
+            'El periodo tiene un consolidado vigente. Reemplázalo con un consolidado completo para no perder OC u OS.',
+          );
         }
-        const anteriores = vigentes.filter((b) => lote.importType === 'CONSOLIDADO' || b.importType === lote.importType);
+        const anteriores = vigentes.filter(
+          (b) => lote.importType === 'CONSOLIDADO' || b.importType === lote.importType,
+        );
         if (anteriores.length > 0 && !reemplazarPeriodo) {
-          throw new ErrorDeNegocio('El periodo ya tiene una versión vigente. Confirma la sustitución de la instantánea completa.');
+          throw new ErrorDeNegocio(
+            'El periodo ya tiene una versión vigente. Confirma la sustitución de la instantánea completa.',
+          );
         }
-        const historicos = await tx.importBatch.findMany({where:{year:lote.year,month:lote.month,id:{not:lote.id},status:{in:['COMPLETED','COMPLETED_WITH_WARNINGS']}, ...(lote.importType==='CONSOLIDADO'?{}:{importType:lote.importType})},select:{id:true}});
+        const historicos = await tx.importBatch.findMany({
+          where: {
+            year: lote.year,
+            month: lote.month,
+            id: { not: lote.id },
+            status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] },
+            ...(lote.importType === 'CONSOLIDADO' ? {} : { importType: lote.importType }),
+          },
+          select: { id: true },
+        });
         const idsAnteriores = historicos.map((b) => b.id);
         const paresAnteriores = await tx.order.findMany({
           where: { importBatchId: { in: idsAnteriores } },
           select: { supplierId: true, managementPeriodId: true },
           distinct: ['supplierId', 'managementPeriodId'],
         });
-        await tx.importBatch.updateMany({ where: { id: { in: idsAnteriores } }, data: { isCurrent: false, requiresReview: false } });
+        await tx.importBatch.updateMany({
+          where: { id: { in: idsAnteriores } },
+          data: { isCurrent: false, requiresReview: false },
+        });
 
         // 1. Proveedores: se resuelven una sola vez por RUC.
         const rucsUnicos = new Map<string, { name: string | null; fecha: Date | null }>();
@@ -865,13 +894,17 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         await tx.importBatch.update({
           where: { id: lote.id },
           data: {
-            isCurrent: true, requiresReview: false,
+            isCurrent: true,
+            requiresReview: false,
             sourceUrl: input.sourceUrl === undefined ? lote.sourceUrl : input.sourceUrl || null,
             coverageComplete: input.coverageComplete ?? lote.coverageComplete,
             status: validacion.summary.warningRows > 0 ? 'COMPLETED_WITH_WARNINGS' : 'COMPLETED',
-            totalRows: validacion.summary.totalRows, successfulRows: filas.length,
-            warningRows: validacion.summary.warningRows, errorRows: validacion.summary.errorRows,
-            excludedRows: ordenesExcluidasPorDecision, processingFinishedAt: new Date(),
+            totalRows: validacion.summary.totalRows,
+            successfulRows: filas.length,
+            warningRows: validacion.summary.warningRows,
+            errorRows: validacion.summary.errorRows,
+            excludedRows: ordenesExcluidasPorDecision,
+            processingFinishedAt: new Date(),
           },
         });
 
@@ -888,9 +921,11 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         }
 
         for (const par of paresAnteriores) {
-          if (par.managementPeriodId) combinaciones.set(`${par.supplierId}|${par.managementPeriodId}`, {
-            supplierId: par.supplierId, managementPeriodId: par.managementPeriodId,
-          });
+          if (par.managementPeriodId)
+            combinaciones.set(`${par.supplierId}|${par.managementPeriodId}`, {
+              supplierId: par.supplierId,
+              managementPeriodId: par.managementPeriodId,
+            });
         }
         for (const combo of combinaciones.values()) {
           await recalcularResumenGestion(tx, combo.supplierId, combo.managementPeriodId);
@@ -929,8 +964,6 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
 
     const huboAdvertencias = validacion.summary.warningRows > 0;
     const estadoFinal = huboAdvertencias ? 'COMPLETED_WITH_WARNINGS' : 'COMPLETED';
-
-
 
     return {
       importBatchId: lote.id,
@@ -1031,9 +1064,7 @@ export async function eliminarImportacion(
     );
   }
 
-  const { ip, userAgent } = request
-    ? contextoDePeticion(request)
-    : { ip: null, userAgent: null };
+  const { ip, userAgent } = request ? contextoDePeticion(request) : { ip: null, userAgent: null };
 
   let ordenesEliminadas = 0;
   let proveedoresEliminados = 0;

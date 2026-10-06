@@ -9,7 +9,9 @@ import { PLAZO_RESPUESTA_DIAS, leerContactoCorrecciones } from '@/lib/contacto';
  * Correo para solicitar correcciones, resuelto en el servidor al compilar (es una
  * variable `NEXT_PUBLIC_`). `null` cuando no está configurado.
  */
-const contactoCorrecciones = leerContactoCorrecciones(process.env.NEXT_PUBLIC_CONTACTO_CORRECCIONES);
+const contactoCorrecciones = leerContactoCorrecciones(
+  process.env.NEXT_PUBLIC_CONTACTO_CORRECCIONES,
+);
 
 export const metadata: Metadata = {
   title: 'Metodología',
@@ -30,24 +32,30 @@ export default function PaginaMetodologia() {
       <header className="flex flex-col gap-3">
         <h1 className="text-2xl font-semibold sm:text-3xl">Metodología</h1>
         <p className="text-sm text-muted-foreground">
-          De dónde salen los datos que ves en este portal, cómo se procesan y por qué algunas
-          cifras se muestran pero no se suman.
+          De dónde salen los datos que ves en este portal, cómo se procesan y por qué algunas cifras
+          se muestran pero no se suman.
         </p>
       </header>
 
-      <Seccion titulo="De dónde salen los datos" icono={<FileSpreadsheet className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="De dónde salen los datos"
+        icono={<FileSpreadsheet className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>
           La fuente son los <strong>libros mensuales de órdenes de compra y de servicio</strong>{' '}
-          publicados en el Portal de Transparencia. Son archivos de hoja de cálculo que se
-          descargan tal cual y se cargan en este sistema mediante un asistente de importación.
+          publicados en el Portal de Transparencia. Son archivos de hoja de cálculo que se descargan
+          tal cual y se cargan en este sistema mediante un asistente de importación.
         </p>
         <p>
-          No hay ninguna otra vía de entrada. Los datos no se escriben a mano ni se corrigen a
-          mano: lo que aparece en el portal es lo que había en el archivo.
+          No hay ninguna otra vía de entrada. Los datos no se escriben a mano ni se corrigen a mano:
+          lo que aparece en el portal es lo que había en el archivo.
         </p>
       </Seccion>
 
-      <Seccion titulo="Cómo se importan" icono={<FileCheck2 className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="Cómo se importan"
+        icono={<FileCheck2 className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>La importación tiene dos fases separadas, y esa separación es deliberada:</p>
         <ol className="flex list-decimal flex-col gap-2 pl-5">
           <li>
@@ -61,13 +69,16 @@ export default function PaginaMetodologia() {
           </li>
         </ol>
         <p>
-          El archivo original se conserva íntegro y asociado a su importación. Cada registro
-          guarda además su contenido tal como venía en el libro, de modo que cualquier cifra
-          publicada puede rastrearse hasta la fila exacta de la que salió.
+          El archivo original se conserva íntegro y asociado a su importación. Cada registro guarda
+          además su contenido tal como venía en el libro, de modo que cualquier cifra publicada
+          puede rastrearse hasta la fila exacta de la que salió.
         </p>
       </Seccion>
 
-      <Seccion titulo="Qué se normaliza y qué no" icono={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="Qué se normaliza y qué no"
+        icono={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>
           El portal <strong>no corrige en silencio</strong>. Cuando un valor no se entiende, se
           conserva el texto original y se marca para que alguien lo revise. En particular:
@@ -94,21 +105,25 @@ export default function PaginaMetodologia() {
         </p>
       </Seccion>
 
-      <Seccion titulo="Por qué una orden anulada no suma" icono={<Info className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="Por qué una orden anulada no suma"
+        icono={<Info className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>
           Cada orden tiene un estado. El sistema no deduce nada del texto: los estados están en un
-          catálogo que indica, para cada uno, si <strong>se incluye en el análisis</strong> y si corresponde a
-          una <strong>anulación</strong>.
+          catálogo que indica, para cada uno, si <strong>se incluye en el análisis</strong> y si
+          corresponde a una <strong>anulación</strong>.
         </p>
         <p>De ahí salen las dos cifras principales del portal:</p>
         <ul className="flex list-disc flex-col gap-2 pl-5">
           <li>
-            <strong>Monto registrado:</strong> la suma de todas las órdenes, incluidas las
-            anuladas. Es lo que aparece en el libro.
+            <strong>Monto registrado:</strong> la suma de todas las órdenes, incluidas las anuladas.
+            Es lo que aparece en el libro.
           </li>
           <li>
             <strong>Monto considerado:</strong> excluye las órdenes anuladas y las que están en
-            estados excluidos del análisis. Es el monto de órdenes incluido en este análisis; no acredita pagos realizados ni representa el presupuesto municipal.
+            estados excluidos del análisis. Es el monto de órdenes incluido en este análisis; no
+            acredita pagos realizados ni representa el presupuesto municipal.
           </li>
         </ul>
         <p>
@@ -118,18 +133,19 @@ export default function PaginaMetodologia() {
         </p>
       </Seccion>
 
-      <Seccion titulo="Qué significan las advertencias" icono={<TriangleAlert className="h-5 w-5" aria-hidden="true" />}>
-        <p>
-          Durante la importación se clasifican los hallazgos en tres niveles:
-        </p>
+      <Seccion
+        titulo="Qué significan las advertencias"
+        icono={<TriangleAlert className="h-5 w-5" aria-hidden="true" />}
+      >
+        <p>Durante la importación se clasifican los hallazgos en tres niveles:</p>
         <ul className="flex flex-col gap-2">
           <li>
             <strong>Error:</strong> la fila no puede convertirse en una orden. Ocurre cuando falta
             el número de orden o el RUC, que son imprescindibles para identificarla.
           </li>
           <li>
-            <strong>Advertencia:</strong> la fila se importa, pero hay algo que conviene revisar
-            (un monto ilegible, un estado no catalogado, un registro repetido). No se bloquea
+            <strong>Advertencia:</strong> la fila se importa, pero hay algo que conviene revisar (un
+            monto ilegible, un estado no catalogado, un registro repetido). No se bloquea
             automáticamente: lo decide una persona.
           </li>
           <li>
@@ -139,11 +155,15 @@ export default function PaginaMetodologia() {
         </ul>
       </Seccion>
 
-      <Seccion titulo="Versionado y trazabilidad" icono={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="Versionado y trazabilidad"
+        icono={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>
-          Importar un periodo que ya estaba cargado <strong>no borra</strong> lo anterior: crea
-          una instantánea completa nueva y conserva la anterior como historial. Solo la versión vigente se suma. Los periodos antiguos con versiones ambiguas requieren revisión. El sistema avisa antes de hacerlo y exige
-          confirmación explícita.
+          Importar un periodo que ya estaba cargado <strong>no borra</strong> lo anterior: crea una
+          instantánea completa nueva y conserva la anterior como historial. Solo la versión vigente
+          se suma. Los periodos antiguos con versiones ambiguas requieren revisión. El sistema avisa
+          antes de hacerlo y exige confirmación explícita.
         </p>
         <p>
           Cada importación queda registrada con quién la hizo, cuándo, qué archivo se usó y qué
@@ -151,16 +171,22 @@ export default function PaginaMetodologia() {
         </p>
       </Seccion>
 
-      <Seccion titulo="Exactitud de las cifras" icono={<Info className="h-5 w-5" aria-hidden="true" />}>
+      <Seccion
+        titulo="Exactitud de las cifras"
+        icono={<Info className="h-5 w-5" aria-hidden="true" />}
+      >
         <p>
-          Los montos se almacenan con precisión decimal exacta y se suman en la base de datos, no
-          en el navegador. Es una decisión técnica con consecuencia directa: sumar importes con
+          Los montos se almacenan con precisión decimal exacta y se suman en la base de datos, no en
+          el navegador. Es una decisión técnica con consecuencia directa: sumar importes con
           decimales en coma flotante produce desviaciones de céntimos que, acumuladas, alteran los
           totales.
         </p>
         <p>
-          Las órdenes no acreditan transferencias, pagos, avance físico ni el presupuesto total. En Fuentes y cobertura se distinguen libros completos declarados, pendientes de revisión y ausentes. Las comparaciones entre gestiones con distinta cobertura no permiten concluir qué gestión gastó más. La cobertura de datos se indica en la portada. Si solo hay un mes cargado, se
-          dice; no se disimula con gráficos vacíos ni se rellenan los huecos con ceros.
+          Las órdenes no acreditan transferencias, pagos, avance físico ni el presupuesto total. En
+          Fuentes y cobertura se distinguen libros completos declarados, pendientes de revisión y
+          ausentes. Las comparaciones entre gestiones con distinta cobertura no permiten concluir
+          qué gestión gastó más. La cobertura de datos se indica en la portada. Si solo hay un mes
+          cargado, se dice; no se disimula con gráficos vacíos ni se rellenan los huecos con ceros.
         </p>
       </Seccion>
 

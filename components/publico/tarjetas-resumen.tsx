@@ -8,7 +8,7 @@ import type { ResumenGeneral } from '@/services/statisticsService';
  *
  * No es una rejilla de siete números idénticos: el «monto considerado» es la
  * cifra protagonista, porque es la única que responde a la pregunta que trae el
- * ciudadano («¿cuánto se gastó de verdad?»). El resto acompaña.
+ * ciudadano («¿qué monto de órdenes está documentado?»). El resto acompaña.
  */
 export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
   const cobertura = describirCobertura(resumen);
@@ -16,7 +16,7 @@ export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
   return (
     <section aria-labelledby="titulo-resumen" className="flex flex-col gap-4">
       <h2 id="titulo-resumen" className="sr-only">
-        Resumen del gasto
+        Resumen de órdenes
       </h2>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -29,7 +29,7 @@ export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
             {formatearMonto(resumen.totalConsiderado)}
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-            Es el gasto que de verdad cuenta: excluye las órdenes anuladas y las que están en
+            Es el monto de órdenes incluido en el análisis: excluye las órdenes anuladas y las que están en
             estados excluidos del análisis. Sobre un total registrado de{' '}
             <span className="tabular font-medium text-foreground">
               {formatearMonto(resumen.totalRegistrado)}

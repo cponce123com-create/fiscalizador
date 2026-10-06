@@ -169,9 +169,9 @@ async function slugUnico(db: ClienteDb, nombre: string, dni: string): Promise<st
  * Se muestran también las que no tienen a nadie: son las que se acaban de crear y
  * desaparecer de la lista daría la impresión de que no se guardaron.
  */
-export async function listarEtiquetas(
-  { incluirInactivas = false }: { incluirInactivas?: boolean } = {},
-): Promise<EtiquetaPersona[]> {
+export async function listarEtiquetas({
+  incluirInactivas = false,
+}: { incluirInactivas?: boolean } = {}): Promise<EtiquetaPersona[]> {
   const etiquetas = await prisma.personTag.findMany({
     where: incluirInactivas ? {} : { isActive: true },
     orderBy: [{ position: 'asc' }, { label: 'asc' }],
@@ -198,9 +198,9 @@ export async function listarEtiquetas(
 }
 
 /** Personas registradas, con sus etiquetas y cuántos proveedores tienen detrás. */
-export async function listarPersonas(
-  { texto = '' }: { texto?: string } = {},
-): Promise<PersonaResumen[]> {
+export async function listarPersonas({ texto = '' }: { texto?: string } = {}): Promise<
+  PersonaResumen[]
+> {
   const busqueda = texto.trim();
 
   const personas = await prisma.person.findMany({
@@ -379,9 +379,9 @@ export async function proveedoresVinculados(personaId: string): Promise<Proveedo
  * El dinero se suma sobre proveedores distintos: si un proveedor está vinculado a
  * dos personas de la misma etiqueta, su gasto cuenta una vez y no dos.
  */
-export async function vinculosPorEtiqueta(
-  { soloPublicas = true }: { soloPublicas?: boolean } = {},
-): Promise<VinculoPorEtiqueta[]> {
+export async function vinculosPorEtiqueta({
+  soloPublicas = true,
+}: { soloPublicas?: boolean } = {}): Promise<VinculoPorEtiqueta[]> {
   const filas = await prisma.$queryRaw<
     Array<{
       tagId: string;
@@ -464,9 +464,9 @@ export async function vinculosPorEtiqueta(
 }
 
 /** Totales de la sección entera, sin contar dos veces un proveedor compartido. */
-export async function resumenVinculos(
-  { soloPublicas = true }: { soloPublicas?: boolean } = {},
-): Promise<ResumenVinculos> {
+export async function resumenVinculos({
+  soloPublicas = true,
+}: { soloPublicas?: boolean } = {}): Promise<ResumenVinculos> {
   const filas = await prisma.$queryRaw<
     Array<{ personas: number; proveedores: number; ordenes: number; considerado: string }>
   >`
@@ -705,9 +705,7 @@ export type EntradaPersona = {
 };
 
 function contextoDeAuditoria(accion: ContextoAccion) {
-  return accion.request
-    ? contextoDePeticion(accion.request)
-    : { ip: null, userAgent: null };
+  return accion.request ? contextoDePeticion(accion.request) : { ip: null, userAgent: null };
 }
 
 /**
@@ -844,7 +842,15 @@ export async function actualizarPersona(
 
   const existente = await prisma.person.findUnique({
     where: { id },
-    select: { dni: true, fullName: true, isPublic: true, verifiedAt: true, description: true, source: true, sourceUrl: true },
+    select: {
+      dni: true,
+      fullName: true,
+      isPublic: true,
+      verifiedAt: true,
+      description: true,
+      source: true,
+      sourceUrl: true,
+    },
   });
   if (!existente) throw new NoEncontrado(`No existe la persona ${id}.`);
 
@@ -870,7 +876,14 @@ export async function actualizarPersona(
         source: datos.source,
         sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
         // La revisión editorial se renueva al publicar o cambiar la afirmación/evidencia.
-        verifiedAt: !datos.isPublic ? null : !existente.isPublic || existente.description !== datos.description || existente.source !== datos.source || (existente.sourceUrl ?? "") !== datos.sourceUrl ? new Date() : existente.verifiedAt,
+        verifiedAt: !datos.isPublic
+          ? null
+          : !existente.isPublic ||
+              existente.description !== datos.description ||
+              existente.source !== datos.source ||
+              (existente.sourceUrl ?? '') !== datos.sourceUrl
+            ? new Date()
+            : existente.verifiedAt,
         isPublic: datos.isPublic,
         // Las etiquetas se reemplazan enteras: es lo que el formulario envía.
         tags: { deleteMany: {}, create: datos.tagIds.map((tagId) => ({ tagId })) },
@@ -932,7 +945,11 @@ export type EntradaEtiqueta = {
 };
 
 function validarEntradaEtiqueta(entrada: EntradaEtiqueta): EntradaEtiqueta {
-  const code = entrada.code.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  const code = entrada.code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
   const label = entrada.label.trim();
 
   if (code === '') {
@@ -1068,21 +1085,41 @@ export async function eliminarEtiqueta(id: string, accion: ContextoAccion): Prom
 }
 
 export async function vincularProveedor(
-  entrada: { personId: string; ruc: string; note: string | null; sourceUrl?: string; validFrom?: string; validUntil?: string },
+  entrada: {
+    personId: string;
+    ruc: string;
+    note: string | null;
+    sourceUrl?: string;
+    validFrom?: string;
+    validUntil?: string;
+  },
   accion: ContextoAccion,
 ): Promise<{ id: string }> {
   const ruc = entrada.ruc.trim().replace(/[^0-9]/g, '');
   const sourceUrl = entrada.sourceUrl?.trim() || '';
-  if (!URL_HTTP.test(sourceUrl) || sourceUrl.length > 500 || (entrada.note?.trim().length ?? 0) < 12) throw new ErrorDeNegocio('Documenta el vínculo con una descripción de al menos 12 caracteres y una URL http(s).');
+  if (
+    !URL_HTTP.test(sourceUrl) ||
+    sourceUrl.length > 500 ||
+    (entrada.note?.trim().length ?? 0) < 12
+  )
+    throw new ErrorDeNegocio(
+      'Documenta el vínculo con una descripción de al menos 12 caracteres y una URL http(s).',
+    );
   const fecha = (v: string | undefined): Date | null => {
     if (!v) return null;
     const d = new Date(v);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0,10)!==v) throw new ErrorDeNegocio('Fecha de vigencia inválida.');
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(v) ||
+      Number.isNaN(d.getTime()) ||
+      d.toISOString().slice(0, 10) !== v
+    )
+      throw new ErrorDeNegocio('Fecha de vigencia inválida.');
     return d;
   };
-  const validFrom=fecha(entrada.validFrom),validUntil=fecha(entrada.validUntil);
-  if (validFrom && validUntil && validUntil < validFrom) throw new ErrorDeNegocio('El fin de vigencia debe ser posterior al inicio.');
-
+  const validFrom = fecha(entrada.validFrom),
+    validUntil = fecha(entrada.validUntil);
+  if (validFrom && validUntil && validUntil < validFrom)
+    throw new ErrorDeNegocio('El fin de vigencia debe ser posterior al inicio.');
 
   const [persona, proveedor] = await Promise.all([
     prisma.person.findUnique({ where: { id: entrada.personId }, select: { id: true } }),
@@ -1112,7 +1149,10 @@ export async function vincularProveedor(
         personId: persona.id,
         supplierId: proveedor.id,
         note: entrada.note?.trim() || null,
-        sourceUrl, validFrom, validUntil, verifiedAt: new Date(),
+        sourceUrl,
+        validFrom,
+        validUntil,
+        verifiedAt: new Date(),
         createdById: accion.userId,
       },
       select: { id: true },

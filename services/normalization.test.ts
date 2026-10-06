@@ -221,7 +221,14 @@ describe('clave de deduplicación', () => {
   });
 });
 
- it('distingue una compra y un servicio con iguales número, proveedor, monto y fecha', () => {
- const base={orderNumber:'245',ruc:'20610345990',amount:'100.00',issueDate:new Date('2023-06-06')};
- expect(buildDedupeKey({...base,orderType:'O/C'})).not.toBe(buildDedupeKey({...base,orderType:'O/S'}));
- });
+it('distingue una compra y un servicio con iguales número, proveedor, monto y fecha', () => {
+  const base = {
+    orderNumber: '245',
+    ruc: '20610345990',
+    amount: '100.00',
+    issueDate: new Date('2023-06-06'),
+  };
+  expect(buildDedupeKey({ ...base, orderType: 'O/C' })).not.toBe(
+    buildDedupeKey({ ...base, orderType: 'O/S' }),
+  );
+});

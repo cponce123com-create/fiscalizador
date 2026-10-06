@@ -137,7 +137,7 @@ export default async function PaginaProveedor({
             {formatearMonto(perfil.totalConsiderado)}
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-            Es el gasto que de verdad cuenta. Sobre un total registrado de{' '}
+            Es el monto de órdenes considerado, no pagos acreditados. Sobre un total registrado de{' '}
             <span className="tabular font-medium text-foreground">
               {formatearMonto(perfil.totalRegistrado)}
             </span>

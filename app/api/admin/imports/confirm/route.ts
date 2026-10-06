@@ -28,7 +28,16 @@ const cuerpoSchema = z.object({
   importBatchId: z.string().min(1, 'Falta el identificador del lote.'),
   /** Confirmación explícita para importar una versión nueva de un periodo ya cargado. */
   reemplazarPeriodo: z.boolean().optional().default(false),
-  sourceUrl: z.union([z.literal(""), z.string().url().max(500).refine(v => /^https?:\/\//i.test(v))]).optional(),
+  sourceUrl: z
+    .union([
+      z.literal(''),
+      z
+        .string()
+        .url()
+        .max(500)
+        .refine((v) => /^https?:\/\//i.test(v)),
+    ])
+    .optional(),
   coverageComplete: z.boolean().optional(),
   /**
    * Compatibilidad con clientes anteriores. El versionado sustituye el libro
