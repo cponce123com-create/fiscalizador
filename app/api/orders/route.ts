@@ -26,7 +26,7 @@ const paramsSchema = z.object({
   q: z.string().trim().max(100).optional(),
   statusId: z.string().optional(),
   managementPeriodId: z.string().optional(),
-  soloAnuladas: z.coerce.boolean().optional(),
+  soloAnuladas: z.enum(['true', 'false']).transform((valor) => valor === 'true').optional(),
   orderBy: z.enum(['issueDate', 'amount', 'orderNumber']).default('issueDate'),
   dir: z.enum(['asc', 'desc']).default('desc'),
 });

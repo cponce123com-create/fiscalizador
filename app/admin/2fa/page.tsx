@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 export default async function PaginaAlta2fa() {
   const usuario = await usuarioActual();
   if (!usuario) redirect('/admin/login');
+  if (usuario.mustChangePassword) redirect('/admin/cambiar-contrasena');
   // Si ya la tiene activada, aquí no pinta nada.
   if (usuario.twoFactorEnabled) redirect('/admin');
 

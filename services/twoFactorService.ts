@@ -88,10 +88,15 @@ export async function activar(
   const codigos = generarCodigosDeRecuperacion();
 
   await db.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: usuarioId },
+    // Reclamo atómico: ni un alta repetida ni dos peticiones concurrentes
+    // pueden sustituir un factor ya instalado.
+    const { count } = await tx.user.updateMany({
+      where: { id: usuarioId, isActive: true, mustChangePassword: false, twoFactorEnabled: false },
       data: { twoFactorSecret: cifrar(secreto), twoFactorEnabled: true },
     });
+    if (count !== 1) {
+      throw new ErrorDeNegocio('No se puede activar el segundo factor: comprueba la cuenta y cambia primero la contraseña.');
+    }
 
     // Un alta nueva invalida los códigos anteriores: si se rehace, los viejos no valen.
     await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: usuarioId } });
@@ -111,7 +116,7 @@ export async function desactivar(db: PrismaClient, usuarioId: string): Promise<v
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: usuarioId },
-      data: { twoFactorSecret: null, twoFactorEnabled: false },
+      data: { twoFactorSecret: null, twoFactorEnabled: false, sessionVersion: { increment: 1 } },
     });
     await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: usuarioId } });
   });

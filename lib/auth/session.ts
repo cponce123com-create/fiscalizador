@@ -1,6 +1,7 @@
 import { auth } from '@/auth';
 import { puede, type Permission, type Role } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/prisma';
+import { exigeSegundoFactor } from '@/services/twoFactorService';
 
 /**
  * Guardián de sesión para los manejadores de ruta.
@@ -63,10 +64,14 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
       isActive: true,
       twoFactorEnabled: true,
       mustChangePassword: true,
+      sessionVersion: true,
     },
   });
 
-  if (!usuario || !usuario.isActive) return null;
+  // Los JWT anteriores a la migración no tienen versión y también se revocan.
+  if (!usuario || !usuario.isActive || sesion?.user.sessionVersion !== usuario.sessionVersion) {
+    return null;
+  }
 
   return {
     id: usuario.id,
@@ -82,6 +87,13 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
 export async function requierePermiso(permiso: Permission): Promise<UsuarioActual> {
   const usuario = await usuarioActual();
   if (!usuario) throw new NoAutenticado();
+
+  if (usuario.mustChangePassword) {
+    throw new SinPermiso('Debes cambiar la contraseña antes de usar el panel.');
+  }
+  if (exigeSegundoFactor(usuario.role) && !usuario.twoFactorEnabled) {
+    throw new SinPermiso('Debes activar la verificación en dos pasos antes de usar el panel.');
+  }
 
   if (!puede(usuario.role, permiso)) {
     throw new SinPermiso(`El rol ${usuario.role} no tiene el permiso "${permiso}".`);

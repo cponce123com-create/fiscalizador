@@ -12,8 +12,8 @@ const INICIAL: EstadoCambioPassword = { error: null, hecho: false };
 /**
  * Formulario de cambio de contraseña.
  *
- * Al terminar, lleva al panel en lugar de quedarse en una pantalla de confirmación: si la
- * cuenta todavía tiene que dar de alta el segundo factor, el layout la mandará allí sola.
+ * Al terminar, pide iniciar sesión con la contraseña nueva: las sesiones anteriores
+ * quedan revocadas, incluida la que hizo el cambio.
  */
 export function FormularioCambioPassword({ obligatorio }: { obligatorio: boolean }) {
   const [estado, accion, pendiente] = useActionState(cambiarMiPassword, INICIAL);
@@ -21,7 +21,7 @@ export function FormularioCambioPassword({ obligatorio }: { obligatorio: boolean
 
   useEffect(() => {
     if (!estado.hecho) return;
-    router.push('/admin');
+    router.push('/admin/login');
     // Sin esto, el panel podría servirse desde la caché del router y no ver la marca ya
     // levantada, devolviendo a esta misma página.
     router.refresh();

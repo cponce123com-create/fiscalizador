@@ -37,6 +37,10 @@ export async function activarSegundoFactor(
     return { error: 'La sesión ha caducado. Vuelve a entrar.', codigos: null };
   }
 
+  if (usuario.mustChangePassword || usuario.twoFactorEnabled) {
+    return { error: 'Cambia primero la contraseña; el alta no permite sustituir un segundo factor existente.', codigos: null };
+  }
+
   const parsed = esquema.safeParse({
     secreto: formData.get('secreto'),
     codigo: formData.get('codigo'),

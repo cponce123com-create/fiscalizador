@@ -80,7 +80,7 @@ describe.skipIf(!hayBaseDeDatos)('alta y verificación contra la base real', () 
   it('guarda el secreto cifrado y habilita el segundo factor', async () => {
     const guardado = await prisma.user.findUnique({
       where: { id: usuarioId },
-      select: { twoFactorSecret: true, twoFactorEnabled: true },
+      select: { twoFactorSecret: true, twoFactorEnabled: true, sessionVersion: true },
     });
 
     expect(guardado?.twoFactorEnabled).toBe(true);
@@ -156,16 +156,58 @@ describe.skipIf(!hayBaseDeDatos)('alta y verificación contra la base real', () 
     }
   });
 
+  it('no permite sustituir un factor ya activo ni borrar sus códigos', async () => {
+    const anterior = await prisma.user.findUnique({ where: { id: usuarioId } });
+    const { secreto: nuevo } = iniciarAlta('admin@example.org');
+    await expect(activar(prisma, usuarioId, nuevo, generarCodigo(nuevo))).rejects.toThrow('No se puede activar');
+    const posterior = await prisma.user.findUnique({ where: { id: usuarioId } });
+    expect(posterior?.twoFactorSecret).toBe(anterior?.twoFactorSecret);
+    expect(await prisma.twoFactorRecoveryCode.count({ where: { userId: usuarioId } })).toBe(CODIGOS_DE_RECUPERACION);
+  });
+
+  it('solo una de dos altas concurrentes puede reclamar la cuenta', async () => {
+    const usuario = await prisma.user.create({
+      data: { email: `prueba-2fa-carrera-${Date.now()}@example.org` },
+    });
+    const primero = iniciarAlta(usuario.email).secreto;
+    const segundo = iniciarAlta(usuario.email).secreto;
+    try {
+      const resultados = await Promise.allSettled([
+        activar(prisma, usuario.id, primero, generarCodigo(primero)),
+        activar(prisma, usuario.id, segundo, generarCodigo(segundo)),
+      ]);
+      expect(resultados.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+      expect(resultados.filter((r) => r.status === 'rejected')).toHaveLength(1);
+    } finally {
+      await prisma.user.delete({ where: { id: usuario.id } });
+    }
+  });
+
+  it('rechaza el alta mientras hay cambio de contraseña pendiente', async () => {
+    const usuario = await prisma.user.create({
+      data: { email: `prueba-2fa-pendiente-${Date.now()}@example.org`, mustChangePassword: true },
+    });
+    const nuevo = iniciarAlta(usuario.email).secreto;
+    try {
+      await expect(activar(prisma, usuario.id, nuevo, generarCodigo(nuevo))).rejects.toThrow('No se puede activar');
+      expect(await prisma.twoFactorRecoveryCode.count({ where: { userId: usuario.id } })).toBe(0);
+    } finally {
+      await prisma.user.delete({ where: { id: usuario.id } });
+    }
+  });
+
   it('desactivar borra el secreto y los códigos', async () => {
+    const anterior = await prisma.user.findUniqueOrThrow({ where: { id: usuarioId } });
     await desactivar(prisma, usuarioId);
 
     const guardado = await prisma.user.findUnique({
       where: { id: usuarioId },
-      select: { twoFactorSecret: true, twoFactorEnabled: true },
+      select: { twoFactorSecret: true, twoFactorEnabled: true, sessionVersion: true },
     });
 
     expect(guardado?.twoFactorEnabled).toBe(false);
     expect(guardado?.twoFactorSecret).toBeNull();
+    expect(guardado?.sessionVersion).toBe(anterior.sessionVersion + 1);
     expect(await prisma.twoFactorRecoveryCode.count({ where: { userId: usuarioId } })).toBe(0);
   });
 });
