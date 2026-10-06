@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { ShieldCheck } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { usuarioActual } from '@/lib/auth/session';
 
 import { FormularioLogin } from '@/components/admin/formulario-login';
 import { Tarjeta, TarjetaContenido, TarjetaEncabezado, TarjetaDescripcion, TarjetaTitulo } from '@/components/ui/card';
@@ -20,6 +22,7 @@ export default async function PaginaLogin({
 }: {
   searchParams: Promise<{ callbackUrl?: string }>;
 }) {
+  if (await usuarioActual()) redirect('/admin');
   const { callbackUrl } = await searchParams;
 
   return (

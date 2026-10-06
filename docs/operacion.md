@@ -197,3 +197,23 @@ patrón de búsqueda malicioso: aquí los patrones los escribe el propio proyect
 tercero. `npm audit` no propone arreglarlos actualizando esos paquetes, sino **bajando
 `eslint-config-next` a 14.2.35**, que en un proyecto con Next 16 es peor el remedio que la
 enfermedad. Se dejan como están, a la espera de que Next actualice su cadena.
+
+
+## Revocación de sesiones administrativas
+
+La migración `20261006211500_revocar_sesiones_jwt` añade `User.sessionVersion`.
+Se debe aplicar antes de ejecutar esta versión del servidor (`npm run db:deploy`;
+el blueprint de Render ya lo hace en `preDeployCommand`). Los JWT anteriores a
+esta actualización carecen de versión y se rechazan: todas las cuentas deberán
+iniciar sesión otra vez.
+
+El cambio de contraseña, el restablecimiento por CLI, la desactivación de cuenta,
+`--exigir-cambio` y `--reset-2fa` incrementan la versión y revocan los JWT previos.
+Tras cambiar la contraseña propia se vuelve al login. Borrar filas de `Session`
+solo limpia sesiones persistidas; la revocación de JWT depende de esta versión.
+
+Las API y Server Actions que requieren permisos bloquean también las cuentas con
+contraseña pendiente o sin el 2FA obligatorio. El alta de 2FA solo sirve para una
+cuenta activa, con contraseña ya cambiada y sin factor existente; no permite
+sustituirlo. Si se pierde el factor, se utiliza el procedimiento de rescate por
+CLI `--reset-2fa`, que revoca las sesiones antes de permitir una nueva alta.

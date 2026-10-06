@@ -35,9 +35,8 @@ export default auth((request) => {
     return Response.redirect(destino);
   }
 
-  if (esPaginaLogin && haySesion) {
-    return Response.redirect(new URL('/admin', nextUrl));
-  }
+  // El login debe seguir accesible con un JWT revocado. La página revalida
+  // la sesión contra la base para evitar un bucle login → panel → login.
 
   return undefined;
 });

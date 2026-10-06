@@ -75,6 +75,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             passwordHash: true,
             twoFactorSecret: true,
             twoFactorEnabled: true,
+            sessionVersion: true,
           },
         });
 
@@ -176,6 +177,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: usuario.email,
           name: usuario.name,
           role: usuario.role as Role,
+          sessionVersion: usuario.sessionVersion,
         };
       },
     }),

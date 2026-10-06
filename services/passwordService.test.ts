@@ -28,7 +28,7 @@ describe.skipIf(!hayBaseDeDatos)('cambiarPassword contra la base real', () => {
   async function estado(usuarioId: string) {
     return prisma.user.findUniqueOrThrow({
       where: { id: usuarioId },
-      select: { mustChangePassword: true, passwordHash: true },
+      select: { mustChangePassword: true, passwordHash: true, sessionVersion: true },
     });
   }
 
@@ -103,6 +103,7 @@ describe.skipIf(!hayBaseDeDatos)('cambiarPassword contra la base real', () => {
     const antes = await estado(id);
 
     expect(antes.mustChangePassword).toBe(true);
+    expect(antes.sessionVersion).toBe(0);
     expect(await verificarPassword(antes.passwordHash ?? '', ACTUAL)).toBe(true);
     expect(await verificarPassword(antes.passwordHash ?? '', NUEVA)).toBe(false);
   });
@@ -113,6 +114,7 @@ describe.skipIf(!hayBaseDeDatos)('cambiarPassword contra la base real', () => {
     const despues = await estado(id);
 
     expect(despues.mustChangePassword).toBe(false);
+    expect(despues.sessionVersion).toBe(1);
     expect(await verificarPassword(despues.passwordHash ?? '', NUEVA)).toBe(true);
     // La anterior deja de servir.
     expect(await verificarPassword(despues.passwordHash ?? '', ACTUAL)).toBe(false);
@@ -125,5 +127,6 @@ describe.skipIf(!hayBaseDeDatos)('cambiarPassword contra la base real', () => {
 
     const despues = await estado(id);
     expect(await verificarPassword(despues.passwordHash ?? '', tercera)).toBe(true);
+    expect(despues.sessionVersion).toBe(2);
   });
 });

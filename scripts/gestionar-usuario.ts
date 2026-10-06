@@ -129,7 +129,8 @@ async function main(): Promise<void> {
     console.log('');
     console.log('Verificación en dos pasos desactivada: ' + existente.email);
     console.log('  estaba activada : ' + (existente.twoFactorEnabled ? 'sí' : 'no'));
-    console.log('  sesiones cerradas: ' + cerradas.count);
+    console.log('  sesiones persistidas eliminadas: ' + cerradas.count);
+    console.log('  todas las sesiones JWT anteriores quedaron revocadas.');
     console.log('');
     console.log('La cuenta tendrá que darla de alta otra vez al entrar.');
     console.log('Úsalo solo si se ha perdido el teléfono y los códigos de recuperación.');
@@ -141,7 +142,7 @@ async function main(): Promise<void> {
   if (args.desactivar) {
     if (!existente) throw new Error(`No existe la cuenta ${args.email}.`);
 
-    await prisma.user.update({ where: { id: existente.id }, data: { isActive: false } });
+    await prisma.user.update({ where: { id: existente.id }, data: { isActive: false, sessionVersion: { increment: 1 } } });
     // Se cierran sus sesiones para que el cambio surta efecto de inmediato.
     await prisma.session.deleteMany({ where: { userId: existente.id } });
 
@@ -203,7 +204,7 @@ async function main(): Promise<void> {
 
     await prisma.user.update({
       where: { id: existente.id },
-      data: { mustChangePassword: true },
+      data: { mustChangePassword: true, sessionVersion: { increment: 1 } },
     });
 
     console.log('');
@@ -267,12 +268,14 @@ async function main(): Promise<void> {
   // --- Actualizar -----------------------------------------------------------
   const cambios: {
     passwordHash: string;
+    sessionVersion: { increment: number };
     role?: Role;
     name?: string;
     isActive?: boolean;
     mustChangePassword?: boolean;
   } = {
     passwordHash,
+    sessionVersion: { increment: 1 },
     isActive: true,
     // Igual que al crear: la contraseña la conoce quien la ha tecleado aquí.
     mustChangePassword: true,
@@ -292,7 +295,8 @@ async function main(): Promise<void> {
   console.log('  rol anterior     : ' + existente.role);
   console.log('  rol actual       : ' + (args.rol ?? existente.role));
   console.log('  contraseña       : cambiada (la cuenta deberá cambiarla al entrar)');
-  console.log('  sesiones cerradas: ' + cerradas.count);
+  console.log('  sesiones persistidas eliminadas: ' + cerradas.count);
+  console.log('  todas las sesiones JWT anteriores quedaron revocadas.');
   console.log('');
 }
 

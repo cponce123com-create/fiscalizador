@@ -58,6 +58,7 @@ export async function cambiarPassword(
       // Es el único sitio que levanta la marca. Si se olvidara, la cuenta quedaría
       // encerrada fuera del panel para siempre.
       mustChangePassword: false,
+      sessionVersion: { increment: 1 },
     },
   });
 }
