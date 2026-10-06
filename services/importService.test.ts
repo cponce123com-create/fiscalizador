@@ -356,18 +356,19 @@ describe.skipIf(!hayBaseDeDatos)('reimportar un libro no duplica sus órdenes', 
       expect(segundo.duplicadoContenido.filasRepetidas).toBe(3);
       expect(segundo.duplicadoContenido.filasNuevas).toBe(0);
 
-      // Y al confirmar no se inserta ni una fila.
+      // La nueva instantánea conserva todas las filas y archiva la anterior.
       const r2 = await svc.confirmar({
         importBatchId: segundo.importBatchId,
         userId: null,
         reemplazarPeriodo: true,
       });
 
-      expect(r2.ordenesInsertadas).toBe(0);
-      expect(r2.ordenesOmitidasPorDuplicado).toBe(3);
+      expect(r2.ordenesInsertadas).toBe(3);
+      expect(r2.ordenesOmitidasPorDuplicado).toBe(0);
 
       // La comprobación de fondo: no hay órdenes de más.
-      expect(await prisma.order.count({ where: { ruc: RUC } })).toBe(3);
+      expect(await prisma.order.count({ where: { ruc: RUC } })).toBe(6);
+      expect(await prisma.order.count({ where: { ruc: RUC, importBatch: { isCurrent: true } } })).toBe(3);
     } finally {
       // Los lotes se llevan sus órdenes y hallazgos por cascada.
       const creados = await prisma.importBatch.findMany({

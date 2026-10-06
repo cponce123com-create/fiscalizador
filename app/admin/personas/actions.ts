@@ -45,7 +45,10 @@ const esquemaEntrada = z.object({
 const esquemaVinculo = z.object({
   personId: z.string().min(1).max(64),
   ruc: z.string().max(20),
-  note: z.string().max(500),
+  note: z.string().min(12).max(500),
+  sourceUrl: z.string().url().max(500),
+  validFrom: z.string().max(10),
+  validUntil: z.string().max(10),
 });
 
 const esquemaIdentificador = z.object({ id: z.string().min(1).max(64) });
@@ -127,10 +130,13 @@ export async function accionVincularProveedor(
       personId: texto(formData.get('personId')),
       ruc: texto(formData.get('ruc')),
       note: texto(formData.get('note')),
+      sourceUrl: texto(formData.get('linkSourceUrl')),
+      validFrom: texto(formData.get('validFrom')),
+      validUntil: texto(formData.get('validUntil')),
     });
 
     await vincularProveedor(
-      { personId: datos.personId, ruc: datos.ruc, note: datos.note || null },
+      datos,
       { userId: usuario.id },
     );
     revalidatePath('/admin/personas');

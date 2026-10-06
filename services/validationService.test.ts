@@ -311,3 +311,13 @@ describe('validateRows: reglas de clasificación', () => {
     expect(r.summary.registeredCents).toBe(96451802);
   });
 });
+
+describe('trazabilidad con filas físicas',()=>{
+ it('conserva los saltos de fila del archivo en órdenes y hallazgos',()=>{
+ const headers=['Número de orden','RUC','Monto','Estado'];
+ const mapping=indicesPorCampo(mapColumns(headers, []));
+ const r=validateRows({headers, rows:[['1','20541487710','100','Devengada'],['2','20541487710','120','No catalogado']], headerRowIndex:0, sourceRows:[2,4], indices:mapping, statuses:ESTADOS, orderTypes:TIPOS_ORDEN, contractTypes:TIPOS_CONTRATO, managementPeriods:GESTIONES});
+ expect(r.orders.map(o=>o.sourceRow)).toEqual([2,4]);
+ expect(r.issues.some(i=>i.sourceRow===4)).toBe(true);
+ });
+});

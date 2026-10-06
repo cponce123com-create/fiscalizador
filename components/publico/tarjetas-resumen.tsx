@@ -30,7 +30,7 @@ export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
             Es el gasto que de verdad cuenta: excluye las órdenes anuladas y las que están en
-            estados que no generan gasto. Sobre un total registrado de{' '}
+            estados excluidos del análisis. Sobre un total registrado de{' '}
             <span className="tabular font-medium text-foreground">
               {formatearMonto(resumen.totalRegistrado)}
             </span>

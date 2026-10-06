@@ -125,7 +125,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
 
     // Vínculo manual: la empresa no se deduce del DNI, la declara el administrador.
     const enlace = await svc.vincularProveedor(
-      { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.' },
+      { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.', sourceUrl: 'https://ejemplo.test/relacion' },
       { userId: null },
     );
     auditados.push(enlace.id);
@@ -238,7 +238,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
 
     // Se restaura: la prueba no debe dejar el escenario a medias.
     const restaurado = await svc.vincularProveedor(
-      { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.' },
+      { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.', sourceUrl: 'https://ejemplo.test/relacion' },
       { userId: null },
     );
     auditados.push(restaurado.id);
@@ -416,7 +416,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
     } finally {
       // Se deja el vínculo como estaba para el resto de pruebas.
       const restaurado = await svc.vincularProveedor(
-        { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.' },
+        { personId: personaId, ruc: rucEmpresa, note: 'Vínculo de prueba.', sourceUrl: 'https://ejemplo.test/relacion' },
         { userId: null },
       );
       auditados.push(restaurado.id);
@@ -441,7 +441,7 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
   it('no vincula un RUC que no existe en el portal', async () => {
     await expect(
       svc.vincularProveedor(
-        { personId: personaId, ruc: '00000000000', note: null },
+        { personId: personaId, ruc: '00000000000', note: 'Relación documentada de prueba', sourceUrl: 'https://ejemplo.test/relacion' },
         { userId: null },
       ),
     ).rejects.toThrow(/No hay ningún proveedor con el RUC/);

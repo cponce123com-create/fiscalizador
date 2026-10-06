@@ -53,6 +53,8 @@ export type AnalizarInput = {
   month: number;
   importType: ImportTypeValue;
   userId: string | null;
+  sourceUrl?: string;
+  coverageComplete?: boolean;
 };
 
 export type LotePrevio = {
@@ -331,7 +333,7 @@ export async function analizarDuplicadosDeContenido(claves: string[]): Promise<D
   }
 
   const existentes = await prisma.order.findMany({
-    where: { dedupeKey: { in: unicas } },
+    where: { dedupeKey: { in: unicas }, importBatch: { isCurrent: true } },
     select: { dedupeKey: true, importBatchId: true },
   });
 
@@ -451,6 +453,7 @@ function procesarBuffer(
   const validacion = validateRows({
     headers: hoja.headers,
     rows: hoja.rows,
+    sourceRows: hoja.sourceRows,
     indices,
     headerRowIndex: hoja.headerRowIndex,
     statuses: catalogos.statuses,
@@ -567,6 +570,9 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     importType,
     checksum,
     status: 'VALIDATING',
+    sheetName: hoja.sheetName,
+    sourceUrl: input.sourceUrl || null,
+    coverageComplete: input.coverageComplete ?? false,
     totalRows: validacion.summary.totalRows,
     successfulRows: validacion.summary.successfulRows,
     warningRows: validacion.summary.warningRows,
@@ -630,9 +636,11 @@ export type ConfirmarInput = {
   mappingOverride?: { position: number; field: InternalField | null; isPublic: boolean }[];
   /** Confirmación explícita de reimportar un periodo ya existente. */
   reemplazarPeriodo?: boolean;
+  sourceUrl?: string;
+  coverageComplete?: boolean;
   /**
-   * Descarta las filas cuya clave ya existe en el portal. Por defecto `true`:
-   * reimportar un libro no debe duplicar lo que ya está.
+   * Compatibilidad con clientes anteriores: ya no se omiten filas de versiones
+   * históricas. La sustitución de instantáneas evita sumarlas dos veces.
    */
   omitirDuplicados?: boolean;
   /**
@@ -656,10 +664,14 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     request,
     mappingOverride,
     reemplazarPeriodo,
-    omitirDuplicados = true,
     filasExcluidas = [],
   } = input;
 
+  if (input.sourceUrl) {
+    let valido = false;
+    try { const url = new URL(input.sourceUrl); valido = ['http:', 'https:'].includes(url.protocol) && input.sourceUrl.length <= 500; } catch { /* URL inválida. */ }
+    if (!valido) throw new ErrorDeNegocio('La fuente debe ser una URL http(s) válida de hasta 500 caracteres.');
+  }
   const lote = await prisma.importBatch.findUnique({ where: { id: importBatchId } });
   if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
 
@@ -746,6 +758,9 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
   try {
     const catalogos = await cargarCatalogos();
     const buffer = await getStorage().read(lote.storageKey);
+    if (computeChecksum(buffer) !== lote.checksum) {
+      throw new ErrorDeNegocio('La huella del archivo no coincide con el original. No se publicó la importación.');
+    }
     const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
 
     const { ip, userAgent } = request
@@ -768,6 +783,27 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     // así que los libros muy grandes necesitarán el worker de una fase posterior.
     await prisma.$transaction(
       async (tx) => {
+        // Bloqueo por periodo: OC, OS y consolidado comparten el mismo universo.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lote.year}, ${lote.month})`;
+        const vigentes = await tx.importBatch.findMany({
+          where: { year: lote.year, month: lote.month, isCurrent: true, id: { not: lote.id } },
+        });
+        if (lote.importType !== 'CONSOLIDADO' && vigentes.some((b) => b.importType === 'CONSOLIDADO')) {
+          throw new ErrorDeNegocio('El periodo tiene un consolidado vigente. Reemplázalo con un consolidado completo para no perder OC u OS.');
+        }
+        const anteriores = vigentes.filter((b) => lote.importType === 'CONSOLIDADO' || b.importType === lote.importType);
+        if (anteriores.length > 0 && !reemplazarPeriodo) {
+          throw new ErrorDeNegocio('El periodo ya tiene una versión vigente. Confirma la sustitución de la instantánea completa.');
+        }
+        const historicos = await tx.importBatch.findMany({where:{year:lote.year,month:lote.month,id:{not:lote.id},status:{in:['COMPLETED','COMPLETED_WITH_WARNINGS']}, ...(lote.importType==='CONSOLIDADO'?{}:{importType:lote.importType})},select:{id:true}});
+        const idsAnteriores = historicos.map((b) => b.id);
+        const paresAnteriores = await tx.order.findMany({
+          where: { importBatchId: { in: idsAnteriores } },
+          select: { supplierId: true, managementPeriodId: true },
+          distinct: ['supplierId', 'managementPeriodId'],
+        });
+        await tx.importBatch.updateMany({ where: { id: { in: idsAnteriores } }, data: { isCurrent: false, requiresReview: false } });
+
         // 1. Proveedores: se resuelven una sola vez por RUC.
         const rucsUnicos = new Map<string, { name: string | null; fecha: Date | null }>();
         for (const orden of validacion.orders) {
@@ -820,34 +856,24 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             dedupeKey: o.dedupeKey ?? '',
           }));
 
-        // 2b. Se descartan las filas que ya están en el portal. La comparación es
-        // contra lo que había ANTES de esta importación, no entre las filas nuevas:
-        // así las dos filas reales con el mismo número de orden entran juntas la
-        // primera vez y se omiten juntas al repetir.
-        const conClave = filas.filter((fila) => fila.dedupeKey !== '');
-        const clavesExistentes =
-          omitirDuplicados && conClave.length > 0
-            ? new Set(
-                (
-                  await tx.order.findMany({
-                    where: { dedupeKey: { in: [...new Set(conClave.map((f) => f.dedupeKey))] } },
-                    select: { dedupeKey: true },
-                    distinct: ['dedupeKey'],
-                  })
-                ).map((fila) => fila.dedupeKey),
-              )
-            : new Set<string>();
-
-        const filasAInsertar = omitirDuplicados
-          ? filas.filter((fila) => fila.dedupeKey === '' || !clavesExistentes.has(fila.dedupeKey))
-          : filas;
-
-        ordenesInsertadas = filasAInsertar.length;
-        ordenesOmitidasPorDuplicado = filas.length - filasAInsertar.length;
-
-        if (filasAInsertar.length > 0) {
-          await tx.order.createMany({ data: filasAInsertar });
-        }
+        // Una versión es una instantánea completa: nunca se descartan filas contra
+        // versiones anteriores (perderíamos cambios de estado y filas sin cambios).
+        const filasAInsertar = filas;
+        ordenesInsertadas = filas.length;
+        ordenesOmitidasPorDuplicado = 0;
+        if (filas.length > 0) await tx.order.createMany({ data: filas });
+        await tx.importBatch.update({
+          where: { id: lote.id },
+          data: {
+            isCurrent: true, requiresReview: false,
+            sourceUrl: input.sourceUrl === undefined ? lote.sourceUrl : input.sourceUrl || null,
+            coverageComplete: input.coverageComplete ?? lote.coverageComplete,
+            status: validacion.summary.warningRows > 0 ? 'COMPLETED_WITH_WARNINGS' : 'COMPLETED',
+            totalRows: validacion.summary.totalRows, successfulRows: filas.length,
+            warningRows: validacion.summary.warningRows, errorRows: validacion.summary.errorRows,
+            excludedRows: ordenesExcluidasPorDecision, processingFinishedAt: new Date(),
+          },
+        });
 
         // 3. Resúmenes por (proveedor, gestión).
         const combinaciones = new Map<string, { supplierId: string; managementPeriodId: string }>();
@@ -861,6 +887,11 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
           });
         }
 
+        for (const par of paresAnteriores) {
+          if (par.managementPeriodId) combinaciones.set(`${par.supplierId}|${par.managementPeriodId}`, {
+            supplierId: par.supplierId, managementPeriodId: par.managementPeriodId,
+          });
+        }
         for (const combo of combinaciones.values()) {
           await recalcularResumenGestion(tx, combo.supplierId, combo.managementPeriodId);
         }
@@ -880,7 +911,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             checksum: lote.checksum,
             totalRows: validacion.summary.totalRows,
             insertedOrders: filasAInsertar.length,
-            skippedDuplicates: filas.length - filasAInsertar.length,
+            skippedDuplicates: 0,
+            supersededBatches: idsAnteriores,
             excludedByAdmin: ordenesExcluidasPorDecision,
             errorRows: validacion.summary.errorRows,
             warningRows: validacion.summary.warningRows,
@@ -898,17 +930,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     const huboAdvertencias = validacion.summary.warningRows > 0;
     const estadoFinal = huboAdvertencias ? 'COMPLETED_WITH_WARNINGS' : 'COMPLETED';
 
-    await prisma.importBatch.update({
-      where: { id: lote.id },
-      data: {
-        status: estadoFinal,
-        totalRows: validacion.summary.totalRows,
-        successfulRows: validacion.summary.successfulRows,
-        warningRows: validacion.summary.warningRows,
-        errorRows: validacion.summary.errorRows,
-        processingFinishedAt: new Date(),
-      },
-    });
+
 
     return {
       importBatchId: lote.id,

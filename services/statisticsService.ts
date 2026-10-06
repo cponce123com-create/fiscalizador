@@ -73,30 +73,30 @@ export async function resumenGeneral(): Promise<ResumenGeneral> {
     periodos,
     gestiones,
   ] = await Promise.all([
-    prisma.order.count(),
-    prisma.order.count({ where: { isCancelled: true } }),
-    prisma.supplier.count(),
-    prisma.supplier.count({ where: { rucPrefix: '10' } }),
-    prisma.supplier.count({ where: { rucPrefix: '20' } }),
-    prisma.order.aggregate({ _sum: { amount: true } }),
-    prisma.order.aggregate({ where: { isCancelled: true }, _sum: { amount: true } }),
+    prisma.order.count({ where: { importBatch: { isCurrent: true } } }),
+    prisma.order.count({ where: { isCancelled: true, importBatch: { isCurrent: true } } }),
+    prisma.supplier.count({ where: { orders: { some: { importBatch: { isCurrent: true } } } } }),
+    prisma.supplier.count({ where: { rucPrefix: '10', orders: { some: { importBatch: { isCurrent: true } } } } }),
+    prisma.supplier.count({ where: { rucPrefix: '20', orders: { some: { importBatch: { isCurrent: true } } } } }),
+    prisma.order.aggregate({ where: { importBatch: { isCurrent: true } }, _sum: { amount: true } }),
+    prisma.order.aggregate({ where: { isCancelled: true, importBatch: { isCurrent: true } }, _sum: { amount: true } }),
     // El monto considerado excluye las anuladas Y los estados que el catálogo marca
     // como que no cuentan económicamente.
     prisma.order.aggregate({
-      where: { isCancelled: false, status: { countsEconomically: true } },
+      where: { isCancelled: false, status: { countsEconomically: true }, importBatch: { isCurrent: true } },
       _sum: { amount: true },
     }),
     // Cobertura temporal: determina si los gráficos de evolución tienen sentido.
     prisma.$queryRaw<Array<{ meses: bigint; anios: bigint; primero: string | null; ultimo: string | null }>>`
       SELECT
-        COUNT(DISTINCT to_char("issueDate", 'YYYY-MM')) AS meses,
-        COUNT(DISTINCT to_char("issueDate", 'YYYY'))    AS anios,
-        MIN(to_char("issueDate", 'YYYY-MM'))            AS primero,
-        MAX(to_char("issueDate", 'YYYY-MM'))            AS ultimo
-      FROM "Order"
-      WHERE "issueDate" IS NOT NULL
+        COUNT(DISTINCT (year, month)) AS meses,
+        COUNT(DISTINCT year)    AS anios,
+        MIN(year::text || '-' || lpad(month::text, 2, '0'))            AS primero,
+        MAX(year::text || '-' || lpad(month::text, 2, '0'))            AS ultimo
+      FROM "ImportBatch"
+      WHERE "isCurrent" = true
     `,
-    prisma.supplierManagementSummary.groupBy({ by: ['managementPeriodId'] }),
+    prisma.supplierManagementSummary.groupBy({ by: ['managementPeriodId'], where: { orderCount: { gt: 0 } } }),
   ]);
 
   const cobertura = periodos[0];
@@ -172,7 +172,7 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
         SUM(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true)) OVER (),
         0
       )::text AS total_considerado
-    FROM "Order" o
+    FROM "CurrentOrder" o
     JOIN "Supplier" s ON s.id = o."supplierId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY s.id, s.ruc, s.name, s.slug
@@ -227,7 +227,7 @@ async function seriePorPeriodo(formato: 'YYYY-MM' | 'YYYY'): Promise<PuntoEvoluc
         SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
         0
       )::text AS considerado
-    FROM "Order" o
+    FROM "CurrentOrder" o
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     WHERE o."issueDate" IS NOT NULL
     GROUP BY 1
@@ -274,7 +274,7 @@ export async function gastoPorGestion(): Promise<FilaGestion[]> {
         0
       )::text AS considerado
     FROM "ManagementPeriod" g
-    LEFT JOIN "Order" o ON o."managementPeriodId" = g.id
+    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY g.name
     ORDER BY g.name
@@ -327,6 +327,7 @@ export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
       registrado: string;
       anulado: string;
       considerado: string;
+      promedio: string;
     }>
   >`
     SELECT
@@ -339,9 +340,10 @@ export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
       COALESCE(
         SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
         0
-      )::text AS considerado
+      )::text AS considerado,
+      COALESCE(AVG(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS promedio
     FROM "ManagementPeriod" g
-    LEFT JOIN "Order" o ON o."managementPeriodId" = g.id
+    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY g.name
     ORDER BY g.name
@@ -364,7 +366,7 @@ export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
       anulado: aDecimal2(fila.anulado),
       considerado,
       peso: porcentaje(Number(considerado), total),
-      ticketMedio: ordenes > 0 ? (Number(considerado) / ordenes).toFixed(2) : '0.00',
+      ticketMedio: aDecimal2(fila.promedio),
     };
   });
 }
@@ -418,7 +420,7 @@ export async function concentracionGasto(): Promise<ConcentracionGasto> {
           0
         ) AS considerado
       FROM "Supplier" s
-      LEFT JOIN "Order" o ON o."supplierId" = s.id
+      JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       GROUP BY s.id
     ),
@@ -489,7 +491,7 @@ export async function tiposContratacion(limite = 8): Promise<FilaContratacion[]>
         SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
         0
       )::text AS considerado
-    FROM "Order" o
+    FROM "CurrentOrder" o
     LEFT JOIN "ContractType" c ON c.id = o."contractTypeId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY 1
@@ -530,7 +532,7 @@ export async function repartoPorTipoOrden(): Promise<FilaTipoOrden[]> {
         SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
         0
       )::text AS considerado
-    FROM "Order" o
+    FROM "CurrentOrder" o
     LEFT JOIN "OrderType" t ON t.id = o."orderTypeId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY 1, 2
@@ -564,6 +566,7 @@ export type FilaUltimoRegistro = {
 
 export async function ultimosRegistros(limite = 8): Promise<FilaUltimoRegistro[]> {
   const ordenes = await prisma.order.findMany({
+    where: { importBatch: { isCurrent: true } },
     orderBy: [{ issueDate: 'desc' }, { sourceRow: 'asc' }],
     take: limite,
     select: {
@@ -645,7 +648,7 @@ export type ResultadoPaginado<T> = {
 export async function aniosDisponibles(): Promise<number[]> {
   const filas = await prisma.$queryRaw<Array<{ anio: string }>>`
     SELECT DISTINCT to_char("issueDate", 'YYYY') AS anio
-    FROM "Order"
+    FROM "CurrentOrder"
     WHERE "issueDate" IS NOT NULL
     ORDER BY 1 DESC
   `;
@@ -661,7 +664,7 @@ export async function aniosDisponibles(): Promise<number[]> {
  * pisa a los demás filtros.
  */
 async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
-  const condiciones: Prisma.OrderWhereInput[] = [];
+  const condiciones: Prisma.OrderWhereInput[] = [{ importBatch: { isCurrent: true } }];
 
   const rango = rangoDeFechas(filtros);
   if (rango) {
@@ -874,8 +877,8 @@ export async function listarProveedores(
 
   const [conteo, filas] = await Promise.all([
     prisma.$queryRaw<Array<{ n: number }>>`
-      SELECT COUNT(*)::int AS n
-      FROM "Supplier" s
+      SELECT COUNT(DISTINCT s.id)::int AS n
+      FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
       WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
     `,
@@ -906,7 +909,7 @@ export async function listarProveedores(
         to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
         to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima
       FROM "Supplier" s
-      LEFT JOIN "Order" o ON o."supplierId" = s.id
+      JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
@@ -999,7 +1002,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
         )::text AS considerado,
         to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
         to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE o."supplierId" = ${proveedor.id}
     `,
@@ -1011,7 +1014,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         )::text AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       JOIN "ManagementPeriod" g ON g.id = o."managementPeriodId"
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE o."supplierId" = ${proveedor.id}
@@ -1026,7 +1029,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         )::text AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
       GROUP BY 1
@@ -1040,7 +1043,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         )::text AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
       GROUP BY 1
@@ -1113,10 +1116,11 @@ export async function rankingCompleto(
 
   const [conteo, filas] = await Promise.all([
     prisma.$queryRaw<Array<{ n: number }>>`
-      SELECT COUNT(*)::int AS n
-      FROM "Supplier" s
+      SELECT COUNT(DISTINCT s.id)::int AS n
+      FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
       WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+        AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
     `,
     prisma.$queryRaw<
       Array<{
@@ -1150,7 +1154,7 @@ export async function rankingCompleto(
           0
         )::text AS total_considerado
       FROM "Supplier" s
-      JOIN "Order" o ON o."supplierId" = s.id
+      JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
@@ -1252,7 +1256,7 @@ export async function proveedoresMultiGestion(
             SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
             0
           ) AS considerado
-        FROM "Order" o
+        FROM "CurrentOrder" o
         LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
         WHERE o."managementPeriodId" IS NOT NULL
         GROUP BY o."supplierId", o."managementPeriodId"
@@ -1268,7 +1272,7 @@ export async function proveedoresMultiGestion(
         COUNT(*)::int AS total
       FROM (
         SELECT o."supplierId", COUNT(DISTINCT o."managementPeriodId") AS gestiones
-        FROM "Order" o
+        FROM "CurrentOrder" o
         WHERE o."managementPeriodId" IS NOT NULL
         GROUP BY o."supplierId"
       ) x

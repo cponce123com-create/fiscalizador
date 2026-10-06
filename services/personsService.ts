@@ -340,7 +340,7 @@ export async function proveedoresVinculados(personaId: string): Promise<Proveedo
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         ) AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       GROUP BY o."supplierId"
     )
@@ -401,7 +401,7 @@ export async function vinculosPorEtiqueta(
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         ) AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       GROUP BY o."supplierId"
     ),
@@ -418,7 +418,7 @@ export async function vinculosPorEtiqueta(
       FROM "PersonSupplierLink" l
       JOIN "Person" p ON p.id = l."personId"
       JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
-      WHERE ${soloPublicas} = false OR p."isPublic" = true
+      WHERE ${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)
     ),
     resumen AS (
       SELECT
@@ -478,7 +478,7 @@ export async function resumenVinculos(
           SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
           0
         ) AS considerado
-      FROM "Order" o
+      FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       GROUP BY o."supplierId"
     ),
@@ -491,7 +491,7 @@ export async function resumenVinculos(
       SELECT l."personId" AS "personId", l."supplierId" AS "supplierId"
       FROM "PersonSupplierLink" l
       JOIN "Person" p ON p.id = l."personId"
-      WHERE ${soloPublicas} = false OR p."isPublic" = true
+      WHERE ${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)
     )
     SELECT
       (SELECT COUNT(DISTINCT "personId") FROM vinculos)::int AS personas,
@@ -531,7 +531,7 @@ async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean): Pr
           SELECT 1 FROM "Supplier" s
           WHERE s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
         )
-        OR EXISTS (SELECT 1 FROM "PersonSupplierLink" l WHERE l."personId" = p.id)
+        OR EXISTS (SELECT 1 FROM "PersonSupplierLink" l WHERE l."personId" = p.id AND (${soloPublicas} = false OR (l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)))
       )
   `;
 
@@ -577,7 +577,7 @@ export async function detalleDeEtiqueta(
             SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
             0
           ) AS considerado
-        FROM "Order" o
+        FROM "CurrentOrder" o
         LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
         GROUP BY o."supplierId"
       ),
@@ -592,7 +592,7 @@ export async function detalleDeEtiqueta(
         FROM "PersonSupplierLink" l
         JOIN "Person" p ON p.id = l."personId"
         JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
-        WHERE pt."tagId" = ${tagId} AND (${soloPublicas} = false OR p."isPublic" = true)
+        WHERE pt."tagId" = ${tagId} AND (${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL))
       )
       SELECT
         s.id AS "supplierId",
@@ -844,7 +844,7 @@ export async function actualizarPersona(
 
   const existente = await prisma.person.findUnique({
     where: { id },
-    select: { dni: true, fullName: true, isPublic: true, verifiedAt: true },
+    select: { dni: true, fullName: true, isPublic: true, verifiedAt: true, description: true, source: true, sourceUrl: true },
   });
   if (!existente) throw new NoEncontrado(`No existe la persona ${id}.`);
 
@@ -869,9 +869,8 @@ export async function actualizarPersona(
         description: datos.description,
         source: datos.source,
         sourceUrl: datos.sourceUrl === '' ? null : datos.sourceUrl,
-        // La fecha se vuelve a sellar solo cuando la ficha PASA a publicarse: corregir
-        // una falta de ortografía no puede borrar cuándo se verificó la fuente.
-        verifiedAt: datos.isPublic && !existente.isPublic ? new Date() : existente.verifiedAt,
+        // La revisión editorial se renueva al publicar o cambiar la afirmación/evidencia.
+        verifiedAt: !datos.isPublic ? null : !existente.isPublic || existente.description !== datos.description || existente.source !== datos.source || (existente.sourceUrl ?? "") !== datos.sourceUrl ? new Date() : existente.verifiedAt,
         isPublic: datos.isPublic,
         // Las etiquetas se reemplazan enteras: es lo que el formulario envía.
         tags: { deleteMany: {}, create: datos.tagIds.map((tagId) => ({ tagId })) },
@@ -1069,10 +1068,21 @@ export async function eliminarEtiqueta(id: string, accion: ContextoAccion): Prom
 }
 
 export async function vincularProveedor(
-  entrada: { personId: string; ruc: string; note: string | null },
+  entrada: { personId: string; ruc: string; note: string | null; sourceUrl?: string; validFrom?: string; validUntil?: string },
   accion: ContextoAccion,
 ): Promise<{ id: string }> {
   const ruc = entrada.ruc.trim().replace(/[^0-9]/g, '');
+  const sourceUrl = entrada.sourceUrl?.trim() || '';
+  if (!URL_HTTP.test(sourceUrl) || sourceUrl.length > 500 || (entrada.note?.trim().length ?? 0) < 12) throw new ErrorDeNegocio('Documenta el vínculo con una descripción de al menos 12 caracteres y una URL http(s).');
+  const fecha = (v: string | undefined): Date | null => {
+    if (!v) return null;
+    const d = new Date(v);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(d.getTime()) || d.toISOString().slice(0,10)!==v) throw new ErrorDeNegocio('Fecha de vigencia inválida.');
+    return d;
+  };
+  const validFrom=fecha(entrada.validFrom),validUntil=fecha(entrada.validUntil);
+  if (validFrom && validUntil && validUntil < validFrom) throw new ErrorDeNegocio('El fin de vigencia debe ser posterior al inicio.');
+
 
   const [persona, proveedor] = await Promise.all([
     prisma.person.findUnique({ where: { id: entrada.personId }, select: { id: true } }),
@@ -1102,6 +1112,7 @@ export async function vincularProveedor(
         personId: persona.id,
         supplierId: proveedor.id,
         note: entrada.note?.trim() || null,
+        sourceUrl, validFrom, validUntil, verifiedAt: new Date(),
         createdById: accion.userId,
       },
       select: { id: true },

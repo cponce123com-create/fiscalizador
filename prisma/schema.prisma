@@ -307,6 +307,14 @@ model ImportBatch {
   checksum         String
   status           ImportStatus @default(UPLOADED)
 
+  /// Solo esta instantánea participa en las cifras públicas.
+  isCurrent Boolean @default(false)
+  requiresReview Boolean @default(false)
+  coverageComplete Boolean @default(false)
+  sourceUrl String?
+  sheetName String?
+  excludedRows Int @default(0)
+
   totalRows      Int @default(0)
   successfulRows Int @default(0)
   warningRows    Int @default(0)
@@ -339,6 +347,7 @@ model ImportBatch {
   @@unique([year, month, importType, version])
   @@index([period])
   @@index([status])
+  @@index([isCurrent, year, month])
   @@index([checksum])
   @@index([uploadedById])
 }
@@ -646,6 +655,11 @@ model PersonSupplierLink {
   supplierId String
   /// Por qué se vincula, si hace falta precisarlo.
   note       String?
+  /// Evidencia del vínculo concreto, independiente de la ficha personal.
+  sourceUrl String?
+  validFrom DateTime? @db.Date
+  validUntil DateTime? @db.Date
+  verifiedAt DateTime?
 
   createdById String?
   createdAt   DateTime @default(now())

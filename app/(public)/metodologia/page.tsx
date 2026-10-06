@@ -97,7 +97,7 @@ export default function PaginaMetodologia() {
       <Seccion titulo="Por qué una orden anulada no suma" icono={<Info className="h-5 w-5" aria-hidden="true" />}>
         <p>
           Cada orden tiene un estado. El sistema no deduce nada del texto: los estados están en un
-          catálogo que indica, para cada uno, si <strong>genera gasto</strong> y si corresponde a
+          catálogo que indica, para cada uno, si <strong>se incluye en el análisis</strong> y si corresponde a
           una <strong>anulación</strong>.
         </p>
         <p>De ahí salen las dos cifras principales del portal:</p>
@@ -108,7 +108,7 @@ export default function PaginaMetodologia() {
           </li>
           <li>
             <strong>Monto considerado:</strong> excluye las órdenes anuladas y las que están en
-            estados que no generan gasto. Es la cifra que responde a «cuánto se gastó de verdad».
+            estados excluidos del análisis. Es el monto de órdenes incluido en este análisis; no acredita pagos realizados ni representa el presupuesto municipal.
           </li>
         </ul>
         <p>
@@ -142,7 +142,7 @@ export default function PaginaMetodologia() {
       <Seccion titulo="Versionado y trazabilidad" icono={<ShieldCheck className="h-5 w-5" aria-hidden="true" />}>
         <p>
           Importar un periodo que ya estaba cargado <strong>no borra</strong> lo anterior: crea
-          una versión nueva y conserva la anterior. El sistema avisa antes de hacerlo y exige
+          una instantánea completa nueva y conserva la anterior como historial. Solo la versión vigente se suma. Los periodos antiguos con versiones ambiguas requieren revisión. El sistema avisa antes de hacerlo y exige
           confirmación explícita.
         </p>
         <p>
@@ -159,7 +159,7 @@ export default function PaginaMetodologia() {
           totales.
         </p>
         <p>
-          La cobertura de datos se indica siempre en la portada. Si solo hay un mes cargado, se
+          Las órdenes no acreditan transferencias, pagos, avance físico ni el presupuesto total. En Fuentes y cobertura se distinguen libros completos declarados, pendientes de revisión y ausentes. Las comparaciones entre gestiones con distinta cobertura no permiten concluir qué gestión gastó más. La cobertura de datos se indica en la portada. Si solo hay un mes cargado, se
           dice; no se disimula con gráficos vacíos ni se rellenan los huecos con ceros.
         </p>
       </Seccion>

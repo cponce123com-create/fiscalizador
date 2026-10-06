@@ -339,12 +339,14 @@ export function inferSupplierType(ruc: string): SupplierTypeValue {
  */
 export function buildDedupeKey(partes: {
   orderNumber: string;
+  orderType?: string | null;
   ruc: string;
   amount: string | null;
   issueDate: Date | null;
 }): string {
   const fecha = partes.issueDate ? partes.issueDate.toISOString().slice(0, 10) : '';
   return [
+    normalizeKey(partes.orderType ?? ''),
     normalizeKey(partes.orderNumber),
     partes.ruc,
     partes.amount ?? '',

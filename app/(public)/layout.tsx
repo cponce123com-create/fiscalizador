@@ -20,10 +20,10 @@ export default function LayoutPublico({ children }: { children: React.ReactNode 
               <Landmark className="mt-0.5 h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
               <span className="flex flex-col">
                 <span className="text-base font-semibold leading-tight">
-                  Portal de Transparencia
+                  Vigilancia ciudadana independiente
                 </span>
                 <span className="text-sm text-muted-foreground">
-                  Órdenes de compra y de servicio
+                  {process.env.NEXT_PUBLIC_MUNICIPALIDAD?.trim() || 'Municipalidad pendiente de identificar'} · Órdenes registradas
                 </span>
               </span>
             </Link>
@@ -45,7 +45,7 @@ export default function LayoutPublico({ children }: { children: React.ReactNode 
       <footer className="border-t border-border bg-card">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-2 px-4 py-6 text-xs text-muted-foreground sm:px-6">
           <p>
-            Datos obtenidos de los libros mensuales del Portal de Transparencia. Cada registro
+            Datos obtenidos de los libros mensuales del Vigilancia ciudadana independiente. Cada registro
             conserva el contenido original del archivo del que procede.
           </p>
           <p>

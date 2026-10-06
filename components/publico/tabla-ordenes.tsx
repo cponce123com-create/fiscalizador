@@ -72,7 +72,7 @@ export function TablaOrdenes({
               </td>
 
               <td className="px-3 py-2.5">
-                <span className="font-medium">{orden.orderNumber}</span>
+                <Link href={`/ordenes/${orden.id}`} className="font-medium underline underline-offset-2">{orden.orderNumber}</Link>
                 {orden.tipo ? (
                   <span className="ml-2 text-xs text-muted-foreground">{orden.tipo}</span>
                 ) : null}
@@ -105,7 +105,7 @@ export function TablaOrdenes({
                 {orden.isCancelled ? (
                   <Insignia tono="error">{orden.estado ?? 'Anulada'} · no suma</Insignia>
                 ) : (
-                  <Insignia tono="exito">{orden.estado ?? '—'}</Insignia>
+                  <Insignia tono="neutro">{orden.estado ?? '—'}</Insignia>
                 )}
               </td>
 

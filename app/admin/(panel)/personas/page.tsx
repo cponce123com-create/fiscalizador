@@ -444,10 +444,12 @@ export default async function PaginaPersonas({
                       />
                     </GrupoCampo>
 
-                    <GrupoCampo etiqueta="Nota (opcional)" htmlFor="vinculo-nota">
+                    <GrupoCampo etiqueta="Descripción documentada del vínculo" htmlFor="vinculo-nota" obligatorio>
                       <Campo
                         id="vinculo-nota"
                         name="note"
+                        required
+                        minLength={12}
                         maxLength={500}
                         placeholder="Titular de la empresa"
                         className="w-64"
@@ -455,6 +457,9 @@ export default async function PaginaPersonas({
                     </GrupoCampo>
                   </div>
 
+                  <GrupoCampo etiqueta="URL de evidencia del vínculo" htmlFor="linkSourceUrl" obligatorio><Campo id="linkSourceUrl" name="linkSourceUrl" type="url" required maxLength={500} /></GrupoCampo>
+                  <GrupoCampo etiqueta="Vigencia desde (si está documentada)" htmlFor="validFrom"><Campo id="validFrom" name="validFrom" type="date" /></GrupoCampo>
+                  <GrupoCampo etiqueta="Vigencia hasta (si está documentada)" htmlFor="validUntil"><Campo id="validUntil" name="validUntil" type="date" /></GrupoCampo>
                   <datalist id="proveedores-sugeridos">
                     {proveedores.map((proveedor) => (
                       <option key={proveedor.ruc} value={proveedor.ruc}>
