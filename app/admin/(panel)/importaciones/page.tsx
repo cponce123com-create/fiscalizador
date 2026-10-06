@@ -7,6 +7,9 @@ import { FormularioAccion } from '@/components/admin/formulario-accion';
 import { Aviso, EstadoVacio, Insignia, Tabla, TablaCelda, TablaCeldaEncabezado, TablaCuerpo, TablaEncabezado, TablaFila } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
+// Excepción deliberada a la arquitectura por capas: esta página de solo lectura consulta
+// Prisma directamente. Son consultas de presentación (listar y contar lotes), sin reglas
+// de negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
 import { prisma } from '@/lib/prisma';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,

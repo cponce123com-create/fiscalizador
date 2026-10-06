@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { TarjetaCifra, Tarjeta, TarjetaContenido, TarjetaEncabezado, TarjetaTitulo } from '@/components/ui/card';
 import { Insignia } from '@/components/ui/data';
 import { usuarioActual } from '@/lib/auth/session';
+// Excepción deliberada a la arquitectura por capas: este panel de solo lectura consulta
+// Prisma directamente. Son consultas de presentación (contar y sumar), sin reglas de
+// negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
 import { prisma } from '@/lib/prisma';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,

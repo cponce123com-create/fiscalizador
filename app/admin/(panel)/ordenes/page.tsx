@@ -18,6 +18,9 @@ import { Campo, Etiqueta, Selector } from '@/components/ui/form';
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
+// Excepción deliberada a la arquitectura por capas: esta página de solo lectura consulta
+// Prisma directamente. Son consultas de presentación (contar, listar y sumar), sin reglas
+// de negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
 import { prisma } from '@/lib/prisma';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 
