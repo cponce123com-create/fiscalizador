@@ -127,3 +127,31 @@ alta otra vez.
 > Se ejecuta desde un entorno de confianza con acceso a `DATABASE_URL`, **nunca desde el
 > panel**: si el panel pudiera hacerlo, a quien le robaran una sesión le bastaría con
 > quitarse el segundo factor.
+
+---
+
+## 6. Forzar el cambio de contraseña de una cuenta
+
+Se usa cuando una contraseña la ha conocido alguien más que su dueño: la del seed (viaja
+en claro en `SEED_SUPERADMIN_PASSWORD`), las que restablece un administrador, y las
+cuentas que ya existían antes de que esto se implementara.
+
+La cuenta sigue entrando con su contraseña actual —hace falta para poder cambiarla— pero
+el panel no se abre: el layout la manda a `/admin/cambiar-contrasena`.
+
+```bash
+npm run usuarios -- --email <correo> --exigir-cambio
+```
+
+El script marca la cuenta **solo** cuando la crea o cuando le pone una contraseña nueva.
+Reejecutarlo sin contraseña no toca la marca, y el seed tampoco: reejecutar el seed no
+debe resetear ni la contraseña ni la marca de una cuenta en activo.
+
+Orden de las obligaciones al entrar: primero la contraseña y después el alta del segundo
+factor. Mientras la contraseña sea la que se compartió, lo urgente es esa.
+
+Si hay que levantar la marca sin pasar por la web (por ejemplo, para desbloquear a alguien
+con prisa), `npm run db:studio` y desmarcar la casilla de esa cuenta.
+
+> Ojo: al levantar la marca a mano, la contraseña sigue siendo la que se compartió. Es una
+> salida de emergencia, no una alternativa al cambio.

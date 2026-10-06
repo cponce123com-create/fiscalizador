@@ -67,7 +67,7 @@ scrapers/
 
 **El núcleo no tiene dependencias.** Validación de RUC, lectura de importes y fechas,
 parseo de HTML y de tablas, normalización y configuración usan solo la biblioteca
-estándar. Eso permite ejecutar las 80 pruebas sin instalar nada y, sobre todo, que la
+estándar. Eso permite ejecutar las 135 pruebas sin instalar nada y, sobre todo, que la
 parte donde de verdad se decide si el dato es correcto no dependa de terceros.
 
 Los adaptadores (red, navegador, captcha, Excel, S3) importan sus dependencias **dentro

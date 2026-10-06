@@ -22,6 +22,8 @@ export type UsuarioActual = {
   role: Role;
   /** Hace falta para exigir el alta de 2FA antes de dejar usar el panel. */
   twoFactorEnabled: boolean;
+  /** Hace falta para exigir el cambio de contraseña antes de dejar usar el panel. */
+  mustChangePassword: boolean;
 };
 
 /** No hay sesión, o la cuenta ya no es válida. */
@@ -60,6 +62,7 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
       role: true,
       isActive: true,
       twoFactorEnabled: true,
+      mustChangePassword: true,
     },
   });
 
@@ -71,6 +74,7 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
     name: usuario.name,
     role: usuario.role as Role,
     twoFactorEnabled: usuario.twoFactorEnabled,
+    mustChangePassword: usuario.mustChangePassword,
   };
 }
 

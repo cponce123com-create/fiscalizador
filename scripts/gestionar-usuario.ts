@@ -21,6 +21,7 @@ import { desactivar as desactivarSegundoFactor } from '../services/twoFactorServ
  *   npm run usuarios -- --email alguien@entidad.gob.pe --desactivar
  *   npm run usuarios -- --email prueba@example.com --eliminar
  *   npm run usuarios -- --email admin@example.com --reset-2fa
+ *   npm run usuarios -- --email admin@example.com --exigir-cambio
  *
  * La contraseña se lee de la variable de entorno `NUEVA_PASSWORD` y no de un
  * argumento, para que no quede en el historial del shell ni en la lista de
@@ -33,6 +34,7 @@ type Argumentos = {
   email: string;
   password: string | null;
   passwordPorArgumento: boolean;
+  exigirCambio: boolean;
   rol: Role | null;
   nombre: string | null;
   crear: boolean;
@@ -94,6 +96,7 @@ function analizarArgumentos(argv: readonly string[]): Argumentos {
     desactivar: argv.includes('--desactivar'),
     eliminar: argv.includes('--eliminar'),
     reset2fa: argv.includes('--reset-2fa'),
+    exigirCambio: argv.includes('--exigir-cambio'),
   };
 }
 
@@ -190,6 +193,27 @@ async function main(): Promise<void> {
     return;
   }
 
+  // --- Exigir el cambio sin tocar la contraseña ------------------------------
+  //
+  // Para la cuenta que ya existe y cuya contraseña se compartió en claro: hay que
+  // forzar el cambio, pero sin inventarle una nueva, que también habría que
+  // comunicar y tendría el mismo problema.
+  if (args.exigirCambio) {
+    if (!existente) throw new Error(`No existe la cuenta ${args.email}.`);
+
+    await prisma.user.update({
+      where: { id: existente.id },
+      data: { mustChangePassword: true },
+    });
+
+    console.log('');
+    console.log('Cambio de contraseña exigido: ' + existente.email);
+    console.log('Su contraseña actual sigue sirviendo para entrar y cambiarla,');
+    console.log('pero el panel no se abre hasta que la cambie.');
+    console.log('');
+    return;
+  }
+
   if (!args.password) {
     const ejemplo = `NUEVA_PASSWORD="..." npm run usuarios -- --email ${args.email}`;
 
@@ -224,6 +248,9 @@ async function main(): Promise<void> {
         passwordHash,
         role: args.rol ?? 'VIEWER',
         isActive: true,
+        // La contraseña la ha tecleado quien ejecuta el script, así que la conoce
+        // alguien más que su dueño: la cuenta nace obligada a cambiarla.
+        mustChangePassword: true,
       },
       select: { email: true, role: true },
     });
@@ -232,14 +259,23 @@ async function main(): Promise<void> {
     console.log('Cuenta creada.');
     console.log('  correo : ' + creado.email);
     console.log('  rol    : ' + creado.role);
+    console.log('  al entrar, la cuenta tendrá que cambiar la contraseña.');
     console.log('');
     return;
   }
 
   // --- Actualizar -----------------------------------------------------------
-  const cambios: { passwordHash: string; role?: Role; name?: string; isActive?: boolean } = {
+  const cambios: {
+    passwordHash: string;
+    role?: Role;
+    name?: string;
+    isActive?: boolean;
+    mustChangePassword?: boolean;
+  } = {
     passwordHash,
     isActive: true,
+    // Igual que al crear: la contraseña la conoce quien la ha tecleado aquí.
+    mustChangePassword: true,
   };
   if (args.rol) cambios.role = args.rol;
   if (args.nombre) cambios.name = args.nombre;
@@ -255,7 +291,7 @@ async function main(): Promise<void> {
   console.log('  correo           : ' + existente.email);
   console.log('  rol anterior     : ' + existente.role);
   console.log('  rol actual       : ' + (args.rol ?? existente.role));
-  console.log('  contraseña       : cambiada');
+  console.log('  contraseña       : cambiada (la cuenta deberá cambiarla al entrar)');
   console.log('  sesiones cerradas: ' + cerradas.count);
   console.log('');
 }

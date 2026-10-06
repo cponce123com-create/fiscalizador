@@ -21,14 +21,20 @@ declarados).
 importador en dos fases con validación y normalización, **carga por lotes de varios
 libros con el periodo deducido del contenido** y **detección de duplicados por
 contenido** (reimportar un libro ya no duplica sus órdenes), auditoría, panel de
-administración, listados públicos paginados y filtrados en servidor, perfil de
-proveedor, ranking con pesos, historial por gestiones, estadísticas comparadas con
-concentración del gasto, **registro de personas señaladas con etiquetas y vínculos
-deducidos del DNI**, gráficos y pruebas automatizadas.
+administración, **acceso con verificación en dos pasos y cambio obligatorio de la
+contraseña inicial**, listados públicos paginados y filtrados en servidor, perfil
+de proveedor, ranking con pesos, historial por gestiones, estadísticas comparadas
+con concentración del gasto, **registro de personas señaladas con etiquetas y
+vínculos deducidos del DNI**, gráficos y pruebas automatizadas.
 
 **Pendiente (fases posteriores):** fotografías de proveedores en Cloudinary,
-auditoría visible en el panel, SEO, asistente con IA, optimización fina y
-despliegue.
+auditoría visible en el panel y optimización fina. El asistente con IA queda fuera
+de alcance por decisión expresa.
+
+> El SEO y el despliegue **ya están hechos**, no pendientes: hay `robots.txt`,
+> `sitemap.xml`, metadatos por página y un despliegue en Render con health check
+> (ver `docs/operacion.md`). Esta lista decía lo contrario y una auditoría externa
+> lo dio por bueno, así que se corrige aquí.
 
 Documentación relacionada:
 
@@ -428,6 +434,12 @@ portal vacío, el orden es `npm run verify` (carga el libro de referencia) y des
 
 1. **Rotar la contraseña de la base de datos.** La credencial de Neon se compartió en
    claro durante la configuración.
+
+   Lo mismo vale para la contraseña del superadministrador, que también se compartió
+   en claro. Con `--exigir-cambio` se le obliga a cambiarla: la actual sigue sirviendo
+   para entrar y cambiarla, pero el panel no se abre hasta entonces.
+
+       npm run usuarios -- --email <correo> --exigir-cambio
 2. **Almacenamiento persistente.** Con `STORAGE_DRIVER=local` los archivos originales
    se guardan en disco. En Render el disco de un servicio web es **efímero**: los
    archivos se perderían en cada despliegue. Hay que usar un volumen persistente o
