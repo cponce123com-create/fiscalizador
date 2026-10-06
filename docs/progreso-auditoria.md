@@ -257,3 +257,70 @@ De ahí salieron tres observaciones, y una se corrigió:
 Verificado tras el cambio: `typecheck`, `lint`, `npx vitest run` (233 pasan, 74 se saltan) y
 `build`. En producción, la portada y `/estadisticas` responden en menos de un segundo y las
 cabeceras de la tarea 5 están vivas.
+
+---
+
+## Fase 1 de la auditoría integral
+
+Rama `fix/auditoria-integral`. Primer bloque de la auditoría integral: lo que no dependía de
+decisiones de producto ni de infraestructura nueva. La IA quedó descartada por indicación
+expresa.
+
+### CI
+
+- Se añadió `npm run build` al workflow, después de las pruebas. El `env` ficticio del job
+  ya basta: el build no necesita una base viva.
+- Las pruebas se ejecutan ahora con cobertura (`npm run test:coverage`).
+
+### Cobertura
+
+- Dependencia nueva: `@vitest/coverage-v8` (de desarrollo). Es el proveedor de cobertura
+  oficial de Vitest; sin él no existe `--coverage`.
+- **Línea base medida** (241 pruebas): 78,84 % statements · 73,26 % branches · 79,65 %
+  functions · 81,65 % lines.
+- Umbrales fijados ~4 puntos por debajo (75 / 69 / 75 / 77): varias pruebas de integración se
+  saltan cuando la base no tiene datos del portal, así que la cifra cambia entre entornos y
+  un umbral pegado al valor medido haría fallar el CI por ruido.
+- **El objetivo del 80 % NO se cumple** en statements, functions ni branches. Para cerrarlo:
+  pruebas de `catalogService` y `personsService` (hoy dependen de datos del portal),
+  `lib/env.ts` (la ruta de error está sin cubrir) y componentes de React (sin pruebas).
+- Se añadió `services/auditService.test.ts`: `contextoDePeticion` (pura, y de ella dependen
+  la IP del rastro y la clave por IP del limitador) y `registrarAuditoria` contra la base.
+
+### Índices
+
+Medido con `EXPLAIN (ANALYZE)` sobre la base real (4.409 órdenes, 1.011 proveedores):
+
+| Consulta | Plan | Tiempo |
+|---|---|---|
+| Listado ordenado por monto | Seq Scan | 2,2 ms |
+| Anuladas ordenadas por fecha | Index Scan | 4,4 ms |
+| Por estado ordenado por fecha | Index Scan | 0,2 ms |
+
+**No se añade ningún índice**: el orden por monto usa un recorrido secuencial, pero con
+4.409 filas tarda 2,2 ms, así que un índice no aporta nada hoy y sería una adición
+especulativa. Se revisará cuando el volumen crezca (y entonces, con `CREATE INDEX
+CONCURRENTLY` para no bloquear las escrituras).
+
+### SEO
+
+- `app/robots.ts`: permite el portal y veta `/admin` y `/api`.
+- `app/sitemap.ts`: páginas fijas más una entrada por proveedor, con `revalidate` de una hora.
+- `app/layout.tsx`: `metadataBase`, OpenGraph, Twitter y `robots`.
+- Variable nueva `NEXT_PUBLIC_SITE_URL` (no es un secreto): en `render.yaml` y `.env.example`.
+- Las páginas públicas **ya tenían** `metadata` estático, así que no hacía falta
+  `generateMetadata` en las ocho: el hueco real era `robots`, `sitemap` y la base de URLs.
+- **Pendiente**: canónicos por página. Hoy no se emite ninguno y Google usa la URL tal cual;
+  en los listados con filtros (`/ordenes?anio=2023&pagina=2`) hay que decidir si el canónico
+  apunta a la vista sin filtrar. Es una decisión de producto, no un descuido.
+- `NEXT_PUBLIC_SITE_URL` se incrusta **en el build** (es `NEXT_PUBLIC_`), así que tiene que
+  estar definida cuando Render compila. Lo está: va en `render.yaml`.
+
+### Documentación
+
+- `docs/diagramas.md`: secuencia del importador y modelo entidad-relación (Mermaid).
+- `docs/openapi.yaml`: especificación de la API (salud, órdenes e importaciones).
+- `docs/operacion.md`: rotación de credenciales y copias de seguridad/restauración de Neon.
+- Comentarios de arquitectura en las tres páginas que consultan Prisma directamente.
+
+**Pendiente de decisión**: nada nuevo. El 80 % de cobertura queda como objetivo abierto.

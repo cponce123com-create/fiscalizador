@@ -1,0 +1,406 @@
+openapi: 3.1.0
+
+info:
+  title: Portal de Transparencia — API
+  version: 0.1.0
+  description: |
+    API del Portal de Transparencia de órdenes de compra y de servicio.
+
+    Notas de autenticación: la sesión va en una **cookie** que emite Auth.js
+    (`/api/auth/*`). No hay tokens de API. Todos los endpoints salvo `/api/health`
+    exigen sesión, y los de administración exigen además el permiso correspondiente.
+
+    Los errores comparten forma (`Error`): el código HTTP lo determina el tipo de error
+    de dominio, nunca el mensaje.
+
+servers:
+  - url: https://fiscalizador.onrender.com
+    description: Producción (Render)
+  - url: http://localhost:3000
+    description: Desarrollo
+
+tags:
+  - name: salud
+  - name: órdenes
+  - name: importaciones
+
+paths:
+  /api/health:
+    get:
+      tags: [salud]
+      summary: Estado del servicio
+      description: |
+        Comprueba de verdad la base de datos. Lo usa el health check de Render: si la
+        base no responde devuelve 503, que Render interpreta como servicio no sano.
+      responses:
+        '200':
+          description: La base responde.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, base]
+                properties:
+                  ok: { type: boolean, const: true }
+                  base: { type: string, const: accesible }
+        '503':
+          description: La base no responde.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, base]
+                properties:
+                  ok: { type: boolean, const: false }
+                  base: { type: string, const: inaccesible }
+
+  /api/orders:
+    get:
+      tags: [órdenes]
+      summary: Consulta de órdenes, paginada y ordenada en el servidor
+      description: |
+        El pliego prohíbe enviar todas las filas al navegador para paginar o sumar
+        allí: la paginación, el conteo y la suma se hacen en PostgreSQL.
+      security:
+        - cookieSesion: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: q
+          in: query
+          description: Búsqueda por número de orden, razón social o RUC.
+          schema: { type: string, maxLength: 100 }
+        - name: statusId
+          in: query
+          schema: { type: string }
+        - name: managementPeriodId
+          in: query
+          schema: { type: string }
+        - name: soloAnuladas
+          in: query
+          schema: { type: boolean }
+        - name: orderBy
+          in: query
+          schema: { type: string, enum: [issueDate, amount, orderNumber], default: issueDate }
+        - name: dir
+          in: query
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Página de órdenes.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RespuestaOrdenes' }
+        '400': { $ref: '#/components/responses/ErrorDeNegocio' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/admin/imports/periodo:
+    post:
+      tags: [importaciones]
+      summary: Deduce el periodo de un libro
+      description: |
+        **No escribe nada**: ni base de datos, ni archivo original. Existe para la carga
+        por lotes, donde la interfaz necesita saber a qué mes corresponde cada archivo
+        antes de analizarlo.
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo]
+              properties:
+                archivo:
+                  type: string
+                  format: binary
+                  description: Libro `.xls`, `.xlsx` o `.csv`. Máximo 25 MB.
+      responses:
+        '200':
+          description: Periodo deducido.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PeriodoDetectado' }
+        '400': { $ref: '#/components/responses/ErrorDeNegocio' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/admin/imports/analyze:
+    post:
+      tags: [importaciones]
+      summary: Fase 1 — analizar el libro
+      description: |
+        Lee el archivo, detecta las columnas, valida las filas y crea el lote en
+        `VALIDATING`. **No inserta ninguna orden**: eso ocurre al confirmar.
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [archivo, year, month, importType]
+              properties:
+                archivo: { type: string, format: binary }
+                year: { type: integer, minimum: 2000, maximum: 2100 }
+                month: { type: integer, minimum: 1, maximum: 12 }
+                importType:
+                  type: string
+                  enum: [ORDENES_COMPRA, ORDENES_SERVICIO, CONSOLIDADO]
+      responses:
+        '201':
+          description: Análisis listo para revisar.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalizarResult' }
+        '400': { $ref: '#/components/responses/ErrorDeNegocio' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+
+  /api/admin/imports/confirm:
+    post:
+      tags: [importaciones]
+      summary: Fase 2 — confirmar e importar
+      description: |
+        Relee el archivo guardado en el servidor y escribe todo en una única transacción.
+        El cuerpo **no lleva filas**: si el navegador pudiera enviarlas ya normalizadas,
+        podría insertar registros que no existen en el archivo original.
+
+        El paso del lote a `PROCESSING` es una transición atómica: si dos confirmaciones
+        se cruzan, solo una pasa y la otra recibe 409.
+      security:
+        - cookieSesion: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [importBatchId]
+              properties:
+                importBatchId: { type: string }
+                reemplazarPeriodo:
+                  type: boolean
+                  default: false
+                  description: Obligatorio para importar un periodo que ya está cargado.
+                omitirDuplicados: { type: boolean, default: true }
+                filasExcluidas:
+                  type: array
+                  items: { type: integer }
+                  description: Números de fila que el administrador dejó fuera.
+      responses:
+        '200':
+          description: Importación completada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfirmarResult' }
+        '400': { $ref: '#/components/responses/ErrorDeNegocio' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/SinPermiso' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: |
+            El lote ya se está procesando, ya fue importado, o el periodo ya está
+            cargado y no se confirmó el reemplazo.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    cookieSesion:
+      type: apiKey
+      in: cookie
+      name: authjs.session-token
+      description: Cookie de sesión que emite Auth.js.
+
+  responses:
+    ErrorDeNegocio:
+      description: La petición es válida pero la operación no procede.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NoAutenticado:
+      description: Sin sesión.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    SinPermiso:
+      description: Con sesión, pero sin el permiso necesario.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NoEncontrado:
+      description: El recurso no existe.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Mensaje apto para mostrar. Nunca incluye detalles internos.
+
+    RespuestaOrdenes:
+      type: object
+      required: [ordenes, total, pagina, tamanoPagina, totalPaginas, sumaRegistrada]
+      properties:
+        ordenes:
+          type: array
+          items: { $ref: '#/components/schemas/Orden' }
+        total: { type: integer }
+        pagina: { type: integer }
+        tamanoPagina: { type: integer }
+        totalPaginas: { type: integer }
+        sumaRegistrada:
+          type: string
+          description: Suma del monto registrado de la página filtrada, con dos decimales.
+
+    Orden:
+      type: object
+      properties:
+        id: { type: string }
+        orderNumber: { type: string }
+        description: { type: [string, 'null'] }
+        issueDate: { type: [string, 'null'], format: date }
+        commitmentDate: { type: [string, 'null'], format: date }
+        amount: { type: [string, 'null'], description: Decimal con dos decimales. }
+        isCancelled: { type: boolean }
+        ruc: { type: string }
+        siafNumber: { type: [string, 'null'] }
+        sourceRow: { type: [integer, 'null'] }
+        orderType: { $ref: '#/components/schemas/CodigoEtiqueta' }
+        status: { $ref: '#/components/schemas/CodigoEtiqueta' }
+        supplier:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            slug: { type: string }
+        managementPeriod:
+          type: [object, 'null']
+          properties:
+            name: { type: string }
+
+    CodigoEtiqueta:
+      type: [object, 'null']
+      properties:
+        code: { type: string }
+        label: { type: string }
+
+    PeriodoDetectado:
+      type: object
+      required: [periodoSugerido, periodoDelNombre, mesesDetectados, filasLeidas, coincideConElNombre]
+      properties:
+        periodoSugerido:
+          type: [string, 'null']
+          description: Mes con más filas con fecha de emisión legible.
+        periodoDelNombre:
+          type: [string, 'null']
+          description: Periodo que trae el nombre del archivo, si lo trae.
+        mesesDetectados:
+          type: array
+          items:
+            type: object
+            properties:
+              periodo: { type: string, examples: ['2023-06'] }
+              filas: { type: integer }
+        filasLeidas: { type: integer }
+        coincideConElNombre:
+          type: [boolean, 'null']
+          description: null si el nombre no trae periodo o si ninguna fila tiene fecha.
+
+    AnalizarResult:
+      type: object
+      required: [importBatchId, checksum, version, columns, preview, summary, issues]
+      properties:
+        importBatchId: { type: string }
+        checksum: { type: string }
+        sheetName: { type: string }
+        sheetNames: { type: array, items: { type: string } }
+        headerRowIndex: { type: integer }
+        version: { type: integer }
+        columns: { type: array, items: { type: object, additionalProperties: true } }
+        camposFaltantes: { type: array, items: { type: string } }
+        preview: { type: array, items: { $ref: '#/components/schemas/PreviewRow' } }
+        summary: { $ref: '#/components/schemas/ValidationSummary' }
+        issues: { type: array, items: { $ref: '#/components/schemas/ValidationIssue' } }
+        lotesMismoPeriodo: { type: array, items: { $ref: '#/components/schemas/LotePrevio' } }
+        loteMismoChecksum: { $ref: '#/components/schemas/LotePrevio' }
+        duplicadoContenido: { type: object, additionalProperties: true }
+        filasConHallazgos: { type: array, items: { $ref: '#/components/schemas/PreviewRow' } }
+
+    ConfirmarResult:
+      type: object
+      required:
+        - importBatchId
+        - status
+        - ordenesInsertadas
+        - ordenesOmitidasPorDuplicado
+        - ordenesExcluidasPorDecision
+        - proveedoresCreados
+        - proveedoresExistentes
+        - variantesDetectadas
+      properties:
+        importBatchId: { type: string }
+        status: { type: string, enum: [COMPLETED, COMPLETED_WITH_WARNINGS] }
+        ordenesInsertadas: { type: integer }
+        ordenesOmitidasPorDuplicado: { type: integer }
+        ordenesExcluidasPorDecision: { type: integer }
+        proveedoresCreados: { type: integer }
+        proveedoresExistentes: { type: integer }
+        variantesDetectadas: { type: integer }
+        summary: { $ref: '#/components/schemas/ValidationSummary' }
+
+    LotePrevio:
+      type: object
+      properties:
+        id: { type: string }
+        originalFilename: { type: string }
+        period: { type: string }
+        version: { type: integer }
+        status: { type: string }
+        uploadedAt: { type: string, format: date-time }
+        totalRows: { type: integer }
+
+    PreviewRow:
+      type: object
+      properties:
+        sourceRow: { type: integer }
+        orderNumber: { type: string }
+        ruc: { type: [string, 'null'] }
+        supplierName: { type: [string, 'null'] }
+        amount: { type: [string, 'null'] }
+        issueDate: { type: [string, 'null'] }
+        statusRaw: { type: [string, 'null'] }
+        isCancelled: { type: boolean }
+        issues: { type: array, items: { $ref: '#/components/schemas/ValidationIssue' } }
+
+    ValidationSummary:
+      type: object
+      properties:
+        totalRows: { type: integer }
+        successfulRows: { type: integer }
+        warningRows: { type: integer }
+        errorRows: { type: integer }
+
+    ValidationIssue:
+      type: object
+      properties:
+        severity: { type: string, enum: [ERROR, WARNING, INFO] }
+        code: { type: string }
+        message: { type: string }
+        sourceRow: { type: [integer, 'null'] }
+        columnName: { type: [string, 'null'] }
+        rawValue: { type: [string, 'null'] }
