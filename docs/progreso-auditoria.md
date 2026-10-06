@@ -369,3 +369,28 @@ datos).
 
 `typecheck`, `lint`, `build` y 275 pruebas en verde (74 se saltan sin datos del portal).
 Migración aplicada y comprobada contra `_prisma_migrations`.
+
+---
+
+## Fallo latente del CI (encontrado al subir la rama)
+
+El CI fallaba en el paso de comprobar tipos, y **no por un cambio reciente**:
+`app/layout.tsx` usa `LayoutProps`, un tipo que Next **genera** en `next-env.d.ts` y en
+`.next/types`. Como `next-env.d.ts` está ignorado por git y `.next` no existe en un clon
+limpio, `npm run typecheck` **no podía pasar nunca** en un checkout recién clonado: ni en
+esta rama ni en `main`.
+
+Se reproduce en dos comandos:
+
+```bash
+rm -rf .next next-env.d.ts && npm run typecheck
+# app/layout.tsx(46,50): error TS2304: Cannot find name LayoutProps.
+```
+
+Arreglo: el script `typecheck` genera antes los tipos (`next typegen && tsc --noEmit`),
+que es lo que recomienda Next para CI. Comprobado en frío: tras el cambio, el mismo
+comando pasa sin `.next` ni `next-env.d.ts`.
+
+Lo encontró el CI al subir la rama, no las pruebas locales: en local `.next` existía de
+compilaciones anteriores y el error quedaba tapado. Es el argumento a favor de que el CI
+compile en limpio.
