@@ -1,0 +1,65 @@
+name: CI
+
+# Se ejecuta en cada push y en cada pull request. No publica nada: solo comprueba
+# que los tipos, el linter y las pruebas están en verde.
+on:
+  push:
+  pull_request:
+
+jobs:
+  verificacion:
+    name: Tipos, lint y pruebas
+    runs-on: ubuntu-latest
+
+    # PostgreSQL efímero para las pruebas de integración. No es un secreto: vive y
+    # muere con el job, y las credenciales son ficticias. Las pruebas que necesitan
+    # datos del portal se saltan solas cuando la base está recién sembrada.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # La CLI de Prisma usa DIRECT_URL para las migraciones (ver prisma.config.ts).
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      # Ficticio. `lib/env.ts` exige 32 caracteres al importarse; no firma nada real.
+      AUTH_SECRET: secreto-ficticio-solo-para-la-integracion-continua
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` ejecuta el `postinstall` (prisma generate), que necesita DIRECT_URL.
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobar los tipos
+        run: npm run typecheck
+
+      - name: Pasar el linter
+        run: npm run lint
+
+      # Aplica las migraciones y siembra los catálogos (estados, tipos, gestiones,
+      # visibilidad de columnas). El SUPERADMIN se omite: no hay SEED_* definidas.
+      - name: Preparar la base de datos
+        run: npm run db:deploy && npm run db:seed
+
+      - name: Ejecutar las pruebas
+        run: npm test

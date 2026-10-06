@@ -34,7 +34,9 @@ export const authConfig = {
    * despliegue fija el host.
    *
    * Alternativa si se prefiere decidirlo por entorno en vez de en el código:
-   * definir `AUTH_TRUST_HOST=true` como variable de entorno.
+   * definir `AUTH_TRUST_HOST=true` como variable de entorno. Se deja en `true` a
+   * propósito: moverlo a una variable obligaría a definirla en Render y, si
+   * faltara, el inicio de sesión de producción dejaría de funcionar sin avisar.
    */
   trustHost: true,
   // Los proveedores se añaden en `auth.ts`. El middleware no los necesita: para

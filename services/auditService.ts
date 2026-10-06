@@ -64,7 +64,15 @@ export async function registrarAuditoria(
   });
 }
 
-/** Extrae IP y user-agent de una petición, sin confiar en sus valores. */
+/**
+ * Extrae la IP y el user-agent de una petición.
+ *
+ * La IP es **orientativa**: sale de `X-Forwarded-For`, que el cliente puede
+ * falsificar y que varias personas comparten (una oficina tras un NAT). Detrás del
+ * proxy de Render el primer valor es el cliente, pero no hay que presentarla como
+ * infalsificable: sirve para dejar rastro en la auditoría y para el límite de
+ * intentos de acceso, nunca para decidir permisos.
+ */
 export function contextoDePeticion(request: Request): { ip: string | null; userAgent: string | null } {
   // `x-forwarded-for` puede traer una lista; el primer valor es el cliente.
   const forwarded = request.headers.get('x-forwarded-for');
