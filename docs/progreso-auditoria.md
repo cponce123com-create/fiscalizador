@@ -28,8 +28,8 @@ Se actualiza al cerrar cada tarea.
 | # | Tarea | Estado |
 |---|---|---|
 | 1 | Publicación segura de personas señaladas | **Hecha**, pendiente de revisión |
-| 2 | Canal real de corrección | Siguiente |
-| 3 | Login: límite de intentos y auditoría de fallos | Pendiente |
+| 2 | Canal real de corrección | **Hecha**, pendiente de revisión |
+| 3 | Login: límite de intentos y auditoría de fallos | Siguiente |
 | 4 | Importador: atomicidad y recuperación | Pendiente |
 | 5 | Cabeceras de seguridad | Pendiente |
 | 6 | Calidad y operación | Pendiente |
@@ -61,14 +61,36 @@ discutirlas:
 que la fecha de la fuente se muestre con hora (`formatearFechaHora`, porque
 `formatearFecha` fuerza UTC y un `DateTime` se vería un día antes en Perú).
 
-## 2. Canal real de corrección (siguiente)
+## 2. Canal real de corrección (hecha)
 
-- En `/metodologia`, una sección «Cómo solicitar una corrección o rectificación»: qué
-  datos enviar (ficha o proveedor afectado, qué se considera incorrecto, evidencia).
-- El correo se lee de `NEXT_PUBLIC_CONTACTO_CORRECCIONES`. **Sin valor por defecto
-  inventado**: si no está definida, mostrar un aviso claro de que falta configurarla.
-- Plazo de respuesta como constante fácil de cambiar.
-- Documentar la variable en `README.md` y en `render.yaml` con `sync: false`.
+Sección «Cómo solicitar una corrección o rectificación» en `/metodologia`, antes del pie,
+con ancla `#correcciones` (la página de vínculos ahora enlaza a ella). Qué se hizo y **qué
+decisiones quedaron tomadas**:
+
+- El correo se lee de `NEXT_PUBLIC_CONTACTO_CORRECCIONES` mediante `lib/contacto.ts`
+  (`leerContactoCorrecciones`), que devuelve `null` si falta, está vacío o solo tiene
+  espacios. **No hay correo por defecto.**
+- Si el correo está configurado, la sección muestra un enlace `mailto:` y el plazo de
+  respuesta. Si no, muestra un **aviso visible** (`Aviso`, tono advertencia) que nombra la
+  variable que falta, en vez de un correo inventado.
+- El plazo vive en la constante `PLAZO_RESPUESTA_DIAS` (`lib/contacto.ts`), fácil de cambiar.
+  Valor actual: **15 días hábiles**.
+- La sección pide, en una lista, qué corregir (ficha o proveedor, nombre/RUC y, si aplica,
+  nº de orden), qué es incorrecto, la evidencia y un medio de contacto; y aclara que el
+  canal sirve para rectificar contra la fuente, no para denunciar ni para borrar registros.
+- Variable documentada en `README.md` (con la nota de que las `NEXT_PUBLIC_` se incrustan en
+  el HTML y **no** pasan por `lib/env.ts`), en `render.yaml` (`sync: false`) y en
+  `.env.example`. Ojo: `.env.example` sigue **sin versionar**; añadir `!.env.example` es de
+  la tarea 6.
+- Pruebas: `lib/contacto.test.ts` cubre el correo definido, con espacios, vacío, en blanco y
+  ausente, y que el plazo sea positivo.
+- Verificado con `npm run typecheck`, `npm run lint`, `npx vitest run` (217 pasan, 74 se
+  saltan) y `npm run build`. El HTML estático de `/metodologia` contiene la sección y, al no
+  estar la variable definida en este entorno, el aviso de que falta configurarla.
+
+**Pendiente de decisión**: el plazo de 15 días hábiles. Además, el aviso de «falta
+configurar» es **público**: si se despliega sin la variable, lo verá el ciudadano; conviene
+definirla antes de publicar.
 
 ## 3. Login: límite de intentos y auditoría de fallos
 
