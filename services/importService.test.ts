@@ -560,7 +560,7 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
     ).toBeNull();
   });
 
-  it('no elimina una importación que se está procesando', async () => {
+  it('no elimina una importación que se está procesando ahora mismo', async () => {
     const lote = await prisma.importBatch.create({
       data: {
         filename: 'prueba-en-proceso',
@@ -574,6 +574,8 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
         version: 1,
         checksum: 'prueba-en-proceso',
         status: 'PROCESSING',
+        // Arrancado hace un instante: el lote está vivo, no colgado.
+        processingStartedAt: new Date(),
       },
       select: { id: true },
     });
@@ -763,5 +765,171 @@ describe.skipIf(!hayBaseDeDatos)('estados ya clasificados en el catálogo', () =
     expect(ordenes.map((orden) => orden.status?.code)).toEqual(['EMITIDA', 'COMPROMETIDA']);
     expect(ordenes.every((orden) => !orden.isCancelled)).toBe(true);
     expect(ordenes.every((orden) => orden.status?.countsEconomically === true)).toBe(true);
+  });
+});
+
+describe.skipIf(!hayBaseDeDatos)('atomicidad y recuperación del importador', () => {
+  let svc: typeof import('@/services/importService');
+  let prisma: typeof import('@/lib/prisma').prisma;
+  let storage: typeof import('@/services/storageService');
+
+  // Periodo imposible en los libros reales, para no chocar con datos de verdad.
+  const ANIO = 1996;
+  const RUC = '20666666667';
+  const NOMBRES = [
+    'libro-atomico-1.xlsx',
+    'libro-atomico-2.xlsx',
+    'libro-atomico-3.xlsx',
+    'libro-atomico-4.xlsx',
+    'libro-atomico-5a.xlsx',
+    'libro-atomico-5b.xlsx',
+  ];
+
+  const lotes: string[] = [];
+  const claves: string[] = [];
+
+  beforeAll(async () => {
+    svc = await import('@/services/importService');
+    ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+  });
+
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { originalFilename: { in: NOMBRES } } });
+    await prisma.supplier.deleteMany({ where: { ruc: RUC } });
+    await prisma.auditLog.deleteMany({ where: { entityId: { in: lotes } } });
+
+    for (const clave of claves) {
+      await storage
+        .getStorage()
+        .remove(clave)
+        .catch(() => undefined);
+    }
+  });
+
+  /** Guarda el lote y la clave de su archivo para la limpieza final. */
+  async function recordarLote(id: string): Promise<void> {
+    lotes.push(id);
+    const lote = await prisma.importBatch.findUnique({
+      where: { id },
+      select: { storageKey: true },
+    });
+    if (lote?.storageKey) claves.push(lote.storageKey);
+  }
+
+  /** Crea un lote en VALIDATING a partir de un libro de una sola fila. */
+  async function analizarLote(nombre: string, month: number, orden: string) {
+    const resultado = await svc.analizar({
+      buffer: libro([fila(1, `1996-${String(month).padStart(2, '0')}-05 00:00:00.0`, orden, RUC)]),
+      originalFilename: nombre,
+      year: ANIO,
+      month,
+      importType: 'CONSOLIDADO',
+      userId: null,
+    });
+
+    await recordarLote(resultado.importBatchId);
+    return resultado;
+  }
+
+  /** Deja el lote como si su proceso hubiera muerto hace un rato. */
+  async function colgar(id: string): Promise<void> {
+    await prisma.importBatch.update({
+      where: { id },
+      data: { status: 'PROCESSING', processingStartedAt: new Date(Date.now() - 11 * 60 * 1000) },
+    });
+  }
+
+  it('confirma un lote cuyo proceso había caducado y anota la recuperación', async () => {
+    const { importBatchId } = await analizarLote('libro-atomico-1.xlsx', 1, 'AT-1');
+    await colgar(importBatchId);
+
+    const resultado = await svc.confirmar({
+      importBatchId,
+      userId: null,
+      reemplazarPeriodo: true,
+    });
+
+    expect(resultado.ordenesInsertadas).toBe(1);
+
+    const lote = await prisma.importBatch.findUnique({
+      where: { id: importBatchId },
+      select: { status: true },
+    });
+    expect(lote?.status).toMatch(/^COMPLETED/);
+
+    const recuperacion = await prisma.auditLog.findFirst({
+      where: { entityId: importBatchId, action: 'UPDATE' },
+      select: { metadata: true },
+    });
+    expect(JSON.stringify(recuperacion?.metadata ?? {})).toContain('caducado');
+  });
+
+  it('rechaza confirmar un lote que se está procesando ahora mismo', async () => {
+    const { importBatchId } = await analizarLote('libro-atomico-2.xlsx', 2, 'AT-2');
+
+    await prisma.importBatch.update({
+      where: { id: importBatchId },
+      data: { status: 'PROCESSING', processingStartedAt: new Date() },
+    });
+
+    await expect(
+      svc.confirmar({ importBatchId, userId: null, reemplazarPeriodo: true }),
+    ).rejects.toThrow(/se está procesando/);
+  });
+
+  it('solo una de dos confirmaciones simultáneas procesa el lote', async () => {
+    const { importBatchId } = await analizarLote('libro-atomico-3.xlsx', 3, 'AT-3');
+
+    const resultados = await Promise.allSettled([
+      svc.confirmar({ importBatchId, userId: null, reemplazarPeriodo: true }),
+      svc.confirmar({ importBatchId, userId: null, reemplazarPeriodo: true }),
+    ]);
+
+    const cumplidas = resultados.filter((r) => r.status === 'fulfilled');
+    const rechazadas = resultados.filter(
+      (r): r is PromiseRejectedResult => r.status === 'rejected',
+    );
+
+    expect(cumplidas).toHaveLength(1);
+    expect(rechazadas).toHaveLength(1);
+    expect(String(rechazadas[0]?.reason)).toMatch(/se está procesando|ya fue importado/);
+  });
+
+  it('elimina una importación cuyo proceso quedó colgado', async () => {
+    const { importBatchId } = await analizarLote('libro-atomico-4.xlsx', 4, 'AT-4');
+    await colgar(importBatchId);
+
+    const resultado = await svc.eliminarImportacion({ importBatchId, userId: null });
+
+    expect(resultado.ordenesEliminadas).toBe(0);
+    expect(await prisma.importBatch.findUnique({ where: { id: importBatchId } })).toBeNull();
+  });
+
+  it('reparte versiones distintas cuando dos análisis del mismo periodo se cruzan', async () => {
+    const [a, b] = await Promise.all([
+      svc.analizar({
+        buffer: libro([fila(1, '1996-05-05 00:00:00.0', 'AT-V1', RUC)]),
+        originalFilename: 'libro-atomico-5a.xlsx',
+        year: ANIO,
+        month: 5,
+        importType: 'CONSOLIDADO',
+        userId: null,
+      }),
+      svc.analizar({
+        buffer: libro([fila(1, '1996-05-06 00:00:00.0', 'AT-V2', RUC)]),
+        originalFilename: 'libro-atomico-5b.xlsx',
+        year: ANIO,
+        month: 5,
+        importType: 'CONSOLIDADO',
+        userId: null,
+      }),
+    ]);
+
+    await recordarLote(a.importBatchId);
+    await recordarLote(b.importBatchId);
+
+    const versiones = [a.version, b.version].sort((x, y) => x - y);
+    expect(versiones[0]).not.toBe(versiones[1]);
   });
 });

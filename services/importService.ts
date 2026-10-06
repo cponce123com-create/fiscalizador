@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
+import { Prisma } from '@/lib/generated/prisma/client';
 import { contextoDePeticion, registrarAuditoria, type ClienteDb } from '@/services/auditService';
 import {
   camposObligatoriosFaltantes,
@@ -124,6 +125,101 @@ const LIMITE_PREVIEW = 10;
 
 /** Tope de filas con hallazgos que se devuelven para revisarlas una a una. */
 const LIMITE_FILAS_CON_HALLAZGOS = 500;
+
+/**
+ * Un lote en `PROCESSING` se considera colgado si lleva más de este tiempo sin
+ * terminar. Una importación normal tarda segundos, así que diez minutos es margen
+ * de sobra y permite recuperar el trabajo de un proceso que murió a mitad (un
+ * reinicio del servicio, por ejemplo) en lugar de dejarlo atascado para siempre.
+ */
+export const PROCESO_CADUCADO_MS = 10 * 60 * 1000;
+
+/** ¿El lote lleva demasiado tiempo procesándose y puede darse por perdido? */
+function procesoCaducado(iniciadoEn: Date | null, ahora: Date): boolean {
+  // Sin fecha no hay forma de saber si sigue vivo, y bloquearlo para siempre sería
+  // peor: se trata como caducado.
+  if (!iniciadoEn) return true;
+  return ahora.getTime() - iniciadoEn.getTime() > PROCESO_CADUCADO_MS;
+}
+
+/**
+ * Toma el lote para procesarlo con una transición atómica.
+ *
+ * Solo pasa a `PROCESSING` si estaba en un estado reclamable (VALIDATING, UPLOADED,
+ * FAILED) o si llevaba colgado en `PROCESSING` más de `PROCESO_CADUCADO_MS`. Si dos
+ * peticiones se cruzan, una actualiza la fila y la otra obtiene `count = 0`: esa es
+ * la garantía de que el lote no se procesa dos veces a la vez.
+ */
+async function reclamarLote(id: string, ahora: Date): Promise<boolean> {
+  const limite = new Date(ahora.getTime() - PROCESO_CADUCADO_MS);
+
+  const { count } = await prisma.importBatch.updateMany({
+    where: {
+      id,
+      OR: [
+        { status: { in: ['UPLOADED', 'VALIDATING', 'FAILED'] } },
+        {
+          status: 'PROCESSING',
+          OR: [{ processingStartedAt: null }, { processingStartedAt: { lt: limite } }],
+        },
+      ],
+    },
+    data: {
+      status: 'PROCESSING',
+      processingStartedAt: ahora,
+      processingFinishedAt: null,
+      errorMessage: null,
+    },
+  });
+
+  return count === 1;
+}
+
+/**
+ * ¿Es un choque con la clave única `(year, month, importType, version)`?
+ *
+ * Prisma marca las violaciones de restricciones con el código `P2002`, y en
+ * `ImportBatch` la única restricción única es esa, así que no hay ambigüedad.
+ */
+function esColisionDeVersion(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
+}
+
+/**
+ * Crea el lote con la primera versión libre del periodo.
+ *
+ * La versión se calcula leyendo la máxima y sumando uno, así que dos análisis del
+ * mismo periodo a la vez pueden calcular la misma. Cuando eso ocurre, el segundo
+ * `create` choca con la clave única: en vez de devolver un error interno, se
+ * recalcula la versión y se reintenta una vez. Si vuelve a chocar, se avisa con un
+ * error de negocio, nunca con un 500.
+ */
+async function crearLoteConVersionLibre(
+  datos: Omit<Prisma.ImportBatchUncheckedCreateInput, 'version'>,
+): Promise<{ id: string; version: number }> {
+  for (let intento = 1; intento <= 2; intento++) {
+    const ultima = await prisma.importBatch.findFirst({
+      where: { year: datos.year, month: datos.month, importType: datos.importType },
+      orderBy: { version: 'desc' },
+      select: { version: true },
+    });
+
+    try {
+      return await prisma.importBatch.create({
+        data: { ...datos, version: (ultima?.version ?? 0) + 1 },
+        select: { id: true, version: true },
+      });
+    } catch (error) {
+      if (!esColisionDeVersion(error)) throw error;
+      // Choque de versión: se reintenta recalculándola.
+    }
+  }
+
+  throw new ErrorDeNegocio(
+    'Otro análisis del mismo periodo se adelantó y no quedó una versión libre. ' +
+      'Vuelve a intentarlo.',
+  );
+}
 
 /** Periodo en formato `YYYY-MM`. */
 export function periodoDe(year: number, month: number): string {
@@ -422,42 +518,34 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
 
   // Duplicados: mismo contenido exacto (huella), mismo periodo ya importado, o
   // filas que ya están en el portal aunque el archivo sea distinto.
-  const [loteMismoChecksum, lotesMismoPeriodo, ultimaVersion, duplicadoContenido] =
-    await Promise.all([
-      prisma.importBatch.findFirst({
-        where: { checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
-        select: {
-          id: true,
-          originalFilename: true,
-          period: true,
-          version: true,
-          status: true,
-          uploadedAt: true,
-          totalRows: true,
-        },
-      }),
-      prisma.importBatch.findMany({
-        where: { year, month, importType },
-        orderBy: { version: 'desc' },
-        select: {
-          id: true,
-          originalFilename: true,
-          period: true,
-          version: true,
-          status: true,
-          uploadedAt: true,
-          totalRows: true,
-        },
-      }),
-      prisma.importBatch.findFirst({
-        where: { year, month, importType },
-        orderBy: { version: 'desc' },
-        select: { version: true },
-      }),
-      analizarDuplicadosDeContenido(claves),
-    ]);
-
-  const version = (ultimaVersion?.version ?? 0) + 1;
+  const [loteMismoChecksum, lotesMismoPeriodo, duplicadoContenido] = await Promise.all([
+    prisma.importBatch.findFirst({
+      where: { checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+      select: {
+        id: true,
+        originalFilename: true,
+        period: true,
+        version: true,
+        status: true,
+        uploadedAt: true,
+        totalRows: true,
+      },
+    }),
+    prisma.importBatch.findMany({
+      where: { year, month, importType },
+      orderBy: { version: 'desc' },
+      select: {
+        id: true,
+        originalFilename: true,
+        period: true,
+        version: true,
+        status: true,
+        uploadedAt: true,
+        totalRows: true,
+      },
+    }),
+    analizarDuplicadosDeContenido(claves),
+  ]);
 
   // El archivo original se guarda SIEMPRE, antes de cualquier decisión.
   const almacenado = await guardarArchivoOriginal(buffer, originalFilename, checksum);
@@ -468,49 +556,47 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   );
   const managementPeriodId = gestiones.size === 1 ? [...gestiones][0]! : null;
 
-  const lote = await prisma.importBatch.create({
-    data: {
-      filename: almacenado.key,
-      originalFilename,
-      year,
-      month,
-      period: periodo,
-      importType,
-      version,
-      checksum,
-      status: 'VALIDATING',
-      totalRows: validacion.summary.totalRows,
-      successfulRows: validacion.summary.successfulRows,
-      warningRows: validacion.summary.warningRows,
-      errorRows: validacion.summary.errorRows,
-      storageKey: almacenado.key,
-      originalFileUrl: almacenado.url,
-      uploadedById: userId,
-      managementPeriodId,
-      columns: {
-        create: mappings.map((m) => ({
-          position: m.position,
-          originalName: m.originalName,
-          internalField: m.field,
-          dataType: m.dataType,
-          isPublic: m.isPublic,
-          isRequired: m.isRequired,
-          confidence: m.confidence,
-          sampleValues: m.sampleValues,
-        })),
-      },
-      issues: {
-        create: validacion.issues.slice(0, 500).map((i) => ({
-          severity: i.severity,
-          code: i.code,
-          message: i.message,
-          sourceRow: i.sourceRow,
-          columnName: i.columnName ?? null,
-          rawValue: i.rawValue ?? null,
-        })),
-      },
+  // La versión la asigna el helper, que reintenta si otro análisis del mismo
+  // periodo se adelantó y chocó con la clave única (year, month, importType, version).
+  const lote = await crearLoteConVersionLibre({
+    filename: almacenado.key,
+    originalFilename,
+    year,
+    month,
+    period: periodo,
+    importType,
+    checksum,
+    status: 'VALIDATING',
+    totalRows: validacion.summary.totalRows,
+    successfulRows: validacion.summary.successfulRows,
+    warningRows: validacion.summary.warningRows,
+    errorRows: validacion.summary.errorRows,
+    storageKey: almacenado.key,
+    originalFileUrl: almacenado.url,
+    uploadedById: userId,
+    managementPeriodId,
+    columns: {
+      create: mappings.map((m) => ({
+        position: m.position,
+        originalName: m.originalName,
+        internalField: m.field,
+        dataType: m.dataType,
+        isPublic: m.isPublic,
+        isRequired: m.isRequired,
+        confidence: m.confidence,
+        sampleValues: m.sampleValues,
+      })),
     },
-    select: { id: true },
+    issues: {
+      create: validacion.issues.slice(0, 500).map((i) => ({
+        severity: i.severity,
+        code: i.code,
+        message: i.message,
+        sourceRow: i.sourceRow,
+        columnName: i.columnName ?? null,
+        rawValue: i.rawValue ?? null,
+      })),
+    },
   });
 
   return {
@@ -519,7 +605,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     sheetName: hoja.sheetName,
     sheetNames: hoja.sheetNames,
     headerRowIndex: hoja.headerRowIndex,
-    version,
+    version: lote.version,
     columns: mappings,
     camposFaltantes,
     preview: validacion.orders.slice(0, LIMITE_PREVIEW).map(aPreview),
@@ -577,7 +663,13 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
   const lote = await prisma.importBatch.findUnique({ where: { id: importBatchId } });
   if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
 
-  if (lote.status === 'PROCESSING') {
+  const ahora = new Date();
+  const procesoColgado =
+    lote.status === 'PROCESSING' && procesoCaducado(lote.processingStartedAt, ahora);
+
+  // Guarda temprana, solo para dar el mensaje correcto: la transición atómica de
+  // más abajo es la que de verdad decide quién procesa el lote.
+  if (lote.status === 'PROCESSING' && !procesoColgado) {
     throw new ErrorDeNegocio('Ese lote ya se está procesando.');
   }
   if (lote.status === 'COMPLETED' || lote.status === 'COMPLETED_WITH_WARNINGS') {
@@ -609,10 +701,47 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     );
   }
 
-  await prisma.importBatch.update({
-    where: { id: lote.id },
-    data: { status: 'PROCESSING', processingStartedAt: new Date(), errorMessage: null },
-  });
+  // Transición atómica: de VALIDATING (o de un PROCESSING caducado) a PROCESSING.
+  // Si dos peticiones se cruzan, solo una pasa; la otra recibe un error claro en
+  // lugar de que las dos escriban a la vez.
+  const reclamado = await reclamarLote(lote.id, ahora);
+
+  if (!reclamado) {
+    const actual = await prisma.importBatch.findUnique({
+      where: { id: lote.id },
+      select: { status: true },
+    });
+
+    if (actual?.status === 'PROCESSING') {
+      throw new ErrorDeNegocio('Ese lote ya se está procesando.');
+    }
+    if (actual?.status === 'COMPLETED' || actual?.status === 'COMPLETED_WITH_WARNINGS') {
+      throw new ErrorDeNegocio(
+        'Ese lote ya fue importado. Crea una versión nueva en lugar de repetirlo.',
+      );
+    }
+    throw new ErrorDeNegocio('No se pudo empezar a procesar el lote; vuelve a intentarlo.');
+  }
+
+  // Un lote que estaba colgado en PROCESSING se recupera, y eso queda auditado:
+  // alguien tiene que poder ver que se reanudó un trabajo que había quedado a medias.
+  if (procesoColgado) {
+    const contexto = request ? contextoDePeticion(request) : { ip: null, userAgent: null };
+    await registrarAuditoria(prisma, {
+      userId,
+      action: 'UPDATE',
+      entity: 'ImportBatch',
+      entityId: lote.id,
+      ip: contexto.ip,
+      userAgent: contexto.userAgent,
+      metadata: {
+        recuperacion: 'proceso caducado',
+        period: lote.period,
+        version: lote.version,
+        processingStartedAt: lote.processingStartedAt?.toISOString() ?? null,
+      },
+    });
+  }
 
   try {
     const catalogos = await cargarCatalogos();
@@ -862,11 +991,19 @@ export async function eliminarImportacion(
       originalFilename: true,
       checksum: true,
       storageKey: true,
+      processingStartedAt: true,
     },
   });
 
   if (!lote) throw new NoEncontrado(`No existe el lote de importación ${importBatchId}.`);
-  if (lote.status === 'PROCESSING') {
+
+  // Un lote en proceso no se toca: se está escribiendo en ese momento. Pero uno que
+  // lleva colgado más de lo razonable sí se puede borrar, o quedaría atascado para
+  // siempre. La recuperación queda anotada en la auditoría del borrado.
+  const estabaColgado =
+    lote.status === 'PROCESSING' && procesoCaducado(lote.processingStartedAt, new Date());
+
+  if (lote.status === 'PROCESSING' && !estabaColgado) {
     throw new ErrorDeNegocio(
       'Esa importación se está procesando ahora mismo. Espera a que termine antes de eliminarla.',
     );
@@ -1002,6 +1139,7 @@ export async function eliminarImportacion(
           deletedOrders: ordenesEliminadas,
           deletedSuppliers: proveedoresEliminados,
           keptSuppliers: proveedoresConservados,
+          recuperadoDeProcesoColgado: estabaColgado,
         },
       });
     },
