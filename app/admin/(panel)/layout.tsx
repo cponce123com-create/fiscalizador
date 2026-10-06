@@ -7,6 +7,7 @@ import { NavPrincipal } from '@/components/admin/nav-principal';
 import { Boton } from '@/components/ui/button';
 import { permisosDe } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
+import { exigeSegundoFactor } from '@/services/twoFactorService';
 
 /**
  * Layout del panel autenticado.
@@ -23,6 +24,13 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
   // revalida contra la base de datos: una cuenta desactivada debe quedarse
   // fuera aunque su token siga siendo válido.
   if (!usuario) redirect('/admin/login');
+
+  // Segundo factor obligatorio para las cuentas administrativas: hasta que no lo activen
+  // no pasan de aquí. El alta vive en `/admin/2fa`, fuera de este layout, para que no se
+  // produzca un bucle de redirecciones.
+  if (exigeSegundoFactor(usuario.role) && !usuario.twoFactorEnabled) {
+    redirect('/admin/2fa');
+  }
 
   const permisos = permisosDe(usuario.role);
 

@@ -52,6 +52,22 @@ export function FormularioLogin({ callbackUrl }: { callbackUrl: string }) {
         />
       </GrupoCampo>
 
+      <GrupoCampo
+        etiqueta="Código de verificación"
+        htmlFor="codigo"
+        ayuda="Solo si tienes activada la verificación en dos pasos. También sirve un código de recuperación."
+      >
+        <Campo
+          id="codigo"
+          name="codigo"
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          placeholder="123456"
+          aria-invalid={estado.error ? true : undefined}
+        />
+      </GrupoCampo>
+
       <Boton type="submit" size="lg" disabled={enviando} className="w-full">
         <LogIn className="h-4 w-4" aria-hidden="true" />
         {enviando ? 'Verificando…' : 'Entrar'}

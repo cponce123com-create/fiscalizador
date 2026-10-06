@@ -257,3 +257,199 @@ De ahí salieron tres observaciones, y una se corrigió:
 Verificado tras el cambio: `typecheck`, `lint`, `npx vitest run` (233 pasan, 74 se saltan) y
 `build`. En producción, la portada y `/estadisticas` responden en menos de un segundo y las
 cabeceras de la tarea 5 están vivas.
+
+---
+
+## Fase 1 de la auditoría integral
+
+Rama `fix/auditoria-integral`. Primer bloque de la auditoría integral: lo que no dependía de
+decisiones de producto ni de infraestructura nueva. La IA quedó descartada por indicación
+expresa.
+
+### CI
+
+- Se añadió `npm run build` al workflow, después de las pruebas. El `env` ficticio del job
+  ya basta: el build no necesita una base viva.
+- Las pruebas se ejecutan ahora con cobertura (`npm run test:coverage`).
+
+### Cobertura
+
+- Dependencia nueva: `@vitest/coverage-v8` (de desarrollo). Es el proveedor de cobertura
+  oficial de Vitest; sin él no existe `--coverage`.
+- **Línea base medida** (241 pruebas): 78,84 % statements · 73,26 % branches · 79,65 %
+  functions · 81,65 % lines.
+- Umbrales fijados ~4 puntos por debajo (75 / 69 / 75 / 77): varias pruebas de integración se
+  saltan cuando la base no tiene datos del portal, así que la cifra cambia entre entornos y
+  un umbral pegado al valor medido haría fallar el CI por ruido.
+- **El objetivo del 80 % NO se cumple** en statements, functions ni branches. Para cerrarlo:
+  pruebas de `catalogService` y `personsService` (hoy dependen de datos del portal),
+  `lib/env.ts` (la ruta de error está sin cubrir) y componentes de React (sin pruebas).
+- Se añadió `services/auditService.test.ts`: `contextoDePeticion` (pura, y de ella dependen
+  la IP del rastro y la clave por IP del limitador) y `registrarAuditoria` contra la base.
+
+### Índices
+
+Medido con `EXPLAIN (ANALYZE)` sobre la base real (4.409 órdenes, 1.011 proveedores):
+
+| Consulta | Plan | Tiempo |
+|---|---|---|
+| Listado ordenado por monto | Seq Scan | 2,2 ms |
+| Anuladas ordenadas por fecha | Index Scan | 4,4 ms |
+| Por estado ordenado por fecha | Index Scan | 0,2 ms |
+
+**No se añade ningún índice**: el orden por monto usa un recorrido secuencial, pero con
+4.409 filas tarda 2,2 ms, así que un índice no aporta nada hoy y sería una adición
+especulativa. Se revisará cuando el volumen crezca (y entonces, con `CREATE INDEX
+CONCURRENTLY` para no bloquear las escrituras).
+
+### SEO
+
+- `app/robots.ts`: permite el portal y veta `/admin` y `/api`.
+- `app/sitemap.ts`: páginas fijas más una entrada por proveedor, con `revalidate` de una hora.
+- `app/layout.tsx`: `metadataBase`, OpenGraph, Twitter y `robots`.
+- Variable nueva `NEXT_PUBLIC_SITE_URL` (no es un secreto): en `render.yaml` y `.env.example`.
+- Las páginas públicas **ya tenían** `metadata` estático, así que no hacía falta
+  `generateMetadata` en las ocho: el hueco real era `robots`, `sitemap` y la base de URLs.
+- **Pendiente**: canónicos por página. Hoy no se emite ninguno y Google usa la URL tal cual;
+  en los listados con filtros (`/ordenes?anio=2023&pagina=2`) hay que decidir si el canónico
+  apunta a la vista sin filtrar. Es una decisión de producto, no un descuido.
+- `NEXT_PUBLIC_SITE_URL` se incrusta **en el build** (es `NEXT_PUBLIC_`), así que tiene que
+  estar definida cuando Render compila. Lo está: va en `render.yaml`.
+
+### Documentación
+
+- `docs/diagramas.md`: secuencia del importador y modelo entidad-relación (Mermaid).
+- `docs/openapi.yaml`: especificación de la API (salud, órdenes e importaciones).
+- `docs/operacion.md`: rotación de credenciales y copias de seguridad/restauración de Neon.
+- Comentarios de arquitectura en las tres páginas que consultan Prisma directamente.
+
+**Pendiente de decisión**: nada nuevo. El 80 % de cobertura queda como objetivo abierto.
+
+---
+
+## Fase 2 de la auditoría integral
+
+Rama `fix/auditoria-integral`. Verificación en dos pasos (TOTP) para las cuentas que
+administran el portal.
+
+### Qué se hizo
+
+- **Campos nuevos en `User`** (`twoFactorSecret`, `twoFactorEnabled`) y tabla
+  `TwoFactorRecoveryCode`. Migración `20261006190000_dos_factores`.
+- **TOTP propio** (`lib/auth/totp.ts`), sobre `node:crypto`. **No se usó `otplib`**: su
+  build de CommonJS requiere un paquete ESM y rompe `require` en este proyecto. La
+  corrección no se da por supuesta: las pruebas contrastan los **vectores del RFC 6238**.
+- **Secreto cifrado en reposo** (`lib/auth/secrets.ts`): AES-256-GCM con una clave derivada
+  de `AUTH_SECRET` por HKDF. Una copia de la base de datos no basta para generar códigos
+  válidos. Contrapartida documentada en `docs/operacion.md`: rotar `AUTH_SECRET` obliga a
+  rehacer el alta.
+- **8 códigos de recuperación**, de un solo uso, guardados **hasheados** (el claro solo se
+  enseña una vez).
+- **Obligatorio para ADMIN y SUPERADMIN**: el layout del panel redirige a `/admin/2fa`
+  hasta que lo activen. El alta vive fuera del layout para no redirigirse a sí misma.
+- **Un código incorrecto cuenta como fallo**: alimenta el mismo límite de intentos que la
+  contraseña y deja su entrada de auditoría (`motivo: 'segundo factor'`).
+- **Salida de emergencia**: `npm run usuarios -- --email … --reset-2fa`, para quien pierde
+  el teléfono y los códigos.
+
+### Dependencia nueva
+
+`qrcode` (y `@types/qrcode` en desarrollo), para el QR del alta. Se genera en el servidor
+como PNG en `data:` URL, así que no hace falta inyectar HTML ni añadir una librería de
+componentes.
+
+### Cobertura
+
+Tras el 2FA: **80,19 % statements · 74,35 % branches · 81,32 % functions · 82,97 % lines**.
+Statements, functions y lines ya superan el 80 %; **branches sigue por debajo** y es el
+único objetivo abierto (casi todas las ramas sin cubrir son rutas de error de base de
+datos).
+
+### Verificación
+
+`typecheck`, `lint`, `build` y 275 pruebas en verde (74 se saltan sin datos del portal).
+Migración aplicada y comprobada contra `_prisma_migrations`.
+
+---
+
+## Fallo latente del CI (encontrado al subir la rama)
+
+El CI fallaba en el paso de comprobar tipos, y **no por un cambio reciente**:
+`app/layout.tsx` usa `LayoutProps`, un tipo que Next **genera** en `next-env.d.ts` y en
+`.next/types`. Como `next-env.d.ts` está ignorado por git y `.next` no existe en un clon
+limpio, `npm run typecheck` **no podía pasar nunca** en un checkout recién clonado: ni en
+esta rama ni en `main`.
+
+Se reproduce en dos comandos:
+
+```bash
+rm -rf .next next-env.d.ts && npm run typecheck
+# app/layout.tsx(46,50): error TS2304: Cannot find name LayoutProps.
+```
+
+Arreglo: el script `typecheck` genera antes los tipos (`next typegen && tsc --noEmit`),
+que es lo que recomienda Next para CI. Comprobado en frío: tras el cambio, el mismo
+comando pasa sin `.next` ni `next-env.d.ts`.
+
+Lo encontró el CI al subir la rama, no las pruebas locales: en local `.next` existía de
+compilaciones anteriores y el error quedaba tapado. Es el argumento a favor de que el CI
+compile en limpio.
+
+### Y un segundo fallo, este en las pruebas
+
+Con el typecheck arreglado, el CI llegó por primera vez al paso de pruebas y falló en dos de
+`catalogService`: comprueban que no se puede borrar un estado ni una gestión que estén usando
+órdenes, pero **daban por hecho que la base ya tenía órdenes**. En local las hay, de
+importaciones anteriores; el CI siembra una base limpia y no hay ninguna, así que el borrado
+salía bien y la prueba fallaba.
+
+Se arreglaron creando ellas mismas la orden que necesitan (con su lote y su proveedor) y
+borrándola después, que es lo que ya hacían otras pruebas del repositorio. Se prefirió eso a
+saltarse la prueba con un guardia de «¿hay datos?»: la regla se comprueba ahora también en el
+CI, en lugar de quedarse sin comprobar justo donde más importa.
+
+**Conclusión incómoda y útil**: hasta hoy, el CI **nunca había pasado**. Falla en el typecheck
+en cualquier clon limpio, así que los pasos siguientes (pruebas y compilación) no se
+ejecutaban jamás. Un CI en rojo permanente no avisa de nada.
+
+### Cobertura medida en el CI
+
+El CI da **82,37 % statements · 76,72 % branches · 84,11 % functions · 84,75 % lines**, más
+alto que en local (80,19 / 74,35 / 81,32 / 82,97). No es una contradicción: en el CI se saltan
+las pruebas que necesitan datos del portal, y esos ficheros (`personsService`,
+`catalogService`) están por debajo de la media, así que al no cargarse suben el porcentaje.
+
+Los umbrales están puestos sobre la cifra **más baja de las dos** (78 / 73 / 80 / 80), que es
+la única forma de que la batería pase en ambos entornos. `branches` es lo único por debajo del
+80 % en los dos.
+
+### Y un tercero: el mapeo por similitud proponía campos equivocados
+
+Salió al estudiar la importación automática, pero **afecta también a la manual**. Con
+encabezados de varias palabras, `matchHeader` proponía campos equivocados con confianza alta:
+
+| Encabezado real | Propuesta | Certeza | Qué es en realidad |
+|---|---|---|---|
+| `ANNO_ORDEN` | `orderNumber` | 0,80 | el año |
+| `NRO_MES_ORDEN` | `orderNumber` | 0,85 | el mes |
+| `ORDEN_PROVEEDOR` | `ruc` | 0,73 | la razón social |
+
+La causa: con varias palabras la distancia de Levenshtein mide parecido de LETRAS, no de
+significado, y el código se quedaba con el máximo entre esa medida y el solapamiento de
+palabras, así que Levenshtein mandaba siempre. En `ORDEN_PROVEEDOR` la propuesta correcta
+(`supplierName`) tenía mejor solapamiento —0,50 contra 0,33— y perdía igual.
+
+No hay umbral que lo arregle: `NRO_MES_ORDEN` (el mes) y un legítimo «FECHA EMISION ORDEN»
+tienen la misma forma —alias más una palabra—, así que cualquier umbral se equivoca con uno de
+los dos. Se optó por **no adivinar con encabezados de varias palabras**: se proponen solo los
+que coinciden con el catálogo de alias, y el resto queda sin mapear para que lo asigne el
+administrador. Con una sola palabra se sigue adivinando, porque ahí la distancia de edición sí
+habla de erratas («Montoo» → monto, «Estao» → estado).
+
+El criterio, dicho corto: **una columna sin mapear la ve el administrador y la asigna en un
+segundo; una propuesta incorrecta con 0,85 de confianza se acepta sin mirarla y mete datos
+falsos en el portal.**
+
+Verificado: los 13 encabezados del conjunto de datos abiertos quedan sin mapear en lugar de
+mal mapeados; el libro de referencia del Portal sigue mapeando sus 12 columnas como `EXACTO`; y
+la batería sube a 286 pruebas (branches, 74,35 % → 75,13 %).

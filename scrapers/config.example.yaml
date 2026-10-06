@@ -1,0 +1,85 @@
+# Configuración del scraper de órdenes de compra y de servicio (OC/OS).
+#
+# Este archivo se versiona, así que NO pongas aquí credenciales: el SMTP y el webhook de
+# Slack se leen del entorno (OCOS_SMTP_*, OCOS_SLACK_WEBHOOK).
+#
+# Hay un equivalente en JSON (`config.example.json`) que no necesita PyYAML.
+
+# --- Entidades ---------------------------------------------------------------
+entidades:
+  # Entidad usada como referencia durante el reconocimiento. Se comprobó que su página
+  # de órdenes NO publica ficheros: es un formulario que delega en SEACE.
+  - nombre: "Municipalidad Distrital de San Ramón"
+    ruc: "20146657142"
+    id_transparencia: "11129"
+    origenes: [transparencia, seace]
+    periodos: ["2023-06", "2023-07"]
+    notas: "Su portal delega en SEACE; la vía de ficheros no devuelve nada."
+
+  # Ejemplo de entidad de la que se quieren solo los datos de SEACE, sin pasar por el
+  # portal. El RUC es obligatorio para esta vía.
+  - nombre: "Entidad de ejemplo (SEACE)"
+    ruc: "20131312955"
+    origenes: [seace]
+    periodos:
+      - { anio: 2024, mes: 1 }
+
+  # Vía recomendada: la Plataforma Nacional de Datos Abiertos. No tiene captcha ni WAF y
+  # el dato viene ya tabulado. El conjunto NO dice de qué entidad es, así que el nombre y
+  # el RUC hay que ponerlos aquí.
+  #
+  # Para encontrar el `dataset_url`: busca en https://www.datosabiertos.gob.pe y copia la
+  # dirección de la página del conjunto (la que empieza por /dataset/...).
+  - nombre: "Gobierno Regional de Ancash"
+    ruc: "20131370998"
+    dataset_url: "https://www.datosabiertos.gob.pe/dataset/ordenes-de-compra-y-servicio-del-gobierno-regional-de-ancash-gore-ancash"
+    origenes: [datosabiertos]
+    periodos: ["2023-01"]
+
+# --- Red ---------------------------------------------------------------------
+red:
+  # El pliego pide respetar los servidores públicos. El mínimo admitido es 1 segundo.
+  segundos_entre_peticiones: 2.0
+  timeout: 45.0
+  reintentos: 3
+  espera_inicial: 5.0
+  espera_maxima: 60.0
+  # 1 = secuencial. Subirlo es una decisión consciente, no un ajuste de rendimiento.
+  concurrencia: 1
+  # Para ajustar los selectores de SEACE la primera vez: abre el navegador a la vista.
+  navegador_visible: false
+  timeout_navegador: 60.0
+  # user_agent: "Mozilla/5.0 (...) Chrome/120.0 Safari/537.36"
+
+# --- Captcha de SEACE --------------------------------------------------------
+captcha:
+  # gimpysolver (automático) | manual (una persona lo escribe) | ninguno
+  resolvedor: gimpysolver
+  # Qué usar si el principal no da texto. Se prueban en ese orden.
+  #
+  # `manual` sirve cuando hay alguien delante, pero en una corrida programada no hay
+  # nadie que teclee: se queda esperando los `espera_manual` segundos y acaba
+  # fallando igual. Para el cron, déjalo en null y deja que el orquestador registre
+  # el fallo y siga con la siguiente entidad.
+  respaldo: null
+  intentos: 3
+  espera_manual: 180.0
+  directorio_de_respaldo: "salida/captchas"
+
+# --- Almacenamiento ----------------------------------------------------------
+almacenamiento:
+  # local | s3 | cloudinary (cloudinary aún no está implementado aquí)
+  driver: local
+  directorio_base: "salida"
+  # bucket: "mi-bucket"
+  # prefijo: "ocos"
+
+# --- Avisos ------------------------------------------------------------------
+notificacion:
+  # El correo y el webhook salen del entorno, no de aquí.
+  email_para: null
+  slack_webhook: null
+  solo_si_hay_errores: true
+
+# --- Registro -----------------------------------------------------------------
+nivel_de_registro: INFO

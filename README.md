@@ -482,9 +482,23 @@ Las versiones críticas están fijadas a propósito:
 | `npm run typecheck` | Comprobación de tipos |
 | `npm run lint` | ESLint |
 | `npm test` | Pruebas |
+| `npm run test:coverage` | Pruebas con informe de cobertura |
 | `npm run verify` | Verificación de la importación contra la base de datos |
 | `npm run db:migrate` | Crea y aplica una migración (desarrollo) |
 | `npm run db:deploy` | Aplica migraciones pendientes (producción) |
 | `npm run db:status` | Estado de las migraciones |
 | `npm run db:seed` | Datos iniciales |
 | `npm run db:studio` | Interfaz visual de la base de datos |
+
+---
+
+## Documentación
+
+| Documento | Qué contiene |
+|---|---|
+| `docs/progreso-auditoria.md` | Estado de la auditoría, decisiones tomadas y brecha de cobertura |
+| `docs/diagramas.md` | Flujo del importador y modelo de datos (Mermaid) |
+| `docs/openapi.yaml` | Especificación OpenAPI de la API |
+| `docs/operacion.md` | Rotación de credenciales, reinicio de 2FA y copias de seguridad/restauración de Neon |
+| `docs/plan-de-trabajo.md` | Plan original del proyecto |
+| `docs/reference/FORMATOS.md` | Formato de los libros del Portal de Transparencia |

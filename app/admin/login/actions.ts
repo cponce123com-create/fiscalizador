@@ -17,6 +17,8 @@ import { signIn } from '@/auth';
 const esquema = z.object({
   email: z.string().email('Escribe un correo válido.'),
   password: z.string().min(1, 'Escribe tu contraseña.'),
+  /** Código TOTP o de recuperación. Vacío en las cuentas sin 2FA. */
+  codigo: z.string().trim().optional(),
 });
 
 export type EstadoLogin = { error: string | null };
@@ -28,6 +30,7 @@ export async function iniciarSesion(
   const parsed = esquema.safeParse({
     email: formData.get('email'),
     password: formData.get('password'),
+    codigo: formData.get('codigo') ?? '',
   });
 
   if (!parsed.success) {
@@ -44,6 +47,7 @@ export async function iniciarSesion(
     await signIn('credentials', {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
+      codigo: parsed.data.codigo ?? '',
       redirectTo: callbackUrl,
     });
     return { error: null };

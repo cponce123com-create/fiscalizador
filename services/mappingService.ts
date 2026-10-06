@@ -268,9 +268,32 @@ function definicionDe(field: InternalField): FieldDefinition {
 /**
  * Empareja un encabezado con un campo interno.
  *
- * Orden: coincidencia exacta con el canónico, alias del catálogo, y por último
- * similitud. Se devuelve también el `matchedBy` para que el administrador sepa
- * en qué se basó la propuesta y pueda desconfiar de las coincidencias débiles.
+ * Orden: coincidencia exacta con el canónico, alias del catálogo y, por último, similitud
+ * —pero la similitud **solo se intenta con encabezados de una palabra**.
+ *
+ * El motivo es un fallo comprobado con encabezados reales de un conjunto de datos abiertos
+ * (los de `datosabiertos.gob.pe`, que llevan todo prefijado con «ORDEN_»):
+ *
+ *   ANNO_ORDEN       -> orderNumber  (0,80)   el AÑO propuesto como número de orden
+ *   NRO_MES_ORDEN    -> orderNumber  (0,85)   el MES
+ *   ORDEN_PROVEEDOR  -> ruc          (0,73)   la razón social en el campo del RUC
+ *
+ * Los tres salían con `matchedBy: 'SIMILITUD'` y confianza alta, así que parecían
+ * propuestas fiables. La causa es que con varias palabras la distancia de edición mide
+ * parecido de LETRAS, no de significado: «anno orden» y «nro orden» se parecen en 8 de cada
+ * 10 caracteres y no tienen nada que ver. El solapamiento de palabras, que sí lo detecta,
+ * perdía porque el código se quedaba con el máximo de las dos medidas.
+ *
+ * Y no hay umbral que lo arregle: `NRO_MES_ORDEN` (el mes) y un legítimo «FECHA EMISION
+ * ORDEN» tienen exactamente la misma forma —alias más una palabra—, así que cualquier
+ * umbral se equivoca con uno de los dos. Ante esa disyuntiva se prefiere **no proponer**:
+ * una columna sin mapear la ve el administrador y la asigna en un segundo, mientras que una
+ * propuesta incorrecta con 0,85 de confianza se acepta sin mirarla y mete datos falsos en el
+ * portal.
+ *
+ * Con una sola palabra la distancia de edición sí habla de erratas («Montoo», «Estao»), que
+ * es justo lo que interesa detectar. Para enseñarle encabezados nuevos está el catálogo de
+ * alias, que es el mecanismo previsto.
  */
 export function matchHeader(originalName: string): {
   field: InternalField | null;
@@ -289,10 +312,20 @@ export function matchHeader(originalName: string): {
     };
   }
 
+  // De aquí en adelante se ADIVINA, y solo se hace con encabezados de una palabra. Ver la
+  // nota de arriba: con varias, la distancia de edición propone campos equivocados.
+  if (clave.split(' ').length > 1) {
+    return { field: null, confidence: 0, matchedBy: null };
+  }
+
   let mejor: { field: InternalField; score: number } | null = null;
 
   for (const [aliasClave, destino] of INDICE_ALIAS) {
-    const score = Math.max(similarity(clave, aliasClave), tokenSimilarity(clave, aliasClave));
+    // Comparar una palabra contra un alias de varias («monto» contra «monto total») no
+    // aporta nada: la distancia sale baja por diferencia de longitud, no por parecido.
+    if (aliasClave.includes(' ')) continue;
+
+    const score = similarity(clave, aliasClave);
     if (score > (mejor?.score ?? 0)) {
       mejor = { field: destino.field, score };
     }

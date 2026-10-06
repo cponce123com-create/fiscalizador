@@ -14,6 +14,7 @@ import {
   registrarExito,
   registrarFallo,
 } from '@/services/loginThrottleService';
+import { verificarSegundoFactor } from '@/services/twoFactorService';
 
 /**
  * Configuración completa de Auth.js (solo runtime Node).
@@ -25,6 +26,8 @@ import {
 const credencialesSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  /** Código TOTP o de recuperación. Solo lo usan las cuentas con 2FA activado. */
+  codigo: z.string().trim().max(20).optional(),
 });
 
 /**
@@ -50,12 +53,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: 'Correo', type: 'email' },
         password: { label: 'Contraseña', type: 'password' },
+        codigo: { label: 'Código de verificación', type: 'text' },
       },
       async authorize(credenciales, request) {
         const parsed = credencialesSchema.safeParse(credenciales);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email, password, codigo } = parsed.data;
         const correo = email.toLowerCase();
         const { ip, userAgent } = contextoDePeticion(request);
         const claves = { email: correo, ip };
@@ -69,8 +73,44 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             isActive: true,
             passwordHash: true,
+            twoFactorSecret: true,
+            twoFactorEnabled: true,
           },
         });
+
+        /**
+         * Deja constancia del fallo y bloquea las claves si se cruza el umbral.
+         *
+         * Lo usan las dos formas de fallar —credenciales incorrectas y segundo factor
+         * incorrecto— para que ninguna se quede sin rastro ni sin contar para el límite.
+         */
+        async function anotarFallo(motivo?: string): Promise<void> {
+          const seBloqueo = await registrarFallo(prisma, claves);
+
+          await registrarAuditoria(prisma, {
+            action: 'LOGIN_FAILED',
+            entity: 'User',
+            entityId: usuario?.id ?? null,
+            ip,
+            userAgent,
+            metadata: motivo ? { email: correo, motivo } : { email: correo },
+          });
+
+          if (seBloqueo) {
+            await registrarAuditoria(prisma, {
+              action: 'LOGIN_BLOCKED',
+              entity: 'User',
+              entityId: usuario?.id ?? null,
+              ip,
+              userAgent,
+              metadata: {
+                email: correo,
+                fallos: MAX_FALLOS,
+                minutosDeBloqueo: BLOQUEO_MS / 60000,
+              },
+            });
+          }
+        }
 
         // Bloqueo activo: se responde igual que ante unas credenciales incorrectas.
         // Se verifica contra el hash señuelo para que el tiempo de respuesta no
@@ -98,33 +138,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Una cuenta desactivada tampoco entra: cuenta como fallo, igual que una
         // contraseña incorrecta.
         if (!usuario || !usuario.passwordHash || !passwordOk || !usuario.isActive) {
-          const seBloqueo = await registrarFallo(prisma, claves);
-
-          await registrarAuditoria(prisma, {
-            action: 'LOGIN_FAILED',
-            entity: 'User',
-            entityId: usuario?.id ?? null,
-            ip,
-            userAgent,
-            metadata: { email: correo },
-          });
-
-          if (seBloqueo) {
-            await registrarAuditoria(prisma, {
-              action: 'LOGIN_BLOCKED',
-              entity: 'User',
-              entityId: usuario?.id ?? null,
-              ip,
-              userAgent,
-              metadata: {
-                email: correo,
-                fallos: MAX_FALLOS,
-                minutosDeBloqueo: BLOQUEO_MS / 60000,
-              },
-            });
-          }
-
+          await anotarFallo();
           return null;
+        }
+
+        // Segundo factor. Si la cuenta lo tiene activado, el código es obligatorio, y un
+        // código incorrecto cuenta como fallo (y alimenta el límite de intentos).
+        if (usuario.twoFactorEnabled) {
+          const segundoFactorOk = await verificarSegundoFactor(prisma, usuario, codigo ?? '');
+
+          if (!segundoFactorOk) {
+            await anotarFallo('segundo factor');
+            return null;
+          }
         }
 
         // Inicio correcto: se limpia el contador de fallos de sus claves.

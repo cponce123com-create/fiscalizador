@@ -3,6 +3,7 @@ import 'dotenv/config';
 import { prisma } from '../lib/prisma';
 import { hashearPassword, validarFortaleza } from '../lib/auth/passwords';
 import type { Role } from '@/lib/auth/permissions';
+import { desactivar as desactivarSegundoFactor } from '../services/twoFactorService';
 
 /**
  * Crea, actualiza, desactiva o elimina una cuenta del sistema.
@@ -19,6 +20,7 @@ import type { Role } from '@/lib/auth/permissions';
  *   npm run usuarios -- --email revisor@entidad.gob.pe --rol VIEWER --crear
  *   npm run usuarios -- --email alguien@entidad.gob.pe --desactivar
  *   npm run usuarios -- --email prueba@example.com --eliminar
+ *   npm run usuarios -- --email admin@example.com --reset-2fa
  *
  * La contraseña se lee de la variable de entorno `NUEVA_PASSWORD` y no de un
  * argumento, para que no quede en el historial del shell ni en la lista de
@@ -36,6 +38,8 @@ type Argumentos = {
   crear: boolean;
   desactivar: boolean;
   eliminar: boolean;
+  /** Salida de emergencia del segundo factor: se perdió el teléfono y los códigos. */
+  reset2fa: boolean;
 };
 
 function analizarArgumentos(argv: readonly string[]): Argumentos {
@@ -89,6 +93,7 @@ function analizarArgumentos(argv: readonly string[]): Argumentos {
     crear: argv.includes('--crear') || desdeEnv,
     desactivar: argv.includes('--desactivar'),
     eliminar: argv.includes('--eliminar'),
+    reset2fa: argv.includes('--reset-2fa'),
   };
 }
 
@@ -103,9 +108,31 @@ async function main(): Promise<void> {
       name: true,
       role: true,
       isActive: true,
+      twoFactorEnabled: true,
       _count: { select: { importBatches: true, sessions: true } },
     },
   });
+
+  // --- Reiniciar el segundo factor (salida de emergencia) --------------------
+  // Va antes que todo lo demás, y no pide contraseña: quien lo necesita es alguien
+  // que ha perdido el teléfono y los códigos de recuperación y no puede entrar.
+  if (args.reset2fa) {
+    if (!existente) throw new Error(`No existe la cuenta ${args.email}.`);
+
+    await desactivarSegundoFactor(prisma, existente.id);
+    // Se cierran sus sesiones: si el alta anterior estaba en manos de otro, se corta.
+    const cerradas = await prisma.session.deleteMany({ where: { userId: existente.id } });
+
+    console.log('');
+    console.log('Verificación en dos pasos desactivada: ' + existente.email);
+    console.log('  estaba activada : ' + (existente.twoFactorEnabled ? 'sí' : 'no'));
+    console.log('  sesiones cerradas: ' + cerradas.count);
+    console.log('');
+    console.log('La cuenta tendrá que darla de alta otra vez al entrar.');
+    console.log('Úsalo solo si se ha perdido el teléfono y los códigos de recuperación.');
+    console.log('');
+    return;
+  }
 
   // --- Desactivar una cuenta -------------------------------------------------
   if (args.desactivar) {

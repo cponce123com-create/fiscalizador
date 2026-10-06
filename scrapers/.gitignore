@@ -1,0 +1,21 @@
+# Salidas del scraper: libros descargados, datos normalizados y captchas.
+salida/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Entornos y credenciales: nunca se versionan.
+.env
+.env.*
+!.env.example
+
+# Configuración local (la de ejemplo sí se versiona).
+config.yaml
+config.local.*
+
+# Navegadores de Playwright
+playwright-report/

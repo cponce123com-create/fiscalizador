@@ -20,6 +20,8 @@ export type UsuarioActual = {
   email: string;
   name: string | null;
   role: Role;
+  /** Hace falta para exigir el alta de 2FA antes de dejar usar el panel. */
+  twoFactorEnabled: boolean;
 };
 
 /** No hay sesión, o la cuenta ya no es válida. */
@@ -51,7 +53,14 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
 
   const usuario = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, email: true, name: true, role: true, isActive: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      twoFactorEnabled: true,
+    },
   });
 
   if (!usuario || !usuario.isActive) return null;
@@ -61,6 +70,7 @@ export async function usuarioActual(): Promise<UsuarioActual | null> {
     email: usuario.email,
     name: usuario.name,
     role: usuario.role as Role,
+    twoFactorEnabled: usuario.twoFactorEnabled,
   };
 }
 

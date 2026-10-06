@@ -68,6 +68,12 @@ services:
       - key: STORAGE_LOCAL_DIR
         value: /var/data/uploads
 
+      # --- Sitio -----------------------------------------------------------------
+      # URL pública del portal. La usan el canónico, OpenGraph, el sitemap y
+      # robots.txt. No es un secreto: viaja en el HTML.
+      - key: NEXT_PUBLIC_SITE_URL
+        value: "https://fiscalizador.onrender.com"
+
       # --- Contacto público -----------------------------------------------------
       # Correo que se muestra en /metodologia para pedir correcciones. Es público
       # (prefijo NEXT_PUBLIC_): se incrusta en el HTML en tiempo de compilación, así

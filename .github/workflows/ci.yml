@@ -62,4 +62,9 @@ jobs:
         run: npm run db:deploy && npm run db:seed
 
       - name: Ejecutar las pruebas
-        run: npm test
+        run: npm run test:coverage
+
+      # El build no necesita una base viva, pero sí las variables del job: `lib/env.ts`
+      # se importa al recolectar las páginas.
+      - name: Compilar
+        run: npm run build
