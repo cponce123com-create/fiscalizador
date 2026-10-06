@@ -324,3 +324,48 @@ CONCURRENTLY` para no bloquear las escrituras).
 - Comentarios de arquitectura en las tres páginas que consultan Prisma directamente.
 
 **Pendiente de decisión**: nada nuevo. El 80 % de cobertura queda como objetivo abierto.
+
+---
+
+## Fase 2 de la auditoría integral
+
+Rama `fix/auditoria-integral`. Verificación en dos pasos (TOTP) para las cuentas que
+administran el portal.
+
+### Qué se hizo
+
+- **Campos nuevos en `User`** (`twoFactorSecret`, `twoFactorEnabled`) y tabla
+  `TwoFactorRecoveryCode`. Migración `20261006190000_dos_factores`.
+- **TOTP propio** (`lib/auth/totp.ts`), sobre `node:crypto`. **No se usó `otplib`**: su
+  build de CommonJS requiere un paquete ESM y rompe `require` en este proyecto. La
+  corrección no se da por supuesta: las pruebas contrastan los **vectores del RFC 6238**.
+- **Secreto cifrado en reposo** (`lib/auth/secrets.ts`): AES-256-GCM con una clave derivada
+  de `AUTH_SECRET` por HKDF. Una copia de la base de datos no basta para generar códigos
+  válidos. Contrapartida documentada en `docs/operacion.md`: rotar `AUTH_SECRET` obliga a
+  rehacer el alta.
+- **8 códigos de recuperación**, de un solo uso, guardados **hasheados** (el claro solo se
+  enseña una vez).
+- **Obligatorio para ADMIN y SUPERADMIN**: el layout del panel redirige a `/admin/2fa`
+  hasta que lo activen. El alta vive fuera del layout para no redirigirse a sí misma.
+- **Un código incorrecto cuenta como fallo**: alimenta el mismo límite de intentos que la
+  contraseña y deja su entrada de auditoría (`motivo: 'segundo factor'`).
+- **Salida de emergencia**: `npm run usuarios -- --email … --reset-2fa`, para quien pierde
+  el teléfono y los códigos.
+
+### Dependencia nueva
+
+`qrcode` (y `@types/qrcode` en desarrollo), para el QR del alta. Se genera en el servidor
+como PNG en `data:` URL, así que no hace falta inyectar HTML ni añadir una librería de
+componentes.
+
+### Cobertura
+
+Tras el 2FA: **80,19 % statements · 74,35 % branches · 81,32 % functions · 82,97 % lines**.
+Statements, functions y lines ya superan el 80 %; **branches sigue por debajo** y es el
+único objetivo abierto (casi todas las ramas sin cubrir son rutas de error de base de
+datos).
+
+### Verificación
+
+`typecheck`, `lint`, `build` y 275 pruebas en verde (74 se saltan sin datos del portal).
+Migración aplicada y comprobada contra `_prisma_migrations`.

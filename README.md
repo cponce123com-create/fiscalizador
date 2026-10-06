@@ -499,6 +499,6 @@ Las versiones críticas están fijadas a propósito:
 | `docs/progreso-auditoria.md` | Estado de la auditoría, decisiones tomadas y brecha de cobertura |
 | `docs/diagramas.md` | Flujo del importador y modelo de datos (Mermaid) |
 | `docs/openapi.yaml` | Especificación OpenAPI de la API |
-| `docs/operacion.md` | Rotación de credenciales y copias de seguridad/restauración de Neon |
+| `docs/operacion.md` | Rotación de credenciales, reinicio de 2FA y copias de seguridad/restauración de Neon |
 | `docs/plan-de-trabajo.md` | Plan original del proyecto |
 | `docs/reference/FORMATOS.md` | Formato de los libros del Portal de Transparencia |

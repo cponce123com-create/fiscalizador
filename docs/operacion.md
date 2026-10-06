@@ -32,15 +32,24 @@ contraseña no tenga caracteres sin codificar en la URL, y el registro de Render
 
 ## 2. Rotar `AUTH_SECRET`
 
-`AUTH_SECRET` firma los JWT de sesión.
+`AUTH_SECRET` firma los JWT de sesión y, además, **deriva la clave con la que se cifran los
+secretos TOTP** (ver `lib/auth/secrets.ts`).
 
-> **Consecuencia**: al cambiarlo, **todas las sesiones abiertas dejan de ser válidas** y
-> todo el mundo tiene que volver a iniciar sesión. No se pierde ningún dato; solo hay que
-> avisar antes de hacerlo.
+> **Dos consecuencias**, no una:
+>
+> 1. **Todas las sesiones abiertas dejan de ser válidas**: todo el mundo tiene que volver a
+>    iniciar sesión.
+> 2. **Los secretos de 2FA dejan de poder descifrarse**, así que las cuentas que lo tengan
+>    activado tendrán que volver a darlo de alta.
+>
+> No se pierde ningún dato, pero hay que avisar antes y prever el punto 2: sin eso, esas
+> cuentas se quedan fuera del panel.
 
 1. Generar uno nuevo: `openssl rand -base64 32`.
 2. **Render** → *Environment* → `AUTH_SECRET` → pegar el valor nuevo → guardar.
 3. Render redespliega. Verificar el login.
+4. **Rehacer el 2FA de las cuentas administrativas**: cada una entra y lo da de alta otra
+   vez en `/admin/2fa`. Si alguna no puede, se le reinicia (sección 5).
 
 ## 3. Copias de seguridad de Neon y restauración
 
@@ -99,3 +108,22 @@ Cloudinary, que es la Fase 11 del plan).
 4. En los registros de arranque, que **no** aparezca `ETIMEDOUT` ni un `No se pudo
    despertar la base de datos`.
 5. Iniciar sesión en el panel.
+
+---
+
+## 5. Reiniciar el 2FA de una cuenta (salida de emergencia)
+
+Se usa cuando alguien ha perdido el teléfono **y** los códigos de recuperación, y sin esto
+no podría volver a entrar.
+
+```bash
+npm run usuarios -- --email admin@example.com --reset-2fa
+```
+
+Apaga la verificación en dos pasos de esa cuenta, borra sus códigos de recuperación y
+cierra sus sesiones. Al volver a entrar, el panel la llevará a `/admin/2fa` para darla de
+alta otra vez.
+
+> Se ejecuta desde un entorno de confianza con acceso a `DATABASE_URL`, **nunca desde el
+> panel**: si el panel pudiera hacerlo, a quien le robaran una sesión le bastaría con
+> quitarse el segundo factor.
