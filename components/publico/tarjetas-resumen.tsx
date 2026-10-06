@@ -23,9 +23,9 @@ export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
         {/* Cifra protagonista */}
         <div className="rounded-lg border border-primary/30 bg-card p-6 shadow-sm ring-1 ring-primary/15 lg:col-span-2">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Monto considerado
+            Monto de órdenes incluido en el análisis
           </p>
-          <p className="tabular mt-2 text-4xl font-semibold text-primary sm:text-5xl">
+          <p className="tabular mt-2 text-3xl font-semibold text-primary sm:text-5xl break-words">
             {formatearMonto(resumen.totalConsiderado)}
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">

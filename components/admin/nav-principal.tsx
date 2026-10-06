@@ -33,6 +33,7 @@ type Enlace = {
 };
 
 const ENLACES: readonly Enlace[] = [
+  { href: '/admin/apariencia', etiqueta: 'Apariencia y titulares', icono: Settings2, permiso: 'settings:manage' },
   { href: '/admin', etiqueta: 'Panel', icono: LayoutDashboard, permiso: null },
   { href: '/admin/importar', etiqueta: 'Importar', icono: Upload, permiso: 'imports:write' },
   {

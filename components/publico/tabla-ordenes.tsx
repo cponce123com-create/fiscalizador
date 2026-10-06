@@ -37,8 +37,16 @@ export function TablaOrdenes({
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full text-sm">
+    <>
+    <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-5">
+      <div className="flex items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="font-semibold text-primary">{orden.tipo} · Orden {orden.orderNumber}</Link><span className={`tabular text-right font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
+      <p className="mt-2 text-xs text-muted-foreground">{formatearFecha(orden.issueDate)}</p>
+      {mostrarProveedor ? <Link href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></Link> : null}
+      <p className="my-3 text-sm leading-relaxed">{orden.description || 'Sin descripción en el libro'}</p>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Insignia tono={orden.isCancelled ? 'error' : 'neutro'}>{orden.estado ?? 'Estado no informado'}{orden.isCancelled ? ' · no suma' : ''}</Insignia><Link href={`/ordenes/${orden.id}`} className="text-sm font-medium text-primary underline underline-offset-4">Ver detalle y fuente</Link></div>
+    </article>)}</div>
+    <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
+      <table className="w-full text-sm"><caption className="sr-only">Órdenes registradas y sus montos</caption>
         <thead className="bg-muted/60">
           <tr>
             <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -66,7 +74,7 @@ export function TablaOrdenes({
 
         <tbody>
           {ordenes.map((orden) => (
-            <tr key={orden.id} className="border-t border-border align-top">
+            <tr key={orden.id} className="border-t border-border align-top even:bg-muted/30 hover:bg-muted/60">
               <td className="tabular whitespace-nowrap px-3 py-2.5">
                 {formatearFecha(orden.issueDate)}
               </td>
@@ -123,5 +131,6 @@ export function TablaOrdenes({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

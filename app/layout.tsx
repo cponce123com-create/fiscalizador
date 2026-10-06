@@ -22,23 +22,23 @@ export const metadata: Metadata = {
   // Hace absolutas las URLs de OpenGraph y el canónico; sin él, Next avisa en desarrollo.
   metadataBase: METADATA_BASE,
   title: {
-    default: 'Portal de Transparencia — Órdenes de Compra y Servicio',
-    template: '%s | Portal de Transparencia',
+    default: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
+    template: '%s | Fiscalizador',
   },
   description: DESCRIPCION,
-  applicationName: 'Portal de Transparencia',
+  applicationName: 'Fiscalizador',
   // Es un portal de consulta pública: que lo indexen es justo el objetivo.
   robots: { index: true, follow: true },
   openGraph: {
     type: 'website',
     locale: 'es_PE',
-    siteName: 'Portal de Transparencia',
-    title: 'Portal de Transparencia — Órdenes de Compra y Servicio',
+    siteName: 'Fiscalizador',
+    title: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
     description: DESCRIPCION,
   },
   twitter: {
     card: 'summary',
-    title: 'Portal de Transparencia — Órdenes de Compra y Servicio',
+    title: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
     description: DESCRIPCION,
   },
 };
