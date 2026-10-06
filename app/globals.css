@@ -13,20 +13,20 @@
    ============================================================================= */
 
 :root {
-  --background: #f6f8fb;
-  --foreground: #0f172a;
+  --background: #f6f8f7;
+  --foreground: #17251d;
 
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #17251d;
 
-  --muted: #eef2f7;
-  --muted-foreground: #5a6b82;
+  --muted: #edf3ef;
+  --muted-foreground: #52675a;
 
-  --border: #dde4ed;
-  --input: #c3cedd;
-  --ring: #1d4ed8;
+  --border: #dce6df;
+  --input: #b8cbbf;
+  --ring: #166534;
 
-  --primary: #1d4ed8;
+  --primary: #166534;
   --primary-foreground: #ffffff;
 
   --destructive: #c02626;
@@ -38,25 +38,25 @@
   --warning: #a16207;
   --warning-foreground: #ffffff;
 
-  --radius: 0.625rem;
+  --radius: 0.875rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b1220;
+    --background: #0b1711;
     --foreground: #e8edf5;
 
-    --card: #131c2e;
+    --card: #12241b;
     --card-foreground: #e8edf5;
 
-    --muted: #1b2537;
-    --muted-foreground: #9aa9bf;
+    --muted: #1a3024;
+    --muted-foreground: #a5b9ab;
 
-    --border: #263349;
-    --input: #33425c;
-    --ring: #60a5fa;
+    --border: #2b4233;
+    --input: #3a5543;
+    --ring: #86efac;
 
-    --primary: #3b82f6;
+    --primary: #86efac;
     --primary-foreground: #08111f;
 
     --destructive: #ef4444;
@@ -107,3 +107,11 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+:where(a, button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+.cinta-texto { display: inline-block; min-width: 100%; white-space: nowrap; font-size: .875rem; animation: titular 40s linear infinite; }
+.cinta-lenta { animation-duration: 60s; }
+.cinta-rapida { animation-duration: 25s; }
+.cinta-ventana:hover .cinta-texto, .cinta-ventana:focus-within .cinta-texto { animation-play-state: paused !important; }
+@keyframes titular { 0%, 12% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .cinta-texto { animation: none; white-space: normal; } .cinta-ventana { overflow: visible; } }

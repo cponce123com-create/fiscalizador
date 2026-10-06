@@ -62,9 +62,21 @@ export function Filtros({
 }) {
   const activos = hayFiltrosActivos(filtros);
   const hay = (campo: CampoFiltro): boolean => campos.includes(campo);
+  const etiquetas: { clave: keyof Filtros; texto: string; valor: string | number | null }[] = [
+    { clave: 'texto', texto: 'Búsqueda', valor: filtros.texto },
+    { clave: 'anio', texto: 'Año', valor: filtros.anio },
+    { clave: 'mes', texto: 'Mes', valor: filtros.mes ? MESES[filtros.mes - 1] : null },
+    { clave: 'gestionId', texto: 'Gestión', valor: filtros.gestionId ? opciones.gestiones?.find(g => g.id === filtros.gestionId)?.nombre ?? 'Seleccionada' : null },
+    { clave: 'tipoOrdenId', texto: 'Tipo', valor: filtros.tipoOrdenId ? opciones.tiposOrden?.find(t => t.id === filtros.tipoOrdenId)?.etiqueta ?? 'Seleccionado' : null },
+    { clave: 'estadoId', texto: 'Estado', valor: filtros.estadoId ? opciones.estados?.find(e => e.id === filtros.estadoId)?.etiqueta ?? 'Seleccionado' : null },
+    { clave: 'tipoRuc', texto: 'RUC', valor: filtros.tipoRuc },
+    { clave: 'desde', texto: 'Desde', valor: filtros.desde },
+    { clave: 'hasta', texto: 'Hasta', valor: filtros.hasta },
+  ];
 
   return (
     <form method="get" action={ruta} className="rounded-lg border border-border bg-card p-4">
+      {activos ? <div aria-label="Filtros activos" className="mb-4 flex flex-wrap gap-2">{etiquetas.filter(e => e.valor !== null).map(e => <Link key={e.clave} href={`${ruta}${serializarFiltros(filtros, { [e.clave]: null, pagina: 1 })}`} aria-label={`Quitar filtro ${e.texto}: ${e.valor}`} className="inline-flex max-w-full items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary"><span className="truncate">{e.texto}: {e.valor}</span><X size={12} aria-hidden="true" /></Link>)}</div> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {hay('texto') ? (
           <label className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
@@ -76,9 +88,10 @@ export function Filtros({
               />
               <input
                 type="search"
+                maxLength={120}
                 name="texto"
                 defaultValue={filtros.texto ?? ''}
-                placeholder="Razón social, RUC, nº de orden…"
+                placeholder="Proveedor, RUC, descripción u orden…"
                 className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </span>
@@ -108,6 +121,10 @@ export function Filtros({
           />
         ) : null}
 
+      </div>
+      <details className="mt-4" open={Boolean(filtros.gestionId || filtros.tipoOrdenId || filtros.estadoId || filtros.tipoRuc || filtros.desde || filtros.hasta)}>
+        <summary className="cursor-pointer text-sm font-medium text-primary">Más filtros</summary>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {hay('gestion') ? (
           <Selector
             etiqueta="Gestión"
@@ -178,6 +195,8 @@ export function Filtros({
           </>
         ) : null}
       </div>
+
+      </details>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
