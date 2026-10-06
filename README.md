@@ -226,6 +226,12 @@ reimportar un libro **no duplica nada**: la operación es repetible.
 **Relee el archivo guardado en el servidor** y escribe todo de una vez: proveedores,
 órdenes, resúmenes por gestión y auditoría. Si algo falla, no queda nada a medias.
 
+El paso del lote a «procesando» es una **transición atómica**: si dos confirmaciones del
+mismo lote se cruzan, solo una lo toma y la otra recibe un error claro en lugar de que
+las dos escriban. Un lote que quedó colgado en «procesando» —por ejemplo, porque el
+servicio se reinició a mitad— se puede reanudar pasados **diez minutos**, y la
+recuperación queda anotada en la auditoría.
+
 Antes de insertar descarta las filas cuya clave de deduplicación ya existe
 (`omitirDuplicados`, activado por defecto) e informa de cuántas omitió. La comparación
 es contra lo que había **antes** de esta importación, no entre las filas nuevas: las
@@ -278,7 +284,8 @@ Los estados que traen los libros de otros meses del mismo portal —`Comprometid
 
 Desde `/admin/importaciones` (rol ADMIN o superior) se puede borrar una importación
 completa: sus órdenes, sus columnas, sus hallazgos y el archivo original. No se puede
-deshacer, y no se permite mientras el lote se está procesando.
+deshacer, y no se permite mientras el lote se está procesando; si el proceso lleva más de
+diez minutos colgado, se da por perdido y sí se puede borrar.
 
 Borrar órdenes obliga a **rehacer los resúmenes por (proveedor, gestión)** que ese lote
 alimentaba: las órdenes se van por cascada, pero `SupplierManagementSummary` no, y sin
@@ -405,6 +412,13 @@ portal vacío, el orden es `npm run verify` (carga el libro de referencia) y des
 - Sesiones en cookie `httpOnly`, estrategia JWT, 8 horas.
 - El inicio de sesión verifica la contraseña **siempre**, incluso cuando el correo
   no existe, para no filtrar qué cuentas están registradas por diferencia de tiempo.
+- **Límite de intentos persistente.** 5 fallos en 15 minutos bloquean 15 minutos, por
+  correo y por IP. El contador vive en PostgreSQL (`LoginAttempt`), no en la memoria del
+  proceso: sobrevive a los reinicios y se comparte entre instancias. El mensaje al
+  usuario sigue siendo genérico y el tiempo de respuesta no cambia, así que un bloqueo
+  no se distingue de unas credenciales incorrectas. Los fallos y los bloqueos quedan en
+  la auditoría. La IP se toma de `X-Forwarded-For` (el proxy de Render): es orientativa,
+  no infalsificable.
 - Los mensajes de error de la API nunca incluyen detalles internos.
 - Toda entrada se valida con Zod en el borde de la API.
 - El nombre del archivo subido se usa solo para mostrarlo: la ruta de almacenamiento
