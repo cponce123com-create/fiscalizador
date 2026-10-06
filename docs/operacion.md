@@ -155,3 +155,45 @@ con prisa), `npm run db:studio` y desmarcar la casilla de esa cuenta.
 
 > Ojo: al levantar la marca a mano, la contraseña sigue siendo la que se compartió. Es una
 > salida de emergencia, no una alternativa al cambio.
+
+---
+
+## 7. Dependencias con `overrides`
+
+`package.json` fuerza dos versiones de dependencias **transitivas** del CLI de Prisma:
+
+```json
+"overrides": {
+  "deepmerge-ts": "^8.0.2",
+  "mysql2": "^3.24.5"
+}
+```
+
+Motivo: `prisma@7.10.0` fija `deepmerge-ts@7.1.5` (vulnerable a agotamiento de pila al
+fusionar objetos recursivos, `GHSA-ggr8-5vv4-36mx`, rango afectado `<8.0.0`) y
+`mysql2@3.15.3` (fuga de credenciales en claro y bomba de descompresión,
+`GHSA-3f6p-5ww8-9rcr` y `GHSA-rgwj-5xj2-c3m3`, rango afectado `<=3.23.0`).
+
+**Las dos son del CLI, que es dependencia de desarrollo**: no llegan al runtime de
+producción, y el proyecto usa PostgreSQL, así que `mysql2` no se invoca nunca. Aun así
+conviene no arrastrarlas, y sobre todo no en la máquina que ejecuta las migraciones.
+
+**Al subir Prisma de versión hay que revisar esto**: si Prisma adopta por su cuenta versiones
+ya arregladas, los `overrides` sobran y se pueden quitar. Y al revés: forzar una versión
+mayor de una dependencia de otro puede romperlo, así que después de tocar esto hay que
+comprobar que el CLI sigue funcionando:
+
+```bash
+npx prisma migrate status   # carga prisma.config.ts, que usa @prisma/config
+npx prisma generate
+npm audit
+```
+
+### Lo que los `overrides` NO arreglan
+
+Quedan tres avisos de severidad alta en la cadena de ESLint (`braces`, `micromatch`,
+`fast-glob`). Son de **herramientas de lint**, no del producto, y solo se explotan con un
+patrón de búsqueda malicioso: aquí los patrones los escribe el propio proyecto, no un
+tercero. `npm audit` no propone arreglarlos actualizando esos paquetes, sino **bajando
+`eslint-config-next` a 14.2.35**, que en un proyecto con Next 16 es peor el remedio que la
+enfermedad. Se dejan como están, a la espera de que Next actualice su cadena.
