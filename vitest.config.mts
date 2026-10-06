@@ -37,20 +37,20 @@ export default defineConfig({
       /**
        * Umbrales.
        *
-       * Están fijados ~4 puntos por debajo de la línea base medida en local
-       * (78,84 % statements / 73,26 % branches / 79,65 % functions / 81,65 % lines):
-       * varias pruebas de integración se saltan cuando la base no tiene datos del portal
-       * (p. ej. `personsService`), así que la cifra cambia entre entornos y un umbral
-       * pegado al valor medido haría fallar el CI por ruido.
+       * Valores medidos en local con el 2FA ya incluido: 80,19 % statements / 74,35 %
+       * branches / 81,32 % functions / 82,97 % lines. Los umbrales van ~1,5 puntos por
+       * debajo porque varias pruebas de integración se saltan cuando la base no tiene
+       * datos del portal (p. ej. `personsService`), así que la cifra cambia entre
+       * entornos y uno pegado al valor medido haría fallar el CI por ruido.
        *
-       * El objetivo del 80 % NO se cumple todavía en statements, functions y branches.
-       * La brecha y el plan para cerrarla están en `docs/progreso-auditoria.md`.
+       * Statements, functions y lines superan el objetivo del 80 %; **branches no**
+       * (74,35 %). La brecha y el plan para cerrarla están en `docs/progreso-auditoria.md`.
        */
       thresholds: {
-        statements: 75,
-        functions: 75,
-        branches: 69,
-        lines: 77,
+        statements: 78,
+        functions: 80,
+        branches: 73,
+        lines: 80,
       },
     },
   },

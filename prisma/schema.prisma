@@ -122,13 +122,37 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  /// Secreto TOTP **cifrado** (AES-256-GCM con una clave derivada de AUTH_SECRET). Es
+  /// null mientras la cuenta no ha empezado el alta.
+  twoFactorSecret String?
+  /// Verdadero solo cuando el alta se ha confirmado con un código válido. Mientras sea
+  /// falso, las cuentas administrativas no pueden usar el panel.
+  twoFactorEnabled Boolean @default(false)
+
   accounts      Account[]
   sessions      Session[]
   importBatches ImportBatch[]
   auditLogs     AuditLog[]
+  recoveryCodes TwoFactorRecoveryCode[]
 
   @@index([role])
   @@index([isActive])
+}
+
+/// Código de recuperación de 2FA. De un solo uso: se marca `usedAt` al gastarlo.
+///
+/// Se guarda el **hash** (SHA-256), nunca el código en claro: los códigos tienen 50 bits
+/// de entropía, así que un hash rápido basta y no hace falta argon2. El código en claro
+/// solo se enseña una vez, al terminar el alta.
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Account {
