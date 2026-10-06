@@ -176,5 +176,80 @@ class PruebasDeCoberturaDeColumnas(unittest.TestCase):
                 self.assertIn(campo, COLUMNAS)
 
 
+class PruebasConEncabezadosDeDatosAbiertos(unittest.TestCase):
+    """Encabezados reales del conjunto de órdenes de compra y servicio de GORE Áncash.
+
+    Esta prueba existe por un bug real: con el alias «orden» a secas, el número de orden se
+    apropiaba de la columna `TIPO_ORDEN` y el tipo se quedaba sin mapear.
+    """
+
+    ENCABEZADOS_REALES = [
+        "TIPO_ORDEN",
+        "ANNO_ORDEN",
+        "NRO_MES_ORDEN",
+        "ORDEN_RUC",
+        "ORDEN_FECHA",
+        "ORDEN_MONTO",
+        "ORDEN_PROVEEDOR",
+        "ORDEN_DESCRIPCION",
+        "DEPARTAMENTO",
+        "PROVINCIA",
+        "DISTRITO",
+        "UBIGEO",
+        "FECHA_CORTE",
+    ]
+
+    def test_mapea_las_columnas_que_importan(self) -> None:
+        indices = mapear_columnas(self.ENCABEZADOS_REALES)
+
+        self.assertEqual(indices["tipo"], 0)
+        self.assertEqual(indices["ruc_proveedor"], 3)
+        self.assertEqual(indices["fecha"], 4)
+        self.assertEqual(indices["monto"], 5)
+        self.assertEqual(indices["proveedor"], 6)
+        self.assertEqual(indices["objeto"], 7)
+
+    def test_no_se_apropia_de_la_columna_equvocada(self) -> None:
+        indices = mapear_columnas(self.ENCABEZADOS_REALES)
+
+        # El número de orden no existe en este conjunto: no debe inventarse con TIPO_ORDEN.
+        self.assertNotIn("orden", indices)
+
+    def test_normaliza_una_fila_real(self) -> None:
+        indices = mapear_columnas(self.ENCABEZADOS_REALES)
+        fila = [
+            "2",
+            "2023",
+            "202301",
+            "20571200539",
+            "20230126",
+            "39000",
+            "INKA INGENIEROS S.R.L.",
+            "SERVICIO DE MANTENIMIENTO DE LA COBERTURA DEL COLISEO CERRADO DE HUARAZ.",
+            "ANCASH",
+            "HUARAZ",
+            "INDEPENDENCIA",
+            "020105",
+            "20230131",
+        ]
+
+        orden = normalizar_fila(
+            fila,
+            indices,
+            origen="datosabiertos",
+            entidad_por_defecto="Gobierno Regional de Ancash",
+            ruc_entidad_por_defecto="20131370998",
+        )
+
+        self.assertEqual(orden.ruc_proveedor, "20571200539")
+        self.assertEqual(orden.proveedor, "INKA INGENIEROS S.R.L.")
+        self.assertEqual(orden.monto, Decimal("39000"))
+        self.assertEqual(orden.fecha, date(2023, 1, 26))
+        self.assertEqual(orden.moneda, "PEN")
+        self.assertIn("MANTENIMIENTO", orden.objeto or "")
+        # Sin avisos: es una fila limpia.
+        self.assertEqual(orden.avisos, [])
+
+
 if __name__ == "__main__":
     unittest.main()

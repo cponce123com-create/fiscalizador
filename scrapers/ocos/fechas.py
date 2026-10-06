@@ -14,6 +14,8 @@ FORMATOS = (
     "%d/%m/%Y",
     "%d-%m-%Y",
     "%Y-%m-%d",
+    # Los conjuntos de datos abiertos publican la fecha compacta: 20230126.
+    "%Y%m%d",
     "%d/%m/%y",
     "%Y/%m/%d",
     "%d.%m.%Y",

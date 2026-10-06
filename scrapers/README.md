@@ -16,7 +16,8 @@ Conviene saberlo porque **cambia el planteamiento** del encargo:
 |---|---|
 | `transparencia.gob.pe` publica libros Excel/PDF por entidad, año y mes | En la sección de órdenes **no publica ficheros**. Se comprobaron cinco entidades (ids 1, 100, 1234, 11129 y 20000): las cinco devuelven un formulario con dos desplegables y un botón «Buscar», y **cero** enlaces a archivos |
 | Enviar el formulario devuelve los resultados | Devuelve exactamente la misma página. El JavaScript de la página (`enviarOsce()`) hace `window.open(...)` a **SEACE** con el RUC de la entidad, el año y el mes: el portal **delega** |
-| SEACE se puede consultar con `requests` | Responde **403** a un cliente que no sea un navegador. Es JavaServer Faces con captcha: hace falta Playwright, como decía el encargo |
+| SEACE se puede consultar con `requests` | Responde **403** a un cliente que no sea un navegador, **incluso con cabeceras de navegador completas**: es un WAF, y devuelve un JSON de API Gateway. Hace falta Playwright, como decía el encargo |
+| Solo hay esas dos fuentes | Hay una tercera, y es **la mejor**: la **Plataforma Nacional de Datos Abiertos** (`datosabiertos.gob.pe`) publica conjuntos en CSV de entidades reales, sin captcha ni WAF. Se implementa como vía recomendada |
 
 Consecuencia para el diseño: el scraper del portal no se limita a "buscar enlaces". Lee
 el RUC del formulario y el **puente a SEACE**, y cuando no hay ficheros lo deja dicho en
@@ -50,9 +51,10 @@ scrapers/
 │   ├── notificaciones.py    Correo (smtplib) y Slack
 │   ├── transparencia.py     Scraper del portal
 │   ├── seace.py             Scraper de SEACE (Playwright)
+│   ├── datosabiertos.py     Plataforma Nacional de Datos Abiertos (la vía recomendada)
 │   ├── orquestador.py       Planifica, ejecuta y escribe las salidas
 │   └── __main__.py          Línea de comandos
-├── tests/                   80 pruebas con la biblioteca estándar
+├── tests/                   101 pruebas con la biblioteca estándar
 ├── docs/
 │   ├── reconocimiento.md    Evidencia del reconocimiento de las dos fuentes
 │   └── estructura-de-datos.md  Campos de salida y su origen
@@ -168,7 +170,7 @@ Los campos y su origen están en
 python -m unittest discover -s tests -t . -v
 ```
 
-80 pruebas, sin dependencias externas. Cubren, entre otras cosas:
+101 pruebas, sin dependencias externas. Cubren, entre otras cosas:
 
 * RUC: se usan RUC reales y públicos (el que la propia administración publica en su
   formulario) y casos con el dígito de control alterado.
@@ -185,11 +187,12 @@ el alias «proveedor» encajaba dentro de «RUC Proveedor» (el nombre salía si
 
 ## Limitaciones
 
-1. **SEACE no está verificado contra el sitio real.** Responde 403 a cualquier cliente que
-   no sea un navegador, así que no se pudo inspeccionar su DOM. Los selectores están como
-   **listas de candidatos** y, si ninguno casa, el error dice qué se buscaba. Antes de
-   usarlo en serio: `navegador_visible: true`, una consulta, y ajustar `SELECTORES` en
-   `seace.py` (dos minutos).
+1. **SEACE no está verificado contra el sitio real.** Responde **403 incluso con
+   cabeceras de navegador completas** (devuelve un JSON de API Gateway), así que desde
+   un entorno que no sea el de producción no se puede inspeccionar su DOM. Los selectores
+   están como **listas de candidatos** y, si ninguno casa, el error dice qué se buscaba.
+   Antes de usarlo: `navegador_visible: true`, una consulta, y ajustar `SELECTORES` en
+   `seace.py`. **Para eso ya no hace falta:** usa la vía de datos abiertos.
 2. **El objetivo de «80 % de acierto en captcha» no se puede afirmar.** Es la cifra que
    declara el autor de `gimpysolver` (4000 imágenes entrenadas). Aquí no se ha podido
    medir: haría falta ejecutarlo contra SEACE. El resolvedor guarda **cada captcha que
@@ -213,8 +216,11 @@ es 1: no lo subas sin motivo.
 
 ## Próximos pasos
 
-1. Ejecutar SEACE una vez con el navegador a la vista y dejar los selectores fijados.
-2. Medir el acierto real del captcha con las imágenes de respaldo que va dejando.
-3. Añadir el importador de **datos abiertos de OSCE** como vía preferente (más estable y
-   sin captcha) y dejar SEACE como respaldo.
-4. Encadenar la salida con el importador del portal, para no importar a mano.
+1. ~~Añadir la vía de datos abiertos~~: **hecho** (`datosabiertos.py`). Es la que hay que
+   usar por defecto.
+2. Cargar en la configuración los conjuntos de las entidades que interesen: en
+   `datosabiertos.gob.pe` hay más de diez de órdenes de compra y servicio.
+3. Encadenar la salida con el importador del portal, para no importar a mano.
+4. Si de verdad hace falta SEACE (entidades que no publican datos abiertos): ejecutarlo
+   una vez con el navegador a la vista y fijar los selectores, y medir el acierto del
+   captcha con las imágenes de respaldo.

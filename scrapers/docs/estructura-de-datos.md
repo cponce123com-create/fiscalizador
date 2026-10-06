@@ -104,3 +104,52 @@ Dos detalles que costaron un bug cada uno y están cubiertos por pruebas:
 | `S/ 1,234.56` | `1234.56` | Se quita el símbolo; la moneda va aparte |
 | `N/A`, `-`, vacío | *(nulo)* | **Nunca 0** |
 | `1.2.3` | *(nulo)* | No es un número |
+## 6. Cobertura por campo en el resumen
+
+`ordenes_completas` exige que estén **todos** los campos obligatorios. Hay fuentes que
+no publican alguno (los conjuntos de datos abiertos no traen `estado`), así que esa
+cifra puede ser 0 % con datos perfectamente válidos. Para que eso no parezca un fallo,
+el resumen incluye la cobertura de cada campo:
+
+```json
+{
+  "ordenes_normalizadas": 4131,
+  "ordenes_completas": 0,
+  "cobertura_por_campo": {
+    "ruc_entidad": 100.0,
+    "entidad": 100.0,
+    "ruc_proveedor": 99.0,
+    "proveedor": 99.8,
+    "monto": 100.0,
+    "moneda": 100.0,
+    "fecha": 99.8,
+    "objeto": 100.0,
+    "estado": 0.0
+  }
+}
+```
+
+Leído así: el conjunto no publica el estado (0 %), y hay un 1 % de filas con el RUC del
+proveedor mal y un 0,2 % sin fecha. El resto está completo.
+
+## 7. Datos abiertos: correspondencia de columnas
+
+Encabezados reales del conjunto de GORE Áncash y a qué campo van:
+
+| Columna del conjunto | Campo |
+|---|---|
+| `TIPO_ORDEN` | `tipo` (no se usa en la salida estándar) |
+| `ORDEN_RUC` | `ruc_proveedor` |
+| `ORDEN_FECHA` | `fecha` (formato `AAAAMMDD`) |
+| `ORDEN_MONTO` | `monto` |
+| `ORDEN_PROVEEDOR` | `proveedor` |
+| `ORDEN_DESCRIPCION` | `objeto` |
+| `ANNO_ORDEN`, `NRO_MES_ORDEN` | no se usan: el periodo lo pone la configuración |
+| `DEPARTAMENTO`, `PROVINCIA`, `DISTRITO`, `UBIGEO` | no se recogen (ubicación del gasto) |
+| `FECHA_CORTE` | no se usa |
+| *(no existe)* | `estado`, `moneda` → quedan en blanco y `PEN` |
+| *(no existe)* | `ruc_entidad`, `entidad` → los aporta la configuración |
+
+Aviso de por qué el alias «orden» a secas desapareció de `COLUMNAS`: con él, el número
+de orden se apropiaba de `TIPO_ORDEN` y el tipo se quedaba sin mapear. Ahora solo se
+aceptan formas específicas (`nro orden`, `orden de compra`, `orden de servicio`…).

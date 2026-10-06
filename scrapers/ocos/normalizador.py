@@ -22,7 +22,20 @@ from .ruc import es_ruc_valido, normalizar_ruc
 
 #: Nombre interno -> posibles encabezados en los libros.
 COLUMNAS: dict[str, list[str]] = {
-    "orden": ["nro orden", "n orden", "numero de orden", "orden de compra", "orden", "item"],
+    # Ojo con «orden» a secas: en los conjuntos de datos abiertos hay columnas como
+    # TIPO_ORDEN y ORDEN_RUC que lo contienen, y el número de orden se quedaba con el
+    # tipo. Por eso solo se aceptan formas específicas.
+    "orden": [
+        "nro orden",
+        "n orden",
+        "numero de orden",
+        "numero orden",
+        "nro de orden",
+        "orden de compra",
+        "orden de servicio",
+        "orden compra",
+        "orden servicio",
+    ],
     "fecha": ["fecha", "fecha de emision", "fecha emision", "fecha de orden"],
     "ruc_proveedor": ["ruc proveedor", "ruc del proveedor", "ruc contratista", "ruc"],
     "proveedor": ["proveedor", "razon social", "nombre o razon social", "contratista", "nombre"],

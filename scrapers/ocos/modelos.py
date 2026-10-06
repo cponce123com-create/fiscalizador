@@ -100,6 +100,26 @@ class ResultadoEjecucion:
     errores: list[str] = field(default_factory=list)
     advertencias: list[str] = field(default_factory=list)
 
+    def cobertura_por_campo(self) -> dict[str, float]:
+        """Porcentaje de órdenes con cada campo obligatorio informado.
+
+        `ordenes_completas` exige que estén TODOS los campos, y hay fuentes que no
+        publican alguno: los conjuntos de datos abiertos, por ejemplo, no traen el estado
+        de la orden. Sin esta tabla, un 0 % de órdenes completas parecería un fallo del
+        scraper en lugar de una limitación de la fuente.
+        """
+        if not self.ordenes:
+            return {campo: 0.0 for campo in CAMPOS_OBLIGATORIOS}
+
+        total = len(self.ordenes)
+        return {
+            campo: round(
+                100 * sum(1 for orden in self.ordenes if getattr(orden, campo) is not None) / total,
+                1,
+            )
+            for campo in CAMPOS_OBLIGATORIOS
+        }
+
     def resumen(self) -> dict[str, Any]:
         return {
             "iniciado_en": self.iniciado_en.isoformat(),
@@ -107,6 +127,7 @@ class ResultadoEjecucion:
             "libros_descargados": len(self.libros),
             "ordenes_normalizadas": len(self.ordenes),
             "ordenes_completas": sum(1 for orden in self.ordenes if orden.completo()),
+            "cobertura_por_campo": self.cobertura_por_campo(),
             "errores": len(self.errores),
             "advertencias": len(self.advertencias),
         }

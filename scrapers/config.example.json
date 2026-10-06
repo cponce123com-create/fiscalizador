@@ -13,6 +13,13 @@
       "ruc": "20131312955",
       "origenes": ["seace"],
       "periodos": [{ "anio": 2024, "mes": 1 }]
+    },
+    {
+      "nombre": "Gobierno Regional de Ancash",
+      "ruc": "20131370998",
+      "dataset_url": "https://www.datosabiertos.gob.pe/dataset/ordenes-de-compra-y-servicio-del-gobierno-regional-de-ancash-gore-ancash",
+      "origenes": ["datosabiertos"],
+      "periodos": ["2023-01"]
     }
   ],
   "red": {

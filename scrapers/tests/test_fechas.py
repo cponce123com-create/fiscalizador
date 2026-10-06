@@ -16,6 +16,11 @@ class PruebasDeFechas(unittest.TestCase):
     def test_lee_el_formato_iso(self) -> None:
         self.assertEqual(parsear_fecha("2023-12-31"), date(2023, 12, 31))
 
+    def test_lee_el_formato_compacto_de_los_datos_abiertos(self) -> None:
+        # Los conjuntos de la Plataforma Nacional publican la fecha como 20230126.
+        self.assertEqual(parsear_fecha("20230126"), date(2023, 1, 26))
+        self.assertEqual(parsear_fecha("20240229"), date(2024, 2, 29))
+
     def test_ignora_la_hora(self) -> None:
         self.assertEqual(parsear_fecha("31/12/2023 00:00:00"), date(2023, 12, 31))
 

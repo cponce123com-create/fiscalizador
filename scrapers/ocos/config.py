@@ -19,7 +19,12 @@ from typing import Any
 from .errores import ErrorDeConfiguracion
 from .fechas import parsear_periodo
 
-ORIGENES_VALIDOS = ("transparencia", "seace")
+ORIGENES_VALIDOS = ("transparencia", "seace", "datosabiertos")
+
+#: Orígenes que se usan cuando la entidad no dice cuáles. NO incluye
+#: «datosabiertos»: ese exige un `dataset_url`, así que no puede ser un valor por
+#: defecto razonable.
+ORIGENES_POR_DEFECTO = ("transparencia", "seace")
 ALMACENAMIENTOS_VALIDOS = ("local", "s3", "cloudinary")
 
 
@@ -42,6 +47,8 @@ class Entidad:
     nombre: str
     ruc: str | None = None
     id_transparencia: str | None = None
+    #: URL del conjunto en la Plataforma Nacional de Datos Abiertos.
+    dataset_url: str | None = None
     origenes: tuple[str, ...] = ("transparencia", "seace")
     periodos: tuple[Periodo, ...] = ()
     notas: str | None = None
@@ -152,7 +159,7 @@ def _entidad(crudo: dict[str, Any], indice: int) -> Entidad:
         raise ErrorDeConfiguracion(f"{contexto} debe ser un objeto.")
 
     nombre = str(_exigir(crudo, "nombre", contexto))
-    origenes = tuple(crudo.get("origenes") or ORIGENES_VALIDOS)
+    origenes = tuple(crudo.get("origenes") or ORIGENES_POR_DEFECTO)
 
     desconocidos = [origen for origen in origenes if origen not in ORIGENES_VALIDOS]
     if desconocidos:
@@ -162,16 +169,20 @@ def _entidad(crudo: dict[str, Any], indice: int) -> Entidad:
 
     ruc = crudo.get("ruc")
     id_transparencia = crudo.get("id_transparencia")
+    dataset_url = crudo.get("dataset_url")
 
     if "seace" in origenes and not ruc:
         raise ErrorDeConfiguracion(f"{contexto}: «seace» exige «ruc».")
     if "transparencia" in origenes and not id_transparencia and not ruc:
         raise ErrorDeConfiguracion(f"{contexto}: «transparencia» exige «id_transparencia» o «ruc».")
+    if "datosabiertos" in origenes and not dataset_url:
+        raise ErrorDeConfiguracion(f"{contexto}: «datosabiertos» exige «dataset_url».")
 
     return Entidad(
         nombre=nombre,
         ruc=str(ruc) if ruc else None,
         id_transparencia=str(id_transparencia) if id_transparencia else None,
+        dataset_url=str(dataset_url) if dataset_url else None,
         origenes=origenes,
         periodos=_periodos(_exigir(crudo, "periodos", contexto), contexto),
         notas=crudo.get("notas"),

@@ -147,3 +147,56 @@ Existe una vía oficial de **datos abiertos de OSCE**
 (`contratacionesabiertas.osce.gob.pe/descargas`) que no necesita captcha ni navegador y es
 mucho más estable. Debería ser la vía principal y SEACE el respaldo. No se ha
 implementado en esta entrega.
+## 5. Plataforma Nacional de Datos Abiertos
+
+Es la fuente que se acabó implementando como vía recomendada. Reconocimiento:
+
+### `contratacionesabiertas.osce.gob.pe` ya no existe
+
+Se barajaba como alternativa estable. **No resuelve el nombre**: la conexión falla
+sin respuesta. La URL que circula en documentación antigua está muerta.
+
+### `datosabiertos.gob.pe` sí responde, pero no es CKAN
+
+Es un **Drupal**, no un CKAN: `/api/3/action/package_search` no existe (redirige a una
+página de error). Por eso la búsqueda se hace sobre el HTML de
+`/search/type/dataset?query=...`.
+
+Buscando «ordenes de compra» devuelve **más de diez conjuntos** de entidades reales:
+GORE Áncash, GORE Callao, GORE Tacna, Municipalidad de Magdalena, Chaclacayo, Jorge
+Basadre, Paita…
+
+### Un conjunto real, descargado y leído
+
+El del Gobierno Regional de Áncash
+(`/dataset/ordenes-de-compra-y-servicio-del-gobierno-regional-de-ancash-gore-ancash`):
+
+* Publica **tres** archivos: `DataSet_OrdenesCompraYServicio1_0.csv` (los datos),
+  `DiccionarioDatos_...xlsx` y `Metadatos_...docx`. **No todos son datos**: el
+  scraper descarta los anexos por nombre, porque si no intentaría normalizar un
+  `.docx`.
+* El CSV tiene **4.142 filas** (4.131 de datos) y estas columnas:
+  `TIPO_ORDEN, ANNO_ORDEN, NRO_MES_ORDEN, ORDEN_RUC, ORDEN_FECHA, ORDEN_MONTO,
+  ORDEN_PROVEEDOR, ORDEN_DESCRIPCION, DEPARTAMENTO, PROVINCIA, DISTRITO, UBIGEO,
+  FECHA_CORTE`.
+* La fecha viene **compacta** (`20230126`), un formato que el lector no aceptaba.
+* **El conjunto no dice de qué entidad es.** Ni el nombre ni el RUC: eso hay que
+  aportarlo en la configuración.
+
+### Lo que destapó al pasar los datos reales por el normalizador
+
+| Antes | Después |
+|---|---|
+| `fecha` vacía en las 4.131 filas | Se lee `2023-01-26` |
+| `orden` se apropiaba de `TIPO_ORDEN` | `tipo` → `TIPO_ORDEN`; `orden` no se inventa |
+| 4.131 avisos de «Fecha ilegible» | **54** avisos, y todos son problemas reales del dato |
+
+Los 54 avisos que quedan son del dato de origen: 42 RUC de proveedor con el dígito de
+control mal, 10 filas sin nombre de proveedor, 1 sin RUC y 1 con el monto ilegible.
+Eso es exactamente lo que el scraper tiene que enseñar en lugar de esconder.
+
+### La vía de datos abiertos no sirve para todo
+
+Depende de que cada entidad publique. Muchas no lo hacen, y para esas solo queda SEACE.
+Pero cuando el conjunto existe es mucho mejor: sin captcha, sin navegador y con el dato
+ya tabulado.

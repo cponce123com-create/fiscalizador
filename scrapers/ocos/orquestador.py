@@ -21,6 +21,7 @@ from pathlib import Path
 from .almacenamiento import AlmacenLocal, crear_almacenamiento
 from .captcha import crear_resolvedor
 from .config import Configuracion, Entidad, Periodo
+from .datosabiertos import ScraperDatosAbiertos
 from .errores import ErrorOCOS
 from .http import ClienteHttp
 from .lectores import leer
@@ -92,6 +93,7 @@ class Orquestador:
         self.almacen_local = AlmacenLocal(configuracion.almacenamiento.directorio_base)
 
         self.transparencia = ScraperTransparencia(self.cliente, self.almacen_local)
+        self.datos_abiertos = ScraperDatosAbiertos(self.cliente, self.almacen_local)
 
     def _seace(self) -> ScraperSeace:
         """Construye el scraper de SEACE solo cuando hace falta.
@@ -193,6 +195,12 @@ class Orquestador:
 
             if "seace" in tarea.entidad.origenes and solo_origen in (None, "seace"):
                 self._por_seace(tarea, resultado)
+
+            if "datosabiertos" in tarea.entidad.origenes and solo_origen in (
+                None,
+                "datosabiertos",
+            ):
+                self._por_datos_abiertos(tarea, resultado)
         except ErrorOCOS as error:
             # Error previsto: se anota y se sigue con la siguiente tarea.
             REGISTRO.error(f"{etiqueta}: {error}", extra=contexto)
@@ -265,6 +273,40 @@ class Orquestador:
             extra=con_contexto(entidad=tarea.entidad.nombre, periodo=tarea.periodo.etiqueta),
         )
 
+    def _por_datos_abiertos(
+        self, tarea: TareaDePeriodo, resultado: ResultadoEjecucion
+    ) -> None:
+        """Vía de la Plataforma Nacional de Datos Abiertos.
+
+        Es la más fiable de las tres: no hay captcha ni WAF y el dato viene ya
+        tabulado. El conjunto no dice de qué entidad es, así que el nombre y el RUC
+        los aporta la configuración.
+        """
+        url = tarea.entidad.dataset_url
+        if not url:
+            resultado.advertencias.append(
+                f"{tarea.etiqueta}: sin «dataset_url», se omite datos abiertos."
+            )
+            return
+
+        conjunto = self.datos_abiertos.inspeccionar(url)
+
+        REGISTRO.info(
+            f"Conjunto «{conjunto.titulo or url}»: {len(conjunto.recursos_de_datos)} archivo(s) de datos y {len(conjunto.anexos)} anexo(s).",
+            extra=con_contexto(entidad=tarea.entidad.nombre, paso="datosabiertos"),
+        )
+
+        for recurso in conjunto.recursos_de_datos:
+            libro = self.datos_abiertos.descargar(
+                recurso,
+                entidad=tarea.entidad.nombre,
+                anio=tarea.periodo.anio,
+                mes=tarea.periodo.mes,
+                ruc=tarea.entidad.ruc,
+            )
+            resultado.libros.append(libro)
+            resultado.ordenes.extend(self._normalizar_libro(libro, tarea.entidad))
+
     def _normalizar_libro(
         self, libro: LibroDescargado, entidad: Entidad
     ) -> list[OrdenNormalizada]:
@@ -287,7 +329,7 @@ class Orquestador:
         return normalizar_filas(
             filas,
             encabezados,
-            origen="transparencia",
+            origen=libro.origen,
             archivo=libro.nombre_archivo,
             anio=libro.anio,
             mes=libro.mes,
