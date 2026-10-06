@@ -68,6 +68,13 @@ services:
       - key: STORAGE_LOCAL_DIR
         value: /var/data/uploads
 
+      # --- Contacto público -----------------------------------------------------
+      # Correo que se muestra en /metodologia para pedir correcciones. Es público
+      # (prefijo NEXT_PUBLIC_): se incrusta en el HTML en tiempo de compilación, así
+      # que solo sirve para una dirección institucional, nunca para datos sensibles.
+      - key: NEXT_PUBLIC_CONTACTO_CORRECCIONES
+        sync: false
+
       # --- Seed (opcional) ------------------------------------------------------
       # Solo hacen falta para crear el primer SUPERADMIN en una base vacía.
       # La base actual ya está sembrada, así que pueden dejarse sin definir.

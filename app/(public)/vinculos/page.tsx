@@ -218,7 +218,7 @@ export default async function PaginaVinculos() {
 
       <p className="text-xs text-muted-foreground">
         ¿Crees que algún vínculo es incorrecto? Consulta la{' '}
-        <Link href="/metodologia" className="underline underline-offset-2">
+        <Link href="/metodologia#correcciones" className="underline underline-offset-2">
           metodología
         </Link>{' '}
         y cómo reclamar una corrección.

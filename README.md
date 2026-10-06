@@ -101,6 +101,11 @@ importación.
 | `STORAGE_DRIVER` | No | `local` (por defecto) o `cloudinary` (fase posterior). |
 | `STORAGE_LOCAL_DIR` | No | Directorio de los archivos originales. Por defecto `./storage/uploads`. |
 | `CLOUDINARY_*` | No | Credenciales de Cloudinary. Reservadas para la fase de fotografías. |
+| `NEXT_PUBLIC_CONTACTO_CORRECCIONES` | No | Correo que se muestra en `/metodologia` para solicitar correcciones o rectificaciones. Si falta, la página avisa de que el canal no está configurado. |
+
+Las variables con prefijo `NEXT_PUBLIC_` se incrustan en el HTML **en tiempo de
+compilación** y las lee el navegador: no pasan por `lib/env.ts`. No pongas en ellas
+nada que no deba ser público.
 
 `.env` está en `.gitignore`. **Nunca se versiona.**
 

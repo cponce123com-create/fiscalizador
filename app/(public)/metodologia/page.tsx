@@ -1,6 +1,15 @@
 import type { Metadata } from 'next';
-import { FileCheck2, FileSpreadsheet, Info, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { FileCheck2, FileSpreadsheet, Info, Mail, ShieldCheck, TriangleAlert } from 'lucide-react';
 import Link from 'next/link';
+
+import { Aviso } from '@/components/ui/data';
+import { PLAZO_RESPUESTA_DIAS, leerContactoCorrecciones } from '@/lib/contacto';
+
+/**
+ * Correo para solicitar correcciones, resuelto en el servidor al compilar (es una
+ * variable `NEXT_PUBLIC_`). `null` cuando no está configurado.
+ */
+const contactoCorrecciones = leerContactoCorrecciones(process.env.NEXT_PUBLIC_CONTACTO_CORRECCIONES);
 
 export const metadata: Metadata = {
   title: 'Metodología',
@@ -155,6 +164,69 @@ export default function PaginaMetodologia() {
         </p>
       </Seccion>
 
+      <Seccion
+        id="correcciones"
+        titulo="Cómo solicitar una corrección o rectificación"
+        icono={<Mail className="h-5 w-5" aria-hidden="true" />}
+      >
+        <p>
+          Si un dato no coincide con el archivo original, o consideras que una ficha de persona
+          señalada es inexacta, puedes pedir que se revise. Cada solicitud se atiende contra la
+          fuente: el libro del que salió la cifra y, cuando corresponde, la evidencia que aportes.
+        </p>
+        <p>Para que podamos localizar el caso, incluye:</p>
+        <ul className="flex list-disc flex-col gap-2 pl-5">
+          <li>
+            <strong>Qué quieres corregir.</strong> La ficha o el proveedor afectado, con su nombre o
+            RUC y, si es una orden concreta, su número.
+          </li>
+          <li>
+            <strong>Qué es lo incorrecto.</strong> El dato que figura en el portal y el que debería
+            figurar, explicando por qué.
+          </li>
+          <li>
+            <strong>La evidencia.</strong> El documento o enlace que respalde la corrección (la
+            página del archivo original, una resolución, una publicación oficial…).
+          </li>
+          <li>
+            <strong>Cómo responderte.</strong> Un medio de contacto, que no se publicará.
+          </li>
+        </ul>
+        {contactoCorrecciones ? (
+          <>
+            <p>
+              Envía la solicitud a{' '}
+              <a
+                href={`mailto:${contactoCorrecciones}`}
+                className="font-medium text-primary underline underline-offset-2"
+              >
+                {contactoCorrecciones}
+              </a>
+              . Respondemos en un plazo máximo de {PLAZO_RESPUESTA_DIAS} días hábiles.
+            </p>
+            <p>
+              Este canal sirve para pedir que un dato se ajuste a su fuente. No sustituye a los
+              procedimientos de denuncia ni elimina registros: una rectificación corrige, no borra.
+            </p>
+          </>
+        ) : (
+          <Aviso
+            tono="advertencia"
+            titulo="El canal de correcciones aún no está configurado"
+            icono={<TriangleAlert className="h-5 w-5" aria-hidden="true" />}
+          >
+            <p>
+              Falta definir la variable de entorno{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-xs">
+                NEXT_PUBLIC_CONTACTO_CORRECCIONES
+              </code>
+              . Hasta que se configure y se vuelva a desplegar, no hay una dirección a la que enviar
+              solicitudes de corrección.
+            </p>
+          </Aviso>
+        )}
+      </Seccion>
+
       <footer className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
         <p>
           ¿Detectaste un dato que no cuadra con el archivo original? Es la información más útil que
@@ -162,7 +234,11 @@ export default function PaginaMetodologia() {
           <Link href="/" className="font-medium text-primary hover:underline">
             Vuelve a la portada
           </Link>{' '}
-          y comprueba la cifra concreta antes de reportarla.
+          para comprobar la cifra concreta y sigue lo indicado en{' '}
+          <a href="#correcciones" className="font-medium text-primary hover:underline">
+            cómo solicitar una corrección
+          </a>
+          .
         </p>
       </footer>
     </article>
@@ -172,14 +248,16 @@ export default function PaginaMetodologia() {
 function Seccion({
   titulo,
   icono,
+  id,
   children,
 }: {
   titulo: string;
   icono: React.ReactNode;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-3">
+    <section id={id} className="flex flex-col gap-3">
       <h2 className="flex items-center gap-2 text-lg font-semibold">
         <span className="text-primary">{icono}</span>
         {titulo}
