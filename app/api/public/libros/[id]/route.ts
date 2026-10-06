@@ -16,22 +16,20 @@ export async function GET(
       isCurrent: true,
       year: true,
       month: true,
+      version: true,
+      importType: true,
     },
   });
-  if (
-    !batch ||
-    !['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(batch.status)
-  )
+  if (!batch || !['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(batch.status))
     return new Response('Libro no disponible', { status: 404 });
   const [ocultos, total] = await Promise.all([
     camposOcultos(id),
     prisma.order.count({ where: { importBatchId: id } }),
   ]);
   if (total > 20000)
-    return new Response(
-      'El libro supera el límite de exportación pública (20.000 filas).',
-      { status: 413 },
-    );
+    return new Response('El libro supera el límite de exportación pública (20.000 filas).', {
+      status: 413,
+    });
   const filas = await prisma.order.findMany({
     where: { importBatchId: id },
     orderBy: [{ sourceRow: 'asc' }, { id: 'asc' }],
@@ -51,6 +49,10 @@ export async function GET(
   });
   const campos = [
     'id',
+    'importBatchId',
+    'periodo',
+    'importType',
+    'version',
     'orderNumber',
     'orderType',
     'issueDate',
@@ -69,6 +71,10 @@ export async function GET(
   for (const o of filas) {
     const valores: Record<string, unknown> = {
       id: o.id,
+      importBatchId: batch.id,
+      periodo: `${batch.year}-${String(batch.month).padStart(2, '0')}`,
+      importType: batch.importType,
+      version: batch.version,
       orderNumber: o.orderNumber,
       orderType: o.orderType?.label,
       issueDate: o.issueDate?.toISOString().slice(0, 10),

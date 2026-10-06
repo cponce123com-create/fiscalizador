@@ -8,7 +8,7 @@ La migración es aditiva y transaccional. Activa libros antiguos sin conflictos;
 
 ## Cifras y cobertura
 
-Los montos son órdenes registradas o consideradas por el catálogo, no pagos efectivos ni presupuesto municipal. Los promedios excluyen anuladas, estados no considerados y montos desconocidos. El conteo paginado del ranking utiliza la misma gestión y proveedores con órdenes vigentes que su consulta de filas. Los estados no anulados se presentan con estilo neutro.
+Los montos son órdenes registradas o consideradas por el catálogo, no pagos efectivos ni presupuesto municipal. Los agregados y promedios se formatean con Decimal sin convertir a coma flotante, para conservar céntimos incluso en sumas grandes. Los promedios excluyen anuladas, estados no considerados y montos desconocidos. El conteo paginado del ranking utiliza la misma gestión y proveedores con órdenes vigentes que su consulta de filas. Los estados no anulados se presentan con estilo neutro.
 
 La cobertura usa año/mes/tipo del libro, no meses inferidos de fechas de órdenes. Cada año con libros tiene un calendario OC/OS de doce meses. «Completo declarado» requiere declaración administrativa y ausencia de errores/exclusiones; no constituye una auditoría independiente de la fuente. La ausencia no se interpreta como gasto cero. Las comparaciones advierten sobre coberturas diferentes; no se calcula un ranking de eficiencia municipal.
 

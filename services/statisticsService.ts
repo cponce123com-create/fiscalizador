@@ -1,6 +1,7 @@
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { type Filtros, rangoDeFechas } from '@/lib/filtros';
 import { prisma } from '@/lib/prisma';
+import { decimalMonetario } from '@/lib/decimal';
 
 /**
  * Agregaciones del portal público.
@@ -17,14 +18,7 @@ import { prisma } from '@/lib/prisma';
  */
 
 /** Monto normalizado a dos decimales, como cadena. */
-function aDecimal2(valor: unknown): string {
-  if (valor === null || valor === undefined) return '0.00';
-
-  const numero = typeof valor === 'number' ? valor : Number(valor);
-  if (!Number.isFinite(numero)) return '0.00';
-
-  return numero.toFixed(2);
-}
+const aDecimal2 = decimalMonetario;
 
 /** Convierte un bigint de PostgreSQL a number de forma segura para conteos. */
 function aNumero(valor: unknown): number {

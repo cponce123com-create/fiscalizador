@@ -89,7 +89,7 @@ export default async function PaginaVinculos() {
         </p>
         <p className="mt-2">
           Los montos son los mismos que ya publican las demás secciones del portal y salen de los
-          libros del Portal de Transparencia. El DNI de las personas no se publica.
+          libros del Portal de Transparencia. No se añade una columna con DNI. Los RUC públicos de personas naturales contienen parte de ese identificador.
         </p>
       </Aviso>
 

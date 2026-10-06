@@ -308,7 +308,7 @@ describe.skipIf(!hayBaseDeDatos)('reimportar un libro no duplica sus órdenes', 
     return lote?.storageKey ?? null;
   }
 
-  it('la segunda importación no inserta nada y lo informa', async () => {
+  it('la segunda importación conserva el historial sin duplicar el universo vigente', async () => {
     const existiaAntes = await prisma.supplier.findUnique({
       where: { ruc: RUC },
       select: { id: true },
