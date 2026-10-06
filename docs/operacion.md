@@ -217,3 +217,11 @@ contraseña pendiente o sin el 2FA obligatorio. El alta de 2FA solo sirve para u
 cuenta activa, con contraseña ya cambiada y sin factor existente; no permite
 sustituirlo. Si se pierde el factor, se utiliza el procedimiento de rescate por
 CLI `--reset-2fa`, que revoca las sesiones antes de permitir una nueva alta.
+
+## Arranque con migraciones pendientes
+
+`npm start` ejecuta `npm run db:deploy` antes de iniciar Next.js. El comando usa la versión de Prisma instalada en el proyecto y `DIRECT_URL`. Si falta configuración, conexión o una migración falla, Next.js no arranca: no se sirve una aplicación cuyo esquema está incompleto. Las migraciones ya aplicadas no se vuelven a ejecutar.
+
+El `preDeployCommand` de Render sigue siendo útil, pero el servicio también queda protegido cuando fue creado manualmente y esa configuración del blueprint no se aplicó. `DIRECT_URL` y `DATABASE_URL` deben apuntar a la misma base de datos; la primera es la conexión directa para migraciones y la segunda puede usar pooling.
+
+Para recuperar un despliegue existente con errores `P2022`, columnas `isCurrent`/`requiresReview` ausentes o la vista `CurrentOrder` faltante: ejecutar `npm run db:deploy` en la Shell del servicio y comprobar `npm run db:status`; después reiniciar. Si la Shell no está disponible, configurar temporalmente Start Command como `npm run db:deploy && npm start` y volver a desplegar. Cuando el servicio usa esta versión, basta con `npm start`. Revisar el error de la migración si el arranque se detiene, antes de intentar otra intervención en la base.
