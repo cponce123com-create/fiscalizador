@@ -1,0 +1,44 @@
+{
+  "entidades": [
+    {
+      "nombre": "Municipalidad Distrital de San Ramón",
+      "ruc": "20146657142",
+      "id_transparencia": "11129",
+      "origenes": ["transparencia", "seace"],
+      "periodos": ["2023-06", "2023-07"],
+      "notas": "Su portal delega en SEACE; la vía de ficheros no devuelve nada."
+    },
+    {
+      "nombre": "Entidad de ejemplo (SEACE)",
+      "ruc": "20131312955",
+      "origenes": ["seace"],
+      "periodos": [{ "anio": 2024, "mes": 1 }]
+    }
+  ],
+  "red": {
+    "segundos_entre_peticiones": 2.0,
+    "timeout": 45.0,
+    "reintentos": 3,
+    "espera_inicial": 5.0,
+    "espera_maxima": 60.0,
+    "concurrencia": 1,
+    "navegador_visible": false,
+    "timeout_navegador": 60.0
+  },
+  "captcha": {
+    "resolvedor": "gimpysolver",
+    "intentos": 3,
+    "espera_manual": 180.0,
+    "directorio_de_respaldo": "salida/captchas"
+  },
+  "almacenamiento": {
+    "driver": "local",
+    "directorio_base": "salida"
+  },
+  "notificacion": {
+    "email_para": null,
+    "slack_webhook": null,
+    "solo_si_hay_errores": true
+  },
+  "nivel_de_registro": "INFO"
+}

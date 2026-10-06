@@ -1,0 +1,66 @@
+# Configuración del scraper de órdenes de compra y de servicio (OC/OS).
+#
+# Este archivo se versiona, así que NO pongas aquí credenciales: el SMTP y el webhook de
+# Slack se leen del entorno (OCOS_SMTP_*, OCOS_SLACK_WEBHOOK).
+#
+# Hay un equivalente en JSON (`config.example.json`) que no necesita PyYAML.
+
+# --- Entidades ---------------------------------------------------------------
+entidades:
+  # Entidad usada como referencia durante el reconocimiento. Se comprobó que su página
+  # de órdenes NO publica ficheros: es un formulario que delega en SEACE.
+  - nombre: "Municipalidad Distrital de San Ramón"
+    ruc: "20146657142"
+    id_transparencia: "11129"
+    origenes: [transparencia, seace]
+    periodos: ["2023-06", "2023-07"]
+    notas: "Su portal delega en SEACE; la vía de ficheros no devuelve nada."
+
+  # Ejemplo de entidad de la que se quieren solo los datos de SEACE, sin pasar por el
+  # portal. El RUC es obligatorio para esta vía.
+  - nombre: "Entidad de ejemplo (SEACE)"
+    ruc: "20131312955"
+    origenes: [seace]
+    periodos:
+      - { anio: 2024, mes: 1 }
+
+# --- Red ---------------------------------------------------------------------
+red:
+  # El pliego pide respetar los servidores públicos. El mínimo admitido es 1 segundo.
+  segundos_entre_peticiones: 2.0
+  timeout: 45.0
+  reintentos: 3
+  espera_inicial: 5.0
+  espera_maxima: 60.0
+  # 1 = secuencial. Subirlo es una decisión consciente, no un ajuste de rendimiento.
+  concurrencia: 1
+  # Para ajustar los selectores de SEACE la primera vez: abre el navegador a la vista.
+  navegador_visible: false
+  timeout_navegador: 60.0
+  # user_agent: "Mozilla/5.0 (...) Chrome/120.0 Safari/537.36"
+
+# --- Captcha de SEACE --------------------------------------------------------
+captcha:
+  # gimpysolver (automático) | manual (una persona lo escribe) | ninguno
+  resolvedor: gimpysolver
+  intentos: 3
+  espera_manual: 180.0
+  directorio_de_respaldo: "salida/captchas"
+
+# --- Almacenamiento ----------------------------------------------------------
+almacenamiento:
+  # local | s3 | cloudinary (cloudinary aún no está implementado aquí)
+  driver: local
+  directorio_base: "salida"
+  # bucket: "mi-bucket"
+  # prefijo: "ocos"
+
+# --- Avisos ------------------------------------------------------------------
+notificacion:
+  # El correo y el webhook salen del entorno, no de aquí.
+  email_para: null
+  slack_webhook: null
+  solo_si_hay_errores: true
+
+# --- Registro -----------------------------------------------------------------
+nivel_de_registro: INFO

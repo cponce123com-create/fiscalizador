@@ -1,0 +1,35 @@
+# Dependencias del scraper de órdenes de compra y de servicio.
+#
+# El núcleo (validación de RUC, montos, fechas, parseo de HTML y tablas, normalización y
+# configuración) usa SOLO la biblioteca estándar, y sus pruebas se ejecutan sin instalar
+# nada: `python -m unittest discover -s tests -t .`
+#
+# Lo de abajo solo hace falta para salir a la red.
+
+# --- Portal de Transparencia -------------------------------------------------
+requests>=2.31
+
+# Lectura de los libros descargados. El portal publica .xls clásico, que openpyxl NO
+# abre: hacen falta los dos.
+xlrd>=2.0.1
+openpyxl>=3.1.2
+# Opcional: solo si hay que leer PDF. Si el mismo dato está en Excel, usa el Excel.
+pdfplumber>=0.11.0
+
+# --- SEACE (JavaServer Faces con captcha) ------------------------------------
+# Hace falta un navegador real: el buscador responde 403 a un cliente HTTP simple y su
+# paginación son postbacks de JavaScript.
+playwright>=1.44.0
+# Después de instalar: `playwright install chromium`
+
+# Resolutor del captcha tipo gimpy de SEACE. Licencia GPL: revísala si vas a distribuir
+# esto. Alternativa sin dependencia: `captcha.resolvedor: manual` en la configuración.
+gimpysolver==0.0.18
+Pillow>=10.0.0
+
+# --- Configuración -----------------------------------------------------------
+# Sin PyYAML puedes usar un archivo .json, que no necesita dependencias.
+PyYAML>=6.0.1
+
+# --- Opcional: subida a S3 ---------------------------------------------------
+# boto3>=1.34.0
