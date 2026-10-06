@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { Filtros } from '@/components/publico/filtros';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
-import { leerFiltros } from '@/lib/filtros';
+import Link from 'next/link';
+import { leerFiltros, serializarFiltros } from '@/lib/filtros';
 import { listarOrdenes, opcionesDeFiltros } from '@/services/statisticsService';
 
 /**
@@ -46,6 +47,8 @@ export default async function PaginaOrdenes({
 
       <Filtros filtros={filtros} opciones={opciones} ruta="/ordenes" />
 
+      <Link className="underline" href={`/api/public/orders/export?${serializarFiltros(filtros)}`}>Descargar todo el resultado filtrado (CSV, hasta 20.000 órdenes)</Link>
+      <p className="text-xs text-muted-foreground">Extracto normalizado de versiones vigentes con procedencia y criterio de búsqueda. Las columnas restringidas se omiten; la huella corresponde al original. El monto considerado se reproduce sumando el monto de las filas con considerada=true. Los montos desconocidos quedan vacíos.</p>
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ordenes" />
 
       <TablaOrdenes ordenes={resultado.filas} />

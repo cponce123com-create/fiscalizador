@@ -657,7 +657,7 @@ export async function aniosDisponibles(): Promise<number[]> {
  * anidar objetos. Así la búsqueda por texto —que necesita su propio `OR`— no
  * pisa a los demás filtros.
  */
-async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
+export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
   const condiciones: Prisma.OrderWhereInput[] = [{ importBatch: { isCurrent: true } }];
 
   const rango = rangoDeFechas(filtros);

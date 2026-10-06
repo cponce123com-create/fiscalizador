@@ -162,6 +162,16 @@ describe.skipIf(!process.env.DATABASE_URL)('instantáneas y estadísticas ciudad
       '50.00',
     );
     expect((await stats.opcionesDeFiltros()).anios).toContain(1993);
+    const { GET: exportar } = await import('@/app/api/public/orders/export/route');
+    const csv = await exportar(
+      new Request(`https://ejemplo.test/api/public/orders/export?texto=${ruc}&gestion=${gestionId}&mes=2`),
+    );
+    expect(csv.status).toBe(200);
+    expect(csv.headers.get('X-Total-Ordenes')).toBe('2');
+    expect(csv.headers.get('X-Total-Registrado')).toBe('170.00');
+    expect(csv.headers.get('X-Total-Considerado')).toBe('50.00');
+    expect((await csv.text()).split('\r\n')).toHaveLength(3);
+
     expect(
       (await stats.proveedoresMultiGestion(1)).filas.find((p) => p.ruc === ruc)?.totalConsiderado,
     ).toBe('50.00');
