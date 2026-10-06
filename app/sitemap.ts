@@ -24,6 +24,7 @@ const RUTAS_FIJAS = [
   { ruta: '/ordenes', prioridad: 0.7 },
   { ruta: '/historial', prioridad: 0.6 },
   { ruta: '/vinculos', prioridad: 0.6 },
+  { ruta: '/fuentes', prioridad: 0.6 },
   { ruta: '/metodologia', prioridad: 0.5 },
 ] as const;
 

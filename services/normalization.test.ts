@@ -204,7 +204,7 @@ describe('clave de deduplicación', () => {
       issueDate: new Date(Date.UTC(2023, 5, 6)),
     });
     expect(a).toBe(b);
-    expect(a).toBe('217|20541487710|650.00|2023-06-06');
+    expect(a).toBe('|217|20541487710|650.00|2023-06-06');
   });
 
   it('distingue registros con montos distintos', () => {
@@ -217,6 +217,18 @@ describe('clave de deduplicación', () => {
   it('tolera monto y fecha ausentes', () => {
     expect(
       buildDedupeKey({ orderNumber: '245', ruc: '20610345990', amount: null, issueDate: null }),
-    ).toBe('245|20610345990||');
+    ).toBe('|245|20610345990||');
   });
+});
+
+it('distingue una compra y un servicio con iguales número, proveedor, monto y fecha', () => {
+  const base = {
+    orderNumber: '245',
+    ruc: '20610345990',
+    amount: '100.00',
+    issueDate: new Date('2023-06-06'),
+  };
+  expect(buildDedupeKey({ ...base, orderType: 'O/C' })).not.toBe(
+    buildDedupeKey({ ...base, orderType: 'O/S' }),
+  );
 });

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import * as XLSX from 'xlsx';
 
 import {
   computeChecksum,
@@ -172,7 +173,10 @@ describe('parseService contra el archivo real (Lista-OCOS-2023-06.xls)', () => {
       conteo.set(nro, (conteo.get(nro) ?? 0) + 1);
     }
 
-    const duplicados = [...conteo.entries()].filter(([, n]) => n > 1).map(([nro]) => nro).sort();
+    const duplicados = [...conteo.entries()]
+      .filter(([, n]) => n > 1)
+      .map(([nro]) => nro)
+      .sort();
 
     expect(conteo.size).toBe(101);
     expect(duplicados).toEqual(['238', '245']);
@@ -225,5 +229,26 @@ describe('parseService contra el archivo real (Lista-OCOS-2023-06.xls)', () => {
     // resto = 1 => digito = 11 - 1 = 10 => se usa 0. Es el caso de 20541487710,
     // que una implementación ingenua rechazaría.
     expect(isValidRucCheckDigit('20541487710')).toBe(true);
+  });
+});
+
+describe('filas físicas de una hoja con huecos', () => {
+  it('conserva tanto las filas vacías iniciales como las intermedias', () => {
+    const w = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      w,
+      XLSX.utils.aoa_to_sheet([
+        [],
+        [],
+        ['Número de orden', 'RUC', 'Monto'],
+        ['1', '20541487710', '100'],
+        [],
+        ['2', '20541487710', '120'],
+      ]),
+      'Evidencia',
+    );
+    const hoja = parseSpreadsheet(Buffer.from(XLSX.write(w, { type: 'array', bookType: 'xlsx' })));
+    expect(hoja.headerRowIndex).toBe(2);
+    expect(hoja.sourceRows).toEqual([4, 6]);
   });
 });

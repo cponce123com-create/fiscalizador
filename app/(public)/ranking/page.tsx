@@ -38,7 +38,7 @@ export default async function PaginaRanking({
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold sm:text-3xl">Ranking de proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Ordenados por monto considerado, que es lo que de verdad suma: excluye las órdenes
+          Ordenados por monto considerado, según el catálogo de estados: excluye las órdenes
           anuladas. El peso es la participación de cada proveedor sobre el total del conjunto
           filtrado.
         </p>

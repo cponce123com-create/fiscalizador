@@ -34,7 +34,7 @@ export default async function PaginaProveedores({
         <h1 className="text-2xl font-semibold sm:text-3xl">Proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Quién ha recibido órdenes de compra y de servicio, ordenado alfabéticamente. El monto
-          considerado excluye las órdenes anuladas y las de estados que no generan gasto.
+          considerado excluye las órdenes anuladas y las de estados excluidos del análisis.
         </p>
       </header>
 

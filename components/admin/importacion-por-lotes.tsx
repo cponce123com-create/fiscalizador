@@ -79,13 +79,7 @@ const TIPOS_INFORMACION = [
 ];
 
 type EstadoArchivo =
-  | 'detectando'
-  | 'listo'
-  | 'analizando'
-  | 'error'
-  | 'analizado'
-  | 'importando'
-  | 'importado';
+  'detectando' | 'listo' | 'analizando' | 'error' | 'analizado' | 'importando' | 'importado';
 
 type ArchivoEnCola = {
   id: string;
@@ -107,6 +101,8 @@ type ArchivoEnCola = {
   excluidas: number[];
   incluido: boolean;
   reemplazar: boolean;
+  sourceUrl: string;
+  coverageComplete: boolean;
   resultado: ConfirmarRespuesta | null;
   detalleAbierto: boolean;
 };
@@ -245,6 +241,8 @@ export function ImportacionPorLotes() {
         excluidas: [],
         incluido: true,
         reemplazar: false,
+        sourceUrl: '',
+        coverageComplete: false,
         resultado: null,
         detalleAbierto: false,
       });
@@ -380,6 +378,8 @@ export function ImportacionPorLotes() {
             body: JSON.stringify({
               importBatchId: archivo.analisis?.importBatchId,
               reemplazarPeriodo: archivo.reemplazar,
+              sourceUrl: archivo.sourceUrl,
+              coverageComplete: archivo.coverageComplete,
               // Las filas que ya están en el portal no se vuelven a insertar: así
               // reimportar un libro corregido no duplica lo que no ha cambiado.
               omitirDuplicados: true,
@@ -606,14 +606,14 @@ export function ImportacionPorLotes() {
             Vaciar la cola
           </Boton>
 
-          <p className="text-xs text-muted-foreground">
-            El análisis no modifica la base de datos.
-          </p>
+          <p className="text-xs text-muted-foreground">El análisis no modifica la base de datos.</p>
         </div>
       ) : null}
 
       {analizando ? (
-        <Cargando etiqueta={`Analizando los libros (${progreso?.hechos ?? 0} de ${progreso?.total ?? 0})…`} />
+        <Cargando
+          etiqueta={`Analizando los libros (${progreso?.hechos ?? 0} de ${progreso?.total ?? 0})…`}
+        />
       ) : null}
 
       {enRevision.length > 0 ? (
@@ -662,9 +662,6 @@ export function ImportacionPorLotes() {
               const analisis = archivo.analisis;
               if (!analisis) return null;
 
-              const necesitaDecision =
-                analisis.lotesMismoPeriodo.length > 0 || analisis.loteMismoChecksum !== null;
-
               const resumen = resumirHallazgos(analisis);
 
               return (
@@ -674,8 +671,8 @@ export function ImportacionPorLotes() {
                       <div className="flex flex-col gap-1">
                         <TarjetaTitulo>{archivo.file.name}</TarjetaTitulo>
                         <TarjetaDescripcion>
-                          Periodo {archivo.periodo} · {analisis.summary.successfulRows} filas válidas
-                          de {analisis.summary.totalRows} · considerado{' '}
+                          Periodo {archivo.periodo} · {analisis.summary.successfulRows} filas
+                          válidas de {analisis.summary.totalRows} · considerado{' '}
                           {formatearCentavos(analisis.summary.consideredCents)}
                         </TarjetaDescripcion>
 
@@ -749,6 +746,32 @@ export function ImportacionPorLotes() {
 
                   <TarjetaContenido className="flex flex-col gap-4">
                     {archivo.estado !== 'importado' ? (
+                      <div className="flex flex-col gap-2">
+                        <label htmlFor={`fuente-${archivo.id}`}>
+                          URL pública del archivo de origen
+                        </label>
+                        <input
+                          id={`fuente-${archivo.id}`}
+                          type="url"
+                          value={archivo.sourceUrl}
+                          onChange={(e) => actualizar(archivo.id, { sourceUrl: e.target.value })}
+                          className="rounded border p-2"
+                          placeholder="https://…"
+                        />
+                        <Interruptor
+                          id={`completo-${archivo.id}`}
+                          etiqueta="He revisado que este libro contiene el periodo completo"
+                          checked={archivo.coverageComplete}
+                          onChange={(valor) => actualizar(archivo.id, { coverageComplete: valor })}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          La sustitución conserva el historial y reemplaza todas las filas del libro
+                          anterior. Carga el libro completo, incluidos los registros que no
+                          cambiaron. Las filas excluidas quedan declaradas en la cobertura.
+                        </p>
+                      </div>
+                    ) : null}
+                    {archivo.estado !== 'importado' ? (
                       <div className="flex flex-wrap items-center gap-6">
                         <Interruptor
                           id={`incluir-${archivo.id}`}
@@ -757,14 +780,14 @@ export function ImportacionPorLotes() {
                           onChange={(valor) => actualizar(archivo.id, { incluido: valor })}
                         />
 
-                        {necesitaDecision ? (
+                        {
                           <Interruptor
                             id={`reemplazar-${archivo.id}`}
-                            etiqueta="Importar como versión nueva del periodo"
+                            etiqueta="Reemplazar el libro vigente con esta instantánea completa"
                             checked={archivo.reemplazar}
                             onChange={(valor) => actualizar(archivo.id, { reemplazar: valor })}
                           />
-                        ) : null}
+                        }
                       </div>
                     ) : null}
 
@@ -782,12 +805,13 @@ export function ImportacionPorLotes() {
                       >
                         Su contenido coincide exactamente con la importación del periodo{' '}
                         {analisis.loteMismoChecksum.period} (versión{' '}
-                        {analisis.loteMismoChecksum.version}). Importarlo otra vez duplicaría las
-                        órdenes.
+                        {analisis.loteMismoChecksum.version}). Una nueva versión conservará el
+                        historial y sustituirá el libro vigente; no se sumarán ambas versiones.
                       </Aviso>
                     ) : null}
 
-                    {analisis.duplicadoContenido.filasRepetidas > 0 && !analisis.loteMismoChecksum ? (
+                    {analisis.duplicadoContenido.filasRepetidas > 0 &&
+                    !analisis.loteMismoChecksum ? (
                       <Aviso
                         tono="advertencia"
                         titulo={
@@ -800,16 +824,17 @@ export function ImportacionPorLotes() {
                         {analisis.duplicadoContenido.filasNuevas === 0 ? (
                           <>
                             Sus {analisis.duplicadoContenido.filasRepetidas} filas coinciden con
-                            órdenes ya importadas (mismo número de orden, RUC, monto y fecha).
-                            Importarlo no añadiría nada
+                            órdenes ya importadas (mismo tipo, número de orden, RUC, monto y fecha).
+                            La coincidencia no comprueba el estado de las órdenes. La sustitución
+                            usa todas las filas del nuevo libro
                           </>
                         ) : (
                           <>
                             {analisis.duplicadoContenido.filasRepetidas} de{' '}
                             {analisis.duplicadoContenido.filasRepetidas +
                               analisis.duplicadoContenido.filasNuevas}{' '}
-                            filas coinciden con órdenes ya importadas. Al importar se añadirán solo
-                            las {analisis.duplicadoContenido.filasNuevas} nuevas
+                            filas coinciden con órdenes ya importadas. La nueva instantánea incluirá
+                            todas las filas revisadas
                           </>
                         )}
                         {analisis.duplicadoContenido.lotes[0]
@@ -843,9 +868,7 @@ export function ImportacionPorLotes() {
 
                     {archivo.resultado ? (
                       <Aviso
-                        tono={
-                          archivo.resultado.status === 'COMPLETED' ? 'exito' : 'advertencia'
-                        }
+                        tono={archivo.resultado.status === 'COMPLETED' ? 'exito' : 'advertencia'}
                         titulo={
                           archivo.resultado.status === 'COMPLETED'
                             ? 'Importado sin advertencias'
@@ -897,10 +920,7 @@ export function ImportacionPorLotes() {
 
       {enRevision.length > 0 ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Boton
-            onClick={confirmarTanda}
-            disabled={ocupado || incluidos.length === 0}
-          >
+          <Boton onClick={confirmarTanda} disabled={ocupado || incluidos.length === 0}>
             <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
             {confirmando
               ? 'Importando…'

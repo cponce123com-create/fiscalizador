@@ -78,6 +78,7 @@ export type ManagementPeriodEntry = {
 export type ValidateInput = {
   headers: string[];
   rows: unknown[][];
+  sourceRows?: number[];
   indices: Partial<Record<InternalField, number>>;
   /** Índice de la fila de encabezado, para reportar el número de fila real. */
   headerRowIndex: number;
@@ -183,6 +184,7 @@ export function validateRows(input: ValidateInput): ValidationResult {
     rows,
     indices,
     headerRowIndex,
+    sourceRows,
     statuses,
     orderTypes,
     contractTypes,
@@ -206,7 +208,7 @@ export function validateRows(input: ValidateInput): ValidationResult {
   let cancelledCents = 0;
 
   rows.forEach((fila, idx) => {
-    const sourceRow = headerRowIndex + 2 + idx;
+    const sourceRow = sourceRows?.[idx] ?? headerRowIndex + 2 + idx;
     const propios: ValidationIssue[] = [];
 
     const agregar = (
@@ -384,6 +386,7 @@ export function validateRows(input: ValidateInput): ValidationResult {
       orderNumber !== '' && rucParsed.value
         ? buildDedupeKey({
             orderNumber,
+            orderType: toText(valor(fila, indices.orderType)),
             ruc: rucParsed.value,
             amount: monto.value,
             issueDate: emision.value,

@@ -21,6 +21,8 @@ export type RawSheet = {
   headers: string[];
   /** Filas de datos alineadas con `headers`. Puede haber celdas vacías. */
   rows: unknown[][];
+  /** Fila física (1-based), incluso si había huecos en la hoja. */
+  sourceRows: number[];
   /** Filas descartadas por estar completamente vacías. */
   blankRowsSkipped: number;
 };
@@ -100,6 +102,7 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
     raw: true,
     defval: null,
     blankrows: true,
+    range: 0,
   });
 
   if (matriz.length === 0) {
@@ -112,6 +115,7 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
   const headers = filaEncabezado.map((c) => (c === null || c === undefined ? '' : String(c).trim()));
 
   const rows: unknown[][] = [];
+  const sourceRows: number[] = [];
   let blankRowsSkipped = 0;
 
   for (let i = headerRowIndex + 1; i < matriz.length; i++) {
@@ -130,6 +134,7 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
       return valor === '' ? null : valor;
     });
     rows.push(alineada);
+    sourceRows.push(i + 1);
   }
 
   return {
@@ -138,6 +143,7 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
     headerRowIndex,
     headers,
     rows,
+    sourceRows,
     blankRowsSkipped,
   };
 }

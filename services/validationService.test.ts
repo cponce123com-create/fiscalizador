@@ -194,7 +194,14 @@ describe('validateRows sobre el archivo real', () => {
 
 describe('validateRows: reglas de clasificación', () => {
   const base = {
-    headers: ['Número de orden', 'Estado', 'Monto', 'RUC', 'Denominación o razón Social', 'Fecha de Emisión'],
+    headers: [
+      'Número de orden',
+      'Estado',
+      'Monto',
+      'RUC',
+      'Denominación o razón Social',
+      'Fecha de Emisión',
+    ],
     headerRowIndex: 0,
     statuses: ESTADOS,
     orderTypes: TIPOS_ORDEN,
@@ -215,7 +222,9 @@ describe('validateRows: reglas de clasificación', () => {
   }
 
   it('trata un estado no catalogado como advertencia y NO lo suma', () => {
-    const r = validar([['100', 'En Proceso', 'S/. 500', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0']]);
+    const r = validar([
+      ['100', 'En Proceso', 'S/. 500', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0'],
+    ]);
 
     const issue = r.issues.find((i) => i.code === 'ESTADO_DESCONOCIDO');
     expect(issue?.severity).toBe('WARNING');
@@ -227,7 +236,9 @@ describe('validateRows: reglas de clasificación', () => {
   });
 
   it('bloquea la fila cuando falta el RUC', () => {
-    const r = validar([['100', 'Devengada', 'S/. 500', '', 'ACME S.A.C.', '2023-06-01 00:00:00.0']]);
+    const r = validar([
+      ['100', 'Devengada', 'S/. 500', '', 'ACME S.A.C.', '2023-06-01 00:00:00.0'],
+    ]);
 
     expect(r.summary.errorRows).toBe(1);
     expect(r.summary.successfulRows).toBe(0);
@@ -235,7 +246,9 @@ describe('validateRows: reglas de clasificación', () => {
   });
 
   it('advierte por dígito verificador incorrecto pero conserva el RUC', () => {
-    const r = validar([['100', 'Devengada', 'S/. 500', '20541487711', 'ACME S.A.C.', '2023-06-01 00:00:00.0']]);
+    const r = validar([
+      ['100', 'Devengada', 'S/. 500', '20541487711', 'ACME S.A.C.', '2023-06-01 00:00:00.0'],
+    ]);
 
     const issue = r.issues.find((i) => i.code === 'RUC_DIGITO_VERIFICADOR');
     expect(issue?.severity).toBe('WARNING');
@@ -245,13 +258,17 @@ describe('validateRows: reglas de clasificación', () => {
   });
 
   it('bloquea la fila cuando falta el número de orden', () => {
-    const r = validar([['', 'Devengada', 'S/. 500', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0']]);
+    const r = validar([
+      ['', 'Devengada', 'S/. 500', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0'],
+    ]);
     expect(r.summary.errorRows).toBe(1);
     expect(r.issues.some((i) => i.code === 'ORDEN_NUMERO_VACIO')).toBe(true);
   });
 
   it('no inventa un cero cuando el monto no se entiende', () => {
-    const r = validar([['100', 'Devengada', 'ilegible', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0']]);
+    const r = validar([
+      ['100', 'Devengada', 'ilegible', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0'],
+    ]);
 
     expect(r.orders[0]?.amount).toBeNull();
     expect(r.orders[0]?.rawAmount).toBe('ilegible');
@@ -260,7 +277,14 @@ describe('validateRows: reglas de clasificación', () => {
   });
 
   it('detecta un duplicado dentro del mismo lote', () => {
-    const fila = ['100', 'Devengada', 'S/. 500', '20541487710', 'ACME S.A.C.', '2023-06-01 00:00:00.0'];
+    const fila = [
+      '100',
+      'Devengada',
+      'S/. 500',
+      '20541487710',
+      'ACME S.A.C.',
+      '2023-06-01 00:00:00.0',
+    ];
     const r = validar([fila, fila]);
 
     const dup = r.issues.find((i) => i.code === 'DUPLICADO_EN_LOTE');
@@ -280,7 +304,9 @@ describe('validateRows: reglas de clasificación', () => {
   });
 
   it('advierte cuando la fecha no cae en ninguna gestión registrada', () => {
-    const r = validar([['100', 'Devengada', 'S/. 500', '20541487710', 'ACME S.A.C.', '2010-01-01 00:00:00.0']]);
+    const r = validar([
+      ['100', 'Devengada', 'S/. 500', '20541487710', 'ACME S.A.C.', '2010-01-01 00:00:00.0'],
+    ]);
 
     expect(r.issues.some((i) => i.code === 'SIN_GESTION' && i.severity === 'INFO')).toBe(true);
     expect(r.orders[0]?.managementPeriodId).toBeNull();
@@ -309,5 +335,28 @@ describe('validateRows: reglas de clasificación', () => {
 
     expect(r.summary.registeredCents).toBe(35 * 1476950 + 34 * 1251428 + 34 * 65000);
     expect(r.summary.registeredCents).toBe(96451802);
+  });
+});
+
+describe('trazabilidad con filas físicas', () => {
+  it('conserva los saltos de fila del archivo en órdenes y hallazgos', () => {
+    const headers = ['Número de orden', 'RUC', 'Monto', 'Estado'];
+    const mapping = indicesPorCampo(mapColumns(headers, []));
+    const r = validateRows({
+      headers,
+      rows: [
+        ['1', '20541487710', '100', 'Devengada'],
+        ['2', '20541487710', '120', 'No catalogado'],
+      ],
+      headerRowIndex: 0,
+      sourceRows: [2, 4],
+      indices: mapping,
+      statuses: ESTADOS,
+      orderTypes: TIPOS_ORDEN,
+      contractTypes: TIPOS_CONTRATO,
+      managementPeriods: GESTIONES,
+    });
+    expect(r.orders.map((o) => o.sourceRow)).toEqual([2, 4]);
+    expect(r.issues.some((i) => i.sourceRow === 4)).toBe(true);
   });
 });

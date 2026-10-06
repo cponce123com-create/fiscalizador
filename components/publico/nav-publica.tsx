@@ -21,6 +21,7 @@ const ENLACES = [
   { href: '/historial', etiqueta: 'Historial' },
   { href: '/estadisticas', etiqueta: 'Estadísticas' },
   { href: '/vinculos', etiqueta: 'Vínculos' },
+  { href: '/fuentes', etiqueta: 'Fuentes y cobertura' },
   { href: '/metodologia', etiqueta: 'Metodología' },
 ] as const;
 

@@ -143,7 +143,7 @@ export async function recalcularResumenGestion(
   supplierId: string,
   managementPeriodId: string,
 ): Promise<void> {
-  const base = { supplierId, managementPeriodId };
+  const base = { supplierId, managementPeriodId, importBatch: { isCurrent: true } };
 
   const [total, anulado, considerado, fechas] = await Promise.all([
     db.order.aggregate({
