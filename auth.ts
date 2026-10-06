@@ -6,7 +6,14 @@ import { authConfig } from '@/auth.config';
 import { hashearPassword, verificarPassword } from '@/lib/auth/passwords';
 import type { Role } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/prisma';
-import { registrarAuditoria } from '@/services/auditService';
+import { contextoDePeticion, registrarAuditoria } from '@/services/auditService';
+import {
+  BLOQUEO_MS,
+  MAX_FALLOS,
+  estaBloqueado,
+  registrarExito,
+  registrarFallo,
+} from '@/services/loginThrottleService';
 
 /**
  * Configuración completa de Auth.js (solo runtime Node).
@@ -44,14 +51,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: 'Correo', type: 'email' },
         password: { label: 'Contraseña', type: 'password' },
       },
-      async authorize(credenciales) {
+      async authorize(credenciales, request) {
         const parsed = credencialesSchema.safeParse(credenciales);
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
+        const correo = email.toLowerCase();
+        const { ip, userAgent } = contextoDePeticion(request);
+        const claves = { email: correo, ip };
 
         const usuario = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email: correo },
           select: {
             id: true,
             email: true,
@@ -62,15 +72,63 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
         });
 
+        // Bloqueo activo: se responde igual que ante unas credenciales incorrectas.
+        // Se verifica contra el hash señuelo para que el tiempo de respuesta no
+        // delate que la cuenta (o la IP) está bloqueada.
+        if (await estaBloqueado(prisma, claves)) {
+          await verificarPassword(await obtenerHashSenuelo(), password);
+
+          await registrarAuditoria(prisma, {
+            action: 'LOGIN_FAILED',
+            entity: 'User',
+            entityId: usuario?.id ?? null,
+            ip,
+            userAgent,
+            metadata: { email: correo, motivo: 'bloqueado' },
+          });
+
+          return null;
+        }
+
         // Se verifica SIEMPRE, incluso cuando el usuario no existe, para que el
         // tiempo de respuesta no delate qué correos están registrados.
         const hash = usuario?.passwordHash ?? (await obtenerHashSenuelo());
         const passwordOk = await verificarPassword(hash, password);
 
-        if (!usuario || !usuario.passwordHash || !passwordOk) return null;
+        // Una cuenta desactivada tampoco entra: cuenta como fallo, igual que una
+        // contraseña incorrecta.
+        if (!usuario || !usuario.passwordHash || !passwordOk || !usuario.isActive) {
+          const seBloqueo = await registrarFallo(prisma, claves);
 
-        // Una cuenta desactivada no entra aunque la contraseña sea correcta.
-        if (!usuario.isActive) return null;
+          await registrarAuditoria(prisma, {
+            action: 'LOGIN_FAILED',
+            entity: 'User',
+            entityId: usuario?.id ?? null,
+            ip,
+            userAgent,
+            metadata: { email: correo },
+          });
+
+          if (seBloqueo) {
+            await registrarAuditoria(prisma, {
+              action: 'LOGIN_BLOCKED',
+              entity: 'User',
+              entityId: usuario?.id ?? null,
+              ip,
+              userAgent,
+              metadata: {
+                email: correo,
+                fallos: MAX_FALLOS,
+                minutosDeBloqueo: BLOQUEO_MS / 60000,
+              },
+            });
+          }
+
+          return null;
+        }
+
+        // Inicio correcto: se limpia el contador de fallos de sus claves.
+        await registrarExito(prisma, claves);
 
         await prisma.user.update({
           where: { id: usuario.id },
@@ -82,6 +140,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           action: 'LOGIN',
           entity: 'User',
           entityId: usuario.id,
+          ip,
+          userAgent,
           metadata: { email: usuario.email },
         });
 

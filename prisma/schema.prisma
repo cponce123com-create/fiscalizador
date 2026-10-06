@@ -93,6 +93,16 @@ enum AuditAction {
   CHANGE_PHOTO
   CHANGE_COLUMN_VISIBILITY
   CHANGE_SETTINGS
+  /// Intento de inicio de sesión fallido (credenciales incorrectas o cuenta inactiva).
+  LOGIN_FAILED
+  /// Se activó un bloqueo por acumulación de fallos.
+  LOGIN_BLOCKED
+}
+
+/// Ámbito de una clave del limitador de intentos: por correo o por IP.
+enum LoginAttemptScope {
+  EMAIL
+  IP
 }
 
 // =============================================================================
@@ -638,4 +648,30 @@ model AuditLog {
   @@index([action])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+// =============================================================================
+// LÍMITE DE INTENTOS DE ACCESO
+// =============================================================================
+
+/// Contador persistente de intentos de inicio de sesión fallidos.
+///
+/// Una fila por clave: el correo (normalizado a minúsculas) o la IP. `count` son
+/// los fallos de la ventana en curso (`windowStartedAt`); `blockedUntil` marca
+/// hasta cuándo está bloqueada la clave. Vive en la base y no en la memoria del
+/// proceso porque el servicio se reinicia y puede tener varias instancias.
+model LoginAttempt {
+  id              String            @id @default(cuid())
+  scope           LoginAttemptScope
+  /// Correo normalizado o IP, según el ámbito.
+  key             String
+  count           Int               @default(0)
+  windowStartedAt DateTime          @default(now())
+  blockedUntil    DateTime?
+  lastAttemptAt   DateTime          @default(now())
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@unique([scope, key])
+  @@index([blockedUntil])
 }

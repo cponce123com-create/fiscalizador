@@ -24,7 +24,9 @@ export type AuditActionValue =
   | 'MERGE_SUPPLIER'
   | 'CHANGE_PHOTO'
   | 'CHANGE_COLUMN_VISIBILITY'
-  | 'CHANGE_SETTINGS';
+  | 'CHANGE_SETTINGS'
+  | 'LOGIN_FAILED'
+  | 'LOGIN_BLOCKED';
 
 export type AuditInput = {
   userId?: string | null;
