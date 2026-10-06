@@ -284,6 +284,9 @@ async function sembrarSuperadmin() {
       passwordHash,
       role: 'SUPERADMIN',
       isActive: true,
+      // La contraseña del seed viaja en claro en una variable de entorno, así que la
+      // cuenta nace obligada a cambiarla: hasta que no lo haga, no entra al panel.
+      mustChangePassword: true,
     },
   });
 

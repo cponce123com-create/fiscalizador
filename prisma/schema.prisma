@@ -129,6 +129,11 @@ model User {
   /// falso, las cuentas administrativas no pueden usar el panel.
   twoFactorEnabled Boolean @default(false)
 
+  /// Obliga a cambiar la contraseña antes de usar el panel. Se activa al crear la cuenta
+  /// desde el seed —esa contraseña viaja en claro en una variable de entorno— y cada vez
+  /// que un administrador la resetea, porque entonces la conoce él también.
+  mustChangePassword Boolean @default(false)
+
   accounts      Account[]
   sessions      Session[]
   importBatches ImportBatch[]

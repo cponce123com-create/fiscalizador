@@ -60,6 +60,10 @@
     "typescript": "^5",
     "vitest": "^4.1.11"
   },
+  "overrides": {
+    "deepmerge-ts": "^8.0.2",
+    "mysql2": "^3.24.5"
+  },
   "engines": {
     "node": ">=20.19.0"
   }

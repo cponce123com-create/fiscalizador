@@ -25,6 +25,14 @@ export default async function LayoutPanel({ children }: { children: React.ReactN
   // fuera aunque su token siga siendo válido.
   if (!usuario) redirect('/admin/login');
 
+  // Cambio de contraseña obligatorio. Va antes que el segundo factor: mientras la
+  // contraseña siga siendo la que se compartió al crear la cuenta, lo urgente es esa, y el
+  // alta del 2FA se hace después. La página vive fuera de este layout, igual que la del
+  // 2FA, para que no se produzca un bucle de redirecciones.
+  if (usuario.mustChangePassword) {
+    redirect('/admin/cambiar-contrasena');
+  }
+
   // Segundo factor obligatorio para las cuentas administrativas: hasta que no lo activen
   // no pasan de aquí. El alta vive en `/admin/2fa`, fuera de este layout, para que no se
   // produzca un bucle de redirecciones.

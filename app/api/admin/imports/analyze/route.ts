@@ -14,7 +14,21 @@ import { analizar } from '@/services/importService';
 // SheetJS y el acceso a disco requieren el runtime Node, no Edge.
 export const runtime = 'nodejs';
 
-/** Límite de tamaño. Un libro mensual del portal no llega ni de lejos. */
+/**
+ * Límite de tamaño.
+ *
+ * Un libro mensual del portal ronda 1 MB y 4.400 filas, así que 25 MB es holgado. Pero este
+ * límite es la ÚNICA protección real que hay, porque `XLSX.read` es **síncrono** y bloquea
+ * el hilo de Node mientras dura. Medido en esta máquina: 4.000 filas tardan 0,8 s, 20.000
+ * tardan 2,8 s, y 50.000 (33 MB, ya por encima del límite) tardan 6,7 s.
+ *
+ * Durante esos segundos el proceso no atiende nada más, así que se congelan también las
+ * páginas públicas. Y no se puede poner un timeout que lo corte: en la medición, un
+ * temporizador de 10 ms no llegó a dispararse hasta que terminó la lectura.
+ *
+ * Si algún día hacen falta libros más grandes, la salida no es subir este número, sino leer
+ * el archivo en un hilo aparte (`node:worker_threads`) para que el portal siga respondiendo.
+ */
 const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
 
 const camposSchema = z.object({
