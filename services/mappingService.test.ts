@@ -89,6 +89,77 @@ describe('similitud', () => {
   });
 });
 
+describe('matchHeader no adivina con encabezados de varias palabras', () => {
+  /**
+   * Regresión de un fallo real: los encabezados de un conjunto de datos abiertos (todo
+   * prefijado con «ORDEN_») se mapeaban a campos equivocados con confianza alta.
+   */
+  const equivocados: Array<[string, string]> = [
+    ['ANNO_ORDEN', 'orderNumber'],
+    ['NRO_MES_ORDEN', 'orderNumber'],
+    ['ORDEN_PROVEEDOR', 'ruc'],
+  ];
+
+  it.each(equivocados)('no propone %s como %s', (encabezado, campo) => {
+    expect(matchHeader(encabezado).field).not.toBe(campo);
+  });
+
+  it.each(equivocados)('deja %s sin mapear en lugar de arriesgarse', (encabezado) => {
+    expect(matchHeader(encabezado).field).toBeNull();
+    expect(matchHeader(encabezado).matchedBy).toBeNull();
+  });
+
+  it('explica el caso que duele: el año como número de orden', () => {
+    // «anno orden» y «nro orden» se parecen en 8 de cada 10 caracteres y no tienen nada que
+    // ver. Con la distancia de edición sola, el año entraba como número de orden.
+    expect(similarity('anno orden', 'nro orden')).toBeGreaterThan(0.72);
+    expect(tokenSimilarity('anno orden', 'nro orden')).toBeLessThan(0.72);
+    // Aun así no se propone: con varias palabras no se adivina.
+    expect(matchHeader('ANNO_ORDEN').field).toBeNull();
+  });
+
+  it('sigue detectando erratas en encabezados de una palabra', () => {
+    expect(matchHeader('Montoo').field).toBe('amount');
+    expect(matchHeader('Montoo').matchedBy).toBe('SIMILITUD');
+    expect(matchHeader('Estao').field).toBe('status');
+  });
+
+  it('no compara una palabra contra un alias de varias', () => {
+    // «Chirimoya» no se parece a nada; y no debe acabar en un campo por parecerse en
+    // longitud a un alias largo.
+    expect(matchHeader('Chirimoya').field).toBeNull();
+  });
+
+  it('sigue mapeando por alias, que es el mecanismo previsto', () => {
+    expect(matchHeader('Razon Social').matchedBy).toBe('ALIAS');
+    expect(matchHeader('Fecha Emision').matchedBy).toBe('ALIAS');
+    expect(matchHeader('Nro Orden').matchedBy).toBe('ALIAS');
+  });
+
+  it('deja el CSV de datos abiertos con los obligatorios sin cubrir', () => {
+    // Es el comportamiento correcto: el importador avisa de que faltan campos en lugar de
+    // rellenarlos con lo primero que encuentre.
+    const cabeceras = [
+      'TIPO_ORDEN',
+      'ANNO_ORDEN',
+      'NRO_MES_ORDEN',
+      'ORDEN_RUC',
+      'ORDEN_FECHA',
+      'ORDEN_MONTO',
+      'ORDEN_PROVEEDOR',
+      'ORDEN_DESCRIPCION',
+    ];
+
+    const faltantes = camposObligatoriosFaltantes(mapColumns(cabeceras, []));
+
+    expect(faltantes).toContain('orderNumber');
+    expect(faltantes).toContain('issueDate');
+    expect(faltantes).toContain('amount');
+    expect(faltantes).toContain('ruc');
+    expect(faltantes).toContain('supplierName');
+  });
+});
+
 describe('mapColumns sobre el archivo real', () => {
   const buffer = readFileSync(RUTA_ARCHIVO);
   const hoja = parseSpreadsheet(buffer);

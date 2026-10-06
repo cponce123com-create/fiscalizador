@@ -422,3 +422,34 @@ las pruebas que necesitan datos del portal, y esos ficheros (`personsService`,
 Los umbrales están puestos sobre la cifra **más baja de las dos** (78 / 73 / 80 / 80), que es
 la única forma de que la batería pase en ambos entornos. `branches` es lo único por debajo del
 80 % en los dos.
+
+### Y un tercero: el mapeo por similitud proponía campos equivocados
+
+Salió al estudiar la importación automática, pero **afecta también a la manual**. Con
+encabezados de varias palabras, `matchHeader` proponía campos equivocados con confianza alta:
+
+| Encabezado real | Propuesta | Certeza | Qué es en realidad |
+|---|---|---|---|
+| `ANNO_ORDEN` | `orderNumber` | 0,80 | el año |
+| `NRO_MES_ORDEN` | `orderNumber` | 0,85 | el mes |
+| `ORDEN_PROVEEDOR` | `ruc` | 0,73 | la razón social |
+
+La causa: con varias palabras la distancia de Levenshtein mide parecido de LETRAS, no de
+significado, y el código se quedaba con el máximo entre esa medida y el solapamiento de
+palabras, así que Levenshtein mandaba siempre. En `ORDEN_PROVEEDOR` la propuesta correcta
+(`supplierName`) tenía mejor solapamiento —0,50 contra 0,33— y perdía igual.
+
+No hay umbral que lo arregle: `NRO_MES_ORDEN` (el mes) y un legítimo «FECHA EMISION ORDEN»
+tienen la misma forma —alias más una palabra—, así que cualquier umbral se equivoca con uno de
+los dos. Se optó por **no adivinar con encabezados de varias palabras**: se proponen solo los
+que coinciden con el catálogo de alias, y el resto queda sin mapear para que lo asigne el
+administrador. Con una sola palabra se sigue adivinando, porque ahí la distancia de edición sí
+habla de erratas («Montoo» → monto, «Estao» → estado).
+
+El criterio, dicho corto: **una columna sin mapear la ve el administrador y la asigna en un
+segundo; una propuesta incorrecta con 0,85 de confianza se acepta sin mirarla y mete datos
+falsos en el portal.**
+
+Verificado: los 13 encabezados del conjunto de datos abiertos quedan sin mapear en lugar de
+mal mapeados; el libro de referencia del Portal sigue mapeando sus 12 columnas como `EXACTO`; y
+la batería sube a 286 pruebas (branches, 74,35 % → 75,13 %).
