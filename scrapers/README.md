@@ -45,7 +45,7 @@ scrapers/
 │   ├── tablas.py            Tablas HTML y resultados de SEACE
 │   ├── normalizador.py      Filas crudas -> OrdenNormalizada
 │   ├── lectores.py          .xls / .xlsx / .csv / .pdf
-│   ├── captcha.py           gimpysolver | manual | ninguno
+│   ├── captcha.py           gimpysolver | manual | ninguno, y cadena de respaldo
 │   ├── http.py              Cliente con límite de frecuencia y reintentos
 │   ├── almacenamiento.py    local | s3
 │   ├── notificaciones.py    Correo (smtplib) y Slack
@@ -54,7 +54,7 @@ scrapers/
 │   ├── datosabiertos.py     Plataforma Nacional de Datos Abiertos (la vía recomendada)
 │   ├── orquestador.py       Planifica, ejecuta y escribe las salidas
 │   └── __main__.py          Línea de comandos
-├── tests/                   116 pruebas con la biblioteca estándar
+├── tests/                   135 pruebas con la biblioteca estándar
 ├── herramientas/
 │   └── prueba_de_humo.py    El circuito completo contra una fuente real
 ├── docs/
@@ -175,7 +175,7 @@ Los campos y su origen están en
 python -m unittest discover -s tests -t . -v
 ```
 
-116 pruebas. **Sin dependencias externas**: las que necesitan `openpyxl` o `xlrd` se
+135 pruebas. **Sin dependencias externas**: las que necesitan `openpyxl` o `xlrd` se
 saltan solas si no están instalados, así que la batería corre igual en un entorno
 limpio. Cubren, entre otras cosas:
 
@@ -186,6 +186,9 @@ limpio. Cubren, entre otras cosas:
 * El HTML del portal: el RUC del formulario, las opciones de año y mes y el puente a SEACE.
 * Tablas anidadas de JSF y que **falte** la tabla de resultados (debe avisar, no devolver
   una lista vacía).
+* El captcha: la cadena de respaldo (que se use el principal si acierta, y que se caiga
+  al otro si no da texto **o si revienta**), los reintentos pidiendo una imagen nueva en
+  cada intento, y el recorte y la conversión a PNG de 380x85 que espera `gimpysolver`.
 * Normalización: que una fila con problemas llegue **con avisos** en vez de desaparecer.
 
 Dos pruebas encontraron bugs reales durante el desarrollo, y se quedaron como regresión:

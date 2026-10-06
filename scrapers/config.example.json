@@ -34,6 +34,7 @@
   },
   "captcha": {
     "resolvedor": "gimpysolver",
+    "respaldo": null,
     "intentos": 3,
     "espera_manual": 180.0,
     "directorio_de_respaldo": "salida/captchas"

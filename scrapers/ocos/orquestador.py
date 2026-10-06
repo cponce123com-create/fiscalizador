@@ -104,6 +104,7 @@ class Orquestador:
             self.config.captcha.resolvedor,
             directorio_de_respaldo=self.config.captcha.directorio_de_respaldo,
             segundos_de_espera=self.config.captcha.espera_manual,
+            respaldo=self.config.captcha.respaldo,
         )
 
         return ScraperSeace(

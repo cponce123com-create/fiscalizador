@@ -162,26 +162,92 @@ class ResolvedorNulo:
         return None
 
 
-def crear_resolvedor(
+@dataclass
+class ResolvedorConRespaldo:
+    """Encadena dos resolvedores: si el principal no da texto, prueba el de respaldo.
+
+    Es lo que pide el pliego: `gimpysolver` acierta mucho, pero no siempre, y quedarse sin
+    intentar nada más significa perder la página. Con esto, un fallo del automático cae al
+    manual (si hay alguien delante) en vez de abandonar la consulta.
+
+    El respaldo se usa en los dos casos: cuando el principal devuelve `None` **y** cuando
+    lanza. Un resolvedor que revienta no debe impedir intentarlo con el otro.
+    """
+
+    principal: ResolvedorDeCaptcha
+    respaldo: ResolvedorDeCaptcha
+
+    @property
+    def nombre(self) -> str:
+        return f"{self.principal.nombre}+{self.respaldo.nombre}"
+
+    def resolver(self, imagen: bytes) -> str | None:
+        try:
+            texto = self.principal.resolver(imagen)
+        except Exception as error:
+            REGISTRO.warning(
+                f"El resolvedor «{self.principal.nombre}» falló: {error}. Se prueba con "
+                f"«{self.respaldo.nombre}».",
+                extra=con_contexto(paso="captcha"),
+            )
+            texto = None
+
+        if texto:
+            return texto
+
+        REGISTRO.info(
+            f"«{self.principal.nombre}» no dio texto; se prueba con «{self.respaldo.nombre}».",
+            extra=con_contexto(paso="captcha"),
+        )
+        return self.respaldo.resolver(imagen)
+
+
+def _crear_uno(
     resolvedor: str,
     *,
-    directorio_de_respaldo: str | Path,
-    segundos_de_espera: float = 180.0,
+    directorio_de_respaldo: Path,
+    segundos_de_espera: float,
 ) -> ResolvedorDeCaptcha:
-    """Construye el resolvedor indicado por la configuración."""
-    directorio = Path(directorio_de_respaldo)
-
     if resolvedor == "gimpysolver":
-        return ResolvedorGimpysolver(directorio_de_respaldo=directorio)
+        return ResolvedorGimpysolver(directorio_de_respaldo=directorio_de_respaldo)
     if resolvedor == "manual":
         return ResolvedorManual(
-            directorio_de_respaldo=directorio, segundos_de_espera=segundos_de_espera
+            directorio_de_respaldo=directorio_de_respaldo, segundos_de_espera=segundos_de_espera
         )
     if resolvedor == "ninguno":
         return ResolvedorNulo()
 
     raise ErrorDeCaptcha(
         f"Resolvedor de captcha desconocido: {resolvedor}. Válidos: gimpysolver, manual, ninguno."
+    )
+
+
+def crear_resolvedor(
+    resolvedor: str,
+    *,
+    directorio_de_respaldo: str | Path,
+    segundos_de_espera: float = 180.0,
+    respaldo: str | None = None,
+) -> ResolvedorDeCaptcha:
+    """Construye el resolvedor indicado por la configuración.
+
+    Si se pide un `respaldo` distinto del principal, se devuelve la cadena: se intenta el
+    principal y, si no da texto, el de respaldo.
+    """
+    directorio = Path(directorio_de_respaldo)
+
+    principal = _crear_uno(
+        resolvedor, directorio_de_respaldo=directorio, segundos_de_espera=segundos_de_espera
+    )
+
+    if not respaldo or respaldo == resolvedor:
+        return principal
+
+    return ResolvedorConRespaldo(
+        principal=principal,
+        respaldo=_crear_uno(
+            respaldo, directorio_de_respaldo=directorio, segundos_de_espera=segundos_de_espera
+        ),
     )
 
 

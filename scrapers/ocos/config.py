@@ -78,6 +78,8 @@ class AjustesDeCaptcha:
 
     #: `gimpysolver`, `manual` o `ninguno`.
     resolvedor: str = "gimpysolver"
+    #: Se prueba cuando el principal no da texto. `None` = sin respaldo.
+    respaldo: str | None = None
     #: Intentos de captcha antes de rendirse con esa página.
     intentos: int = 3
     #: Segundos que se espera a una persona si el resolvedor es `manual`.
@@ -225,14 +227,25 @@ def desde_diccionario(datos: dict[str, Any]) -> Configuracion:
 
     captcha = AjustesDeCaptcha(
         resolvedor=str(captcha_crudo.get("resolvedor", "gimpysolver")),
+        respaldo=(
+            str(captcha_crudo["respaldo"]) if captcha_crudo.get("respaldo") else None
+        ),
         intentos=int(captcha_crudo.get("intentos", 3)),
         espera_manual=float(captcha_crudo.get("espera_manual", 180.0)),
         directorio_de_respaldo=str(captcha_crudo.get("directorio_de_respaldo", "salida/captchas")),
     )
-    if captcha.resolvedor not in ("gimpysolver", "manual", "ninguno"):
+    RESOLVEDORES = ("gimpysolver", "manual", "ninguno")
+
+    if captcha.resolvedor not in RESOLVEDORES:
         raise ErrorDeConfiguracion(
             f"«captcha.resolvedor» no soportado: {captcha.resolvedor}. "
             "Válidos: gimpysolver, manual, ninguno."
+        )
+
+    if captcha.respaldo is not None and captcha.respaldo not in RESOLVEDORES:
+        raise ErrorDeConfiguracion(
+            f"«captcha.respaldo» no soportado: {captcha.respaldo}. "
+            "Válidos: gimpysolver, manual, ninguno, o vacío para no usar respaldo."
         )
 
     driver = str(almacenamiento_crudo.get("driver", "local"))

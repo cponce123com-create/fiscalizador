@@ -55,6 +55,13 @@ red:
 captcha:
   # gimpysolver (automático) | manual (una persona lo escribe) | ninguno
   resolvedor: gimpysolver
+  # Qué usar si el principal no da texto. Se prueban en ese orden.
+  #
+  # `manual` sirve cuando hay alguien delante, pero en una corrida programada no hay
+  # nadie que teclee: se queda esperando los `espera_manual` segundos y acaba
+  # fallando igual. Para el cron, déjalo en null y deja que el orquestador registre
+  # el fallo y siga con la siguiente entidad.
+  respaldo: null
   intentos: 3
   espera_manual: 180.0
   directorio_de_respaldo: "salida/captchas"
