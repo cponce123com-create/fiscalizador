@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { leerConfiguracionPortal } from '@/services/portalService';
 import { prisma } from '@/lib/prisma';
 import { camposOcultos } from '@/lib/public-evidence';
+import { tituloLibro } from '@/lib/book-download';
 import { formatearFecha, formatearFechaHora, formatearMonto } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 export default async function DetalleOrden({ params }: { params: Promise<{ id: string }> }) {
@@ -62,10 +63,8 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
         Entidad: {config.municipio}.
         Versión {b.version}. Incorporación: {formatearFechaHora(b.processingFinishedAt)}.
       </p>
-      <p>
-        Libro: {b.originalFilename}; periodo {b.year}-{b.month}; hoja:{' '}
-        {b.sheetName ?? 'pendiente de revalidar'}; fila:{' '}
-        {b.sheetName ? orden.sourceRow : 'referencia antigua pendiente de revalidar'}.
+      <p className="break-words">
+        Libro: {tituloLibro(b, config.municipio)}
       </p>
       <p className="break-all text-xs">SHA-256 del original: {b.checksum}</p>
       <Link id="fuente-orden" className="scroll-mt-6 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground" href={`/fuentes#${b.id}`}>
