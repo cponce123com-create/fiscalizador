@@ -199,6 +199,15 @@ Los montos usan `Decimal(14,2)` y comprobaciones en centavos. Un monto ilegible 
 conserva como texto y `null`, nunca se convierte en cero. Los estados del catálogo
 determinan qué suma al **monto considerado**. Las fechas de las órdenes se formatean en UTC.
 
+
+### Revisión de montos al importar
+
+El análisis marca órdenes desde **S/ 1 000 000**, montos desde **S/ 100 000** que superan **50 veces la mediana** del libro (mínimo cinco montos positivos), y valores que coinciden con el RUC del proveedor. Son alertas de calidad de datos, no límites legales ni pruebas de sobrevaloración.
+
+Las filas señaladas quedan excluidas por defecto, con el detalle abierto para revisar la fila física, la orden, el proveedor y el valor original. Para conservar una, activa **«Confirmar monto e incluir»** después de verificar la fuente y el mapeo. Los totales descuentan las filas excluidas; el servidor repite las comprobaciones y registra las decisiones al confirmar. Un libro donde todas las filas válidas tengan montos sospechosos también queda excluido de la tanda inicialmente.
+
+No se corrigen importes automáticamente. Las importaciones existentes conservan sus datos; para aplicar la revisión a un libro anterior, vuelve a analizar su archivo original.
+
 ### Descargas y trazabilidad
 
 Los extractos públicos están disponibles en Excel y CSV. Sus nombres incluyen tipo,

@@ -1,3 +1,4 @@
+import { requiereRevisionMonto, resumenConExclusiones, type MontoPorFila } from '@/lib/revision-montos';
 import { procesoCaducado, PROCESO_CADUCADO_MS } from '@/lib/import-process';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
@@ -15,6 +16,7 @@ import { describirFalloDeAlmacenamiento, getStorage } from '@/services/storageSe
 import { recalcularResumenGestion, resolverProveedor } from '@/services/supplierService';
 import {
   validateRows,
+  decimalACentavos,
   type ManagementPeriodEntry,
   type StatusCatalogEntry,
   type ValidatedOrder,
@@ -96,6 +98,7 @@ export type AnalizarResult = {
    * decidir sobre ellas.
    */
   filasConHallazgos: PreviewRow[];
+  montosPorFila: MontoPorFila[];
 };
 
 export type PreviewRow = {
@@ -467,8 +470,17 @@ function procesarBuffer(
     validacion: {
       ...validacion,
       orders: validacion.orders.filter((orden) => !excluidas.has(orden.sourceRow)),
+      summary: resumenConExclusiones(validacion.summary, montosDeOrdenes(validacion.orders), excluidas),
     },
   };
+}
+
+function montosDeOrdenes(orders: readonly ValidatedOrder[]): MontoPorFila[] {
+  return orders.map(o => {
+    const registeredCents = o.amount === null ? 0 : decimalACentavos(o.amount);
+    return { sourceRow: o.sourceRow, registeredCents,
+      cancelledCents: o.isCancelled || !o.countsEconomically ? registeredCents : 0 };
+  });
 }
 
 /**
@@ -587,7 +599,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
       })),
     },
     issues: {
-      create: validacion.issues.slice(0, 500).map((i) => ({
+      create: [...validacion.issues].sort((a, b) => Number(requiereRevisionMonto([b])) - Number(requiereRevisionMonto([a]))).slice(0, 500).map((i) => ({
         severity: i.severity,
         code: i.code,
         message: i.message,
@@ -611,8 +623,10 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     // Las que hay que juzgar: se importarían, pero traen algo que revisar.
     filasConHallazgos: validacion.orders
       .filter((orden) => orden.issues.length > 0)
+      .sort((a, b) => Number(requiereRevisionMonto(b.issues)) - Number(requiereRevisionMonto(a.issues)))
       .slice(0, LIMITE_FILAS_CON_HALLAZGOS)
       .map(aPreview),
+    montosPorFila: montosDeOrdenes(validacion.orders),
     summary: validacion.summary,
     issues: validacion.issues,
     lotesMismoPeriodo,
@@ -642,6 +656,8 @@ export type ConfirmarInput = {
    * para los proveedores ni para los resúmenes por gestión.
    */
   filasExcluidas?: number[];
+  /** Filas con monto sospechoso revisadas expresamente para conservarlas. */
+  filasMontosConfirmados?: number[];
 };
 
 /**
@@ -765,6 +781,12 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
       );
     }
     const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
+
+    const montosConfirmados = new Set(input.filasMontosConfirmados ?? []);
+    const sinRevisar = validacion.orders.filter(o => requiereRevisionMonto(o.issues) && !montosConfirmados.has(o.sourceRow));
+    if (sinRevisar.length) {
+      throw new ErrorDeNegocio(`Hay ${sinRevisar.length} fila(s) con montos sospechosos sin revisar (filas ${sinRevisar.slice(0, 10).map(o => o.sourceRow).join(', ')}). Déjalas fuera o confirma cada una después de revisar la celda original y el mapeo.`);
+    }
 
     const { ip, userAgent } = request ? contextoDePeticion(request) : { ip: null, userAgent: null };
 
@@ -942,6 +964,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
             skippedDuplicates: 0,
             supersededBatches: idsAnteriores,
             excludedByAdmin: ordenesExcluidasPorDecision,
+            reviewedAmountRows: validacion.orders.filter(o => requiereRevisionMonto(o.issues)).map(o => o.sourceRow),
             errorRows: validacion.summary.errorRows,
             warningRows: validacion.summary.warningRows,
             cancelledRows: validacion.summary.cancelledRows,

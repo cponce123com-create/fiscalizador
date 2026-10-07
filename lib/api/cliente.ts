@@ -83,6 +83,7 @@ export const analizarRespuestaSchema = z.object({
   preview: z.array(previewSchema),
   /** Filas que se importarían y traen algo que revisar, con sus hallazgos. */
   filasConHallazgos: z.array(previewSchema),
+  montosPorFila: z.array(z.object({ sourceRow: z.number(), registeredCents: z.number(), cancelledCents: z.number() })).optional().default([]),
   summary: resumenSchema,
   issues: z.array(issueSchema),
   lotesMismoPeriodo: z.array(lotePrevioSchema),

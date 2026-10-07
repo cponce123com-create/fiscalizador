@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/data';
 import { Interruptor, Selector } from '@/components/ui/form';
 import type { AnalizarRespuesta, IssueRespuesta } from '@/lib/api/cliente';
+import { requiereRevisionMonto, resumenConExclusiones } from '@/lib/revision-montos';
 import { formatearCentavos } from '@/lib/utils';
 import { CAMPOS_INTERNOS, type InternalField } from '@/services/mappingService';
 import type { IssueCode } from '@/services/validationService';
@@ -166,7 +167,7 @@ export function DetalleAnalisis({
   onAlternarExclusion: (sourceRow: number) => void;
 }) {
   const {
-    summary,
+    summary: resumenOriginal,
     issues,
     preview,
     columns,
@@ -176,6 +177,9 @@ export function DetalleAnalisis({
     version,
     filasConHallazgos,
   } = analisis;
+
+  const summary = resumenConExclusiones(resumenOriginal, analisis.montosPorFila, excluidas);
+  const montosSospechosos = new Set(issues.filter(i => requiereRevisionMonto([i])).map(i => i.sourceRow));
 
   const sinAsignar = mapeo.filter((fila) => fila.field === null).length;
 
@@ -194,6 +198,12 @@ export function DetalleAnalisis({
 
   return (
     <div className="flex flex-col gap-6">
+      {montosSospechosos.size > 0 ? <Aviso tono="advertencia" titulo={`${montosSospechosos.size} fila(s) con montos sospechosos`}>
+        Se dejan fuera por defecto. Revisa la fila, el valor original y la columna Monto.
+        Solo activa «Confirmar monto e incluir» si verificaste que el dato es correcto.
+        El resumen descuenta las filas excluidas. Estas alertas no prueban sobrevaloración.
+        {montosSospechosos.size > 500 ? ' Se muestran hasta 500 filas para revisión; los montos sospechosos restantes también quedan fuera por defecto.' : ''}
+      </Aviso> : null}
       {camposFaltantes.length > 0 ? (
         <Aviso
           tono="error"
@@ -471,7 +481,7 @@ export function DetalleAnalisis({
                           <TablaCelda>
                             <Interruptor
                               id={`importar-fila-${fila.sourceRow}`}
-                              etiqueta={fuera ? 'Fuera' : 'Se importa'}
+                              etiqueta={requiereRevisionMonto(fila.issues) ? fuera ? 'Confirmar monto e incluir' : 'Monto confirmado' : fuera ? 'Fuera' : 'Se importa'}
                               nombreAccesible={`Importar la fila ${fila.sourceRow}`}
                               checked={!fuera}
                               onChange={() => onAlternarExclusion(fila.sourceRow)}
