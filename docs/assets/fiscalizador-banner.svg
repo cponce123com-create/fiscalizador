@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="title desc">
+  <title id="title">Fiscalizador · San Ramón</title>
+  <desc id="desc">Portada tecnológica en azul oscuro y verde: compras públicas, fuentes documentadas e identidades conectadas. La composición es ilustrativa y no representa cifras reales.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#081321"/><stop offset="1" stop-color="#112a32"/></linearGradient>
+    <linearGradient id="accent"><stop stop-color="#34d399"/><stop offset="1" stop-color="#67e8f9"/></linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#8ba8b7" stroke-opacity=".07"/></pattern>
+  </defs>
+  <rect width="1200" height="380" rx="24" fill="url(#bg)"/>
+  <rect width="1200" height="380" rx="24" fill="url(#grid)"/>
+  <circle cx="1080" cy="40" r="225" fill="#10b981" opacity=".05"/>
+  <path d="M56 72H112" stroke="url(#accent)" stroke-width="5" stroke-linecap="round"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="56" y="110" fill="#6ee7b7" font-size="13" font-weight="700" letter-spacing="3">VIGILANCIA CIUDADANA INDEPENDIENTE</text>
+    <text x="52" y="188" fill="#f1f5f9" font-size="68" font-weight="700" letter-spacing="-2">Fiscalizador</text>
+    <text x="56" y="231" fill="#cbd5e1" font-size="27">San Ramón</text>
+    <text x="56" y="278" fill="#9fb5c4" font-size="18">Compras públicas. Fuentes. Datos conectados.</text>
+    <rect x="56" y="311" width="120" height="28" rx="14" fill="#103c35" stroke="#256d59"/>
+    <text x="116" y="330" text-anchor="middle" fill="#a7f3d0" font-size="11" letter-spacing="1">TRAZABILIDAD</text>
+    <rect x="188" y="311" width="118" height="28" rx="14" fill="#10333c" stroke="#255666"/>
+    <text x="247" y="330" text-anchor="middle" fill="#a5f3fc" font-size="11" letter-spacing="1">TRANSPARENCIA</text>
+    <g transform="translate(706 64)">
+      <rect width="430" height="252" rx="18" fill="#0c1b2b" stroke="#294453"/>
+      <path d="M0 48H430" stroke="#294453"/>
+      <circle cx="23" cy="24" r="4" fill="#34d399"/>
+      <text x="37" y="29" fill="#ccdde7" font-size="12" letter-spacing="1">EXPLORAR · CONECTAR · VERIFICAR</text>
+      <rect x="24" y="72" width="163" height="156" rx="10" fill="#112738"/>
+      <text x="40" y="98" fill="#9fb5c4" font-size="11">FUENTES DOCUMENTADAS</text>
+      <g fill="#284659"><rect x="40" y="115" width="98" height="7" rx="3"/><rect x="40" y="131" width="125" height="5" rx="2"/><rect x="40" y="152" width="78" height="7" rx="3"/><rect x="40" y="168" width="125" height="5" rx="2"/><rect x="40" y="189" width="105" height="7" rx="3"/><rect x="40" y="205" width="125" height="5" rx="2"/></g>
+      <g stroke="#3d7784" stroke-width="1.5"><path d="M285 111L232 158L313 188L373 144Z M285 111L373 144M232 158L373 144M313 188L285 111"/></g>
+      <g fill="#112a36" stroke="#38bda4" stroke-width="2"><circle cx="285" cy="111" r="13"/><circle cx="232" cy="158" r="9"/><circle cx="313" cy="188" r="12"/><circle cx="373" cy="144" r="9"/></g>
+      <circle cx="285" cy="111" r="4" fill="#6ee7b7"/>
+      <text x="304" y="221" text-anchor="middle" fill="#9fb5c4" font-size="11">IDENTIDADES Y ANTECEDENTES</text>
+    </g>
+  </g>
+</svg>
