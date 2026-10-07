@@ -25,6 +25,12 @@ describe('búsqueda progresiva de proveedores', () => {
     expect(parametros.get('texto')).toBe('José & Hijos / SAC');
     expect([...parametros.keys()]).toEqual(['texto']);
   });
+  it('permite buscar por DNI dentro del administrador sin salir a la página pública', () => {
+    const destino = destinoBusquedaProveedores(filtrosPorDefecto(), '00123456', '10', '/admin/proveedores');
+    const url = new URL(destino!, 'https://ejemplo.test');
+    expect(url.pathname).toBe('/admin/proveedores');
+    expect(url.searchParams.get('texto')).toBe('00123456');
+  });
   it('descarta términos inválidos en lugar de abrir consultas generales', () => {
     expect(destinoBusquedaProveedores(filtrosPorDefecto(), 'a'.repeat(121), '')).toBeNull();
     expect(destinoBusquedaProveedores(filtrosPorDefecto(), 'abc\u0000', '')).toBeNull();
