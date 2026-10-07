@@ -1,25 +1,11 @@
+import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
 import { Search, X } from 'lucide-react';
 import Link from 'next/link';
 
 import { hayFiltrosActivos, serializarFiltros } from '@/lib/filtros';
 import type { Filtros } from '@/lib/filtros';
 
-/**
- * Controles de filtro.
- *
- * Es un formulario `GET` sin una línea de JavaScript de cliente: al enviarlo, el
- * navegador pone los valores en la URL y Next.js vuelve a renderizar la página en
- * el servidor con ellos. Tres ventajas frente a filtrar en el navegador:
- *
- * - La consulta se hace en PostgreSQL con los filtros aplicados. Al navegador solo
- *   llega la página de resultados, no las 103 órdenes ni las que haya en el futuro.
- * - La URL resultante se puede compartir.
- * - Funciona sin JavaScript.
- *
- * `campos` decide qué controles se muestran. Cada pantalla ofrece solo los filtros
- * que su consulta sabe aplicar: un desplegable que no cambia nada es peor que no
- * tenerlo. Por defecto se muestran todos, que es lo que quiere el listado de órdenes.
- */
+/** Filtros GET con búsqueda automática y consultas paginadas en PostgreSQL. */
 
 export type CampoFiltro =
   | 'texto'
@@ -75,7 +61,7 @@ export function Filtros({
   ];
 
   return (
-    <form method="get" action={ruta} className="rounded-lg border border-border bg-card p-4">
+    <BusquedaEnVivo ruta={ruta} consulta={serializarFiltros(filtros)} className="rounded-lg border border-border bg-card p-4">
       {activos ? <div aria-label="Filtros activos" className="mb-4 flex flex-wrap gap-2">{etiquetas.filter(e => e.valor !== null).map(e => <Link key={e.clave} href={`${ruta}${serializarFiltros(filtros, { [e.clave]: null, pagina: 1 })}`} aria-label={`Quitar filtro ${e.texto}: ${e.valor}`} className="inline-flex max-w-full items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary"><span className="truncate">{e.texto}: {e.valor}</span><X size={12} aria-hidden="true" /></Link>)}</div> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {hay('texto') ? (
@@ -216,7 +202,7 @@ export function Filtros({
           </Link>
         ) : null}
       </div>
-    </form>
+    </BusquedaEnVivo>
   );
 }
 

@@ -1,3 +1,4 @@
+import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
 import type { Metadata } from 'next';
 import { Info, Search, UserRoundPlus, Users } from 'lucide-react';
 import Link from 'next/link';
@@ -510,7 +511,7 @@ export default async function PaginaPersonas({
         </Tarjeta>
       ) : null}
 
-      <form method="get" action="/admin/personas" className="flex flex-wrap items-end gap-4">
+      <BusquedaEnVivo ruta="/admin/personas" consulta={new URLSearchParams({ ...(texto ? { q: texto } : {}), ...(params.ficha ? { ficha: params.ficha } : {}) }).toString()} className="flex flex-wrap items-end gap-4">
         <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
           <Etiqueta htmlFor="q">Buscar</Etiqueta>
           <Campo
@@ -535,7 +536,7 @@ export default async function PaginaPersonas({
             Limpiar
           </Link>
         ) : null}
-      </form>
+      </BusquedaEnVivo>
 
       {personas.length === 0 ? (
         <EstadoVacio

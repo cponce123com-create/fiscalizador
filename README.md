@@ -25,10 +25,9 @@ administración, **acceso con verificación en dos pasos y cambio obligatorio de
 contraseña inicial**, listados públicos paginados y filtrados en servidor, perfil
 de proveedor, ranking con pesos, historial por gestiones, estadísticas comparadas
 con concentración del gasto, **registro de personas señaladas con etiquetas y
-vínculos deducidos del DNI**, gráficos y pruebas automatizadas.
+vínculos deducidos del DNI**, perfiles privados con fotos en Cloudinary, gráficos y pruebas automatizadas.
 
-**Pendiente (fases posteriores):** fotografías de proveedores en Cloudinary,
-auditoría visible en el panel y optimización fina. El asistente con IA queda fuera
+**Pendiente (fases posteriores):** auditoría visible en el panel y optimización fina. El asistente con IA queda fuera
 de alcance por decisión expresa.
 
 > El SEO y el despliegue **ya están hechos**, no pendientes: hay `robots.txt`,
@@ -106,7 +105,7 @@ importación.
 | `SEED_SUPERADMIN_PASSWORD` | No | Contraseña del primer SUPERADMIN. Mínimo 12 caracteres. |
 | `STORAGE_DRIVER` | No | `local` (por defecto) o `cloudinary` (fase posterior). |
 | `STORAGE_LOCAL_DIR` | No | Directorio de los archivos originales. Por defecto `./storage/uploads`. |
-| `CLOUDINARY_*` | No | Credenciales de Cloudinary. Reservadas para la fase de fotografías. |
+| `CLOUDINARY_*` | No | Credenciales necesarias para subir/consultar las fotos privadas de proveedores. |
 | `NEXT_PUBLIC_CONTACTO_CORRECCIONES` | No | Correo que se muestra en `/metodologia` para solicitar correcciones o rectificaciones. Si falta, la página avisa de que el canal no está configurado. |
 
 Las variables con prefijo `NEXT_PUBLIC_` se incrustan en el HTML **en tiempo de
@@ -581,7 +580,31 @@ Las modificaciones de datos/fotos se auditan y las ediciones obsoletas se rechaz
 Los perfiles también se conservan al borrar individualmente la última importación.
 
 Las fotos JPEG/PNG/WebP, de hasta 2 MB y 16 millones de píxeles, se decodifican,
-orientan y convierten a WebP de hasta 1200 px, sin metadatos EXIF. Se guardan bajo
-`STORAGE_LOCAL_DIR/private-profiles`, y solo se sirven mediante una API autenticada
-con caché privada desactivada. Necesitan el mismo disco persistente que los libros.
+orientan y convierten a WebP de hasta 1200 px, sin metadatos EXIF. Las fotos nuevas se guardan en Cloudinary y solo se sirven mediante una API autenticada
+con caché privada desactivada. Las fotos locales anteriores siguen siendo legibles
+si existe su archivo en `STORAGE_LOCAL_DIR/private-profiles`.
 La migración `20261007142500_supplier_private_profiles` crea las fichas y sus contactos.
+
+### Fotos de proveedores en Cloudinary (Render)
+
+En Render → Environment configura `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y
+`CLOUDINARY_API_SECRET`. Tras el despliegue, todas las fotos nuevas se suben a Cloudinary:
+no se guardan en el disco de Render y no hay fallback silencioso al almacenamiento local.
+Las credenciales no se envían al navegador. No necesitas un upload preset.
+
+La aplicación usa la API HTTPS firmada con SHA-256 y el tipo `authenticated`, en
+`fiscalizador/private-profiles`, con identificadores aleatorios que no incluyen DNI ni RUC.
+La consulta pasa por `/api/admin/proveedores/[id]/foto`, valida `persons:read` y descarga
+el archivo mediante una petición firmada de corta vigencia, sin publicar la URL de Cloudinary.
+Sustituir o retirar una foto elimina el recurso anterior después de confirmar la ficha;
+si falla el guardado en la base se intenta retirar el recurso nuevo.
+
+Mantén `STORAGE_DRIVER=local`: esta variable corresponde a los libros originales,
+y su driver Cloudinary aún no está implementado. Las fotos usan Cloudinary de forma
+independiente. No se requiere migración de base de datos; `photoKey` identifica el destino.
+Las fotos locales antiguas se pueden sustituir desde la ficha para guardarlas en Cloudinary;
+este despliegue no migra automáticamente archivos anteriores ni recupera archivos perdidos.
+
+### Búsqueda en vivo
+
+La portada muestra hasta cinco coincidencias públicas mientras se escribe, sin salir del campo. Los buscadores de los listados públicos y del administrador consultan automáticamente desde tres caracteres, con una espera de 350 ms. Borrar el texto restaura el listado; los filtros y el orden se conservan, y cada nueva búsqueda vuelve a la primera página. Los formularios GET siguen funcionando con el botón Buscar/Filtrar y sin JavaScript. Las sugerencias de portada no incluyen fichas privadas.

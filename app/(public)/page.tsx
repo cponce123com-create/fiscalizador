@@ -1,7 +1,8 @@
+import { BusquedaPortada } from '@/components/publico/busqueda-portada';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, CalendarDays, Database, FileSearch, MapPin, Search, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { ArrowRight, BookOpen, CalendarDays, Database, FileSearch, MapPin, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { EvolucionPortada } from '@/components/publico/evolucion-portada';
 import { GraficoBarras } from '@/components/publico/grafico-barras';
 import { RankingProveedores } from '@/components/publico/ranking-proveedores';
@@ -35,10 +36,7 @@ export default async function PortadaPublica() {
         <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · San Ramón</p>
         <h1 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h1>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {config.municipio.replace(/^Municipalidad /, 'municipalidad ')}.</p>
-        <form action="/ordenes" method="get" role="search" className="mt-6 flex flex-col gap-2 rounded-xl border border-border bg-card p-2 shadow-sm sm:flex-row">
-          <div className="flex min-w-0 flex-1 items-center gap-2 pl-2"><Search size={18} className="shrink-0 text-muted-foreground" aria-hidden="true" /><label htmlFor="buscar-portada" className="sr-only">Busca un proveedor, RUC o qué se compró</label><input id="buscar-portada" name="texto" type="search" maxLength={120} placeholder="Busca un proveedor, RUC o qué se compró" className="min-w-0 w-full rounded-lg px-1 py-3 text-sm placeholder:text-muted-foreground" /></div>
-          <button className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-emerald-800">Buscar</button>
-        </form>
+        <BusquedaPortada />
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={`/ordenes?texto=${texto.toLowerCase()}`} className="rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
       <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
