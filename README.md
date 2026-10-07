@@ -49,9 +49,11 @@ mantiene su procedencia y el archivo original para revisar los datos.
 | Explorar antecedentes electorales y vínculos habilitados para publicación. | Registrar participaciones electorales y unificar fichas tras verificar identidad. |
 | Consultar clima estimado local y el último tipo de cambio publicado. | Administrar roles, publicación por dato y acceso con verificación en dos pasos. |
 
-El contexto de portada utiliza **Open-Meteo** para el clima y series **BCRP/SBS** para
-el tipo de cambio. Muestra la fecha del dato disponible; no es una cotización en tiempo real.
-La consulta del BCRP admite hasta 12 segundos y reutiliza respuestas validadas durante
+El contexto de portada utiliza **Open-Meteo** para el clima, **SUNAT** como fuente
+principal del tipo de cambio y series **BCRP/SBS** como respaldo. El indicador muestra
+la fuente que respondió y la fecha del dato; no es una cotización en tiempo real.
+SUNAT admite hasta 8 segundos; si falla o no entrega una cotización válida, se consulta
+BCRP con un plazo de 12 segundos. Se reutilizan respuestas validadas durante
 15 minutos por proceso. Ante un fallo temporal conserva la última consulta correcta
 hasta 24 horas, con la fecha original visible; sin un dato previo muestra indisponibilidad.
 Esa reserva es temporal en memoria y se pierde al reiniciar el servicio. Las respuestas

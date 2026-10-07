@@ -14,8 +14,8 @@ export function IndicadoresLocales() {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     async function consultar() {
       control = new AbortController();
-      // El BCRP dispone de 12 s en servidor; deja margen para red y arranque.
-      timeout = setTimeout(() => control?.abort(), 18000);
+      // SUNAT puede tardar 8 s y su respaldo BCRP 12 s; deja margen de red.
+      timeout = setTimeout(() => control?.abort(), 25000);
       let completo = false;
       try {
         const respuesta = await fetch('/api/contexto', { signal: control.signal, cache: 'no-store' });
@@ -40,14 +40,15 @@ export function IndicadoresLocales() {
   }, []);
   const fechaClima = datos?.clima ? new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' }).format(new Date(datos.clima.fecha)) : '';
   const fechaCambio = datos?.dolar ? datos.dolar.fecha.split('-').reverse().join('/') : '';
+  const esSunat = datos?.dolar?.fuente === 'SUNAT';
   return <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] sm:text-xs" aria-label="Clima y tipo de cambio">
     <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" title="Clima estimado por modelos · Open-Meteo (CC BY 4.0)">
       <CloudSun size={16} className="text-amber-300" aria-hidden="true" />
       <span>San Ramón · {datos?.clima ? `${Math.round(datos.clima.temperatura)} °C · ${datos.clima.condicion}` : terminado ? 'Clima no disponible' : 'Consultando clima…'}<span className="block text-[10px] text-emerald-100/80">Open-Meteo · estimación{fechaClima ? ` · ${fechaClima} h` : ''}</span></span>
     </a>
-    <a href="https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" title="Tipo de cambio del sistema bancario SBS publicado por BCRP; no es una cotización en tiempo real">
+    <a href={!datos?.dolar || esSunat ? 'https://www.sunat.gob.pe/a/txt/tipoCambio.txt' : 'https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio'} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" title={esSunat ? 'Tipo de cambio publicado por SUNAT con su fecha de vigencia' : 'SUNAT como fuente principal y BCRP/SBS como respaldo; no es una cotización en tiempo real'}>
       <DollarSign size={16} className="text-amber-300" aria-hidden="true" />
-      <span>Dólar · {datos?.dolar ? `Compra S/ ${datos.dolar.compra} · Venta S/ ${datos.dolar.venta}` : terminado ? 'Dato no disponible' : 'Consultando dato…'}<span className="block text-[10px] text-emerald-100/80">BCRP / SBS · último dato{fechaCambio ? ` · ${fechaCambio}` : ''}</span></span>
+      <span>Dólar · {datos?.dolar ? `Compra S/ ${datos.dolar.compra} · Venta S/ ${datos.dolar.venta}` : terminado ? 'Dato no disponible' : 'Consultando dato…'}<span className="block text-[10px] text-emerald-100/80">{datos?.dolar ? esSunat ? `SUNAT · vigente al ${fechaCambio}` : `BCRP / SBS · respaldo · ${fechaCambio}` : 'SUNAT · respaldo BCRP / SBS'}</span></span>
     </a>
   </div>;
 }
