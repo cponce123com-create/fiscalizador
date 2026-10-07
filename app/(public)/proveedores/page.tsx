@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { Filtros } from '@/components/publico/filtros';
+import { BusquedaProveedores } from '@/components/publico/busqueda-proveedores';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaProveedores } from '@/components/publico/tabla-proveedores';
 import { leerFiltros } from '@/lib/filtros';
@@ -38,7 +38,7 @@ export default async function PaginaProveedores({
         </p>
       </header>
 
-      <Filtros filtros={filtros} ruta="/proveedores" campos={['texto', 'tipoRuc']} />
+      <BusquedaProveedores filtros={filtros} />
 
       <Paginacion filtros={filtros} total={resultado.total} ruta="/proveedores" />
 
