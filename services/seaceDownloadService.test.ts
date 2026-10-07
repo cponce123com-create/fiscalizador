@@ -48,6 +48,10 @@ describe('descargas anuales privadas y separadas del importador', () => {
       vi.stubEnv('SEACE_WORKER_URL', url); expect(seaceConfigurado()).toBe(false);
     }
   });
+  it('acepta el nombre interno de Render sin inventar un sufijo .internal', () => {
+    vi.stubEnv('SEACE_WORKER_URL', 'http://seace-worker-ab12:8080/');
+    expect(seaceConfigurado()).toBe(true);
+  });
   it('recupera progreso propio y no expone una descarga a otro usuario', async () => {
     const dato = await crearDescarga('admin', 2015);
     expect(dato.meses).toHaveLength(12);

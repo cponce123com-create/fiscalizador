@@ -23,13 +23,29 @@ este servicio ni contrata un plan.**
 3. En el servicio web fiscalizador definir:
 
    ```dotenv
-   SEACE_WORKER_URL=http://HOST-PRIVADO.internal:8080/
+   SEACE_WORKER_URL=http://HOST-PRIVADO:8080/
    SEACE_WORKER_TOKEN=EL-MISMO-SECRETO-DEL-WORKER
    ```
 
 4. Reiniciar el portal y probar **un mes** con datos conocidos antes de descargar un año.
    Comparar el Excel con la descarga manual y comprobar el nombre del botón real.
    Si hace falta, definir `SEACE_EXCEL_SELECTOR` **solo en el worker** con su selector CSS verificado.
+
+Obtener `HOST-PRIVADO` desde **Connect → Internal** o **Service Address** del worker en Render.
+Copiar el nombre que Render muestra, sin añadir `.internal`. Ambos servicios deben estar
+en el mismo workspace y región. No crear un Background Worker: este servicio necesita recibir HTTP.
+
+En Windows, generar el token en PowerShell:
+
+```powershell
+$bytes = New-Object byte[] 32
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+$rng.GetBytes($bytes)
+[Convert]::ToBase64String($bytes)
+$rng.Dispose()
+```
+
+Copiar el resultado en `SEACE_WORKER_TOKEN` de ambos servicios. No compartirlo ni ponerlo en el repositorio.
 
 El contenedor ejecuta Chromium como `pwuser` con sandbox activado. El host necesita
 soportar los espacios de nombres y permisos de sandbox recomendados por Playwright:

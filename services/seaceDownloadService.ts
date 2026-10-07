@@ -21,8 +21,10 @@ function configuracion() {
   const token = process.env.SEACE_WORKER_TOKEN;
   let url: URL;
   try { url = new URL(process.env.SEACE_WORKER_URL ?? ''); } catch { throw new ErrorDeNegocio('Configura SEACE_WORKER_URL y SEACE_WORKER_TOKEN en el servidor.'); }
+  // Render proporciona nombres DNS internos de una sola etiqueta (p. ej. seace-worker-ab12).
+  const hostInterno = /^[a-z][a-z0-9-]*$/.test(url.hostname) || url.hostname.endsWith('.internal') || url.hostname === '127.0.0.1';
   if (!token || token.length < 32 || url.username || url.password || url.search || url.hash ||
-    !(url.protocol === 'https:' || (url.protocol === 'http:' && (url.hostname.endsWith('.internal') || ['localhost', '127.0.0.1'].includes(url.hostname))))) {
+    !(url.protocol === 'https:' || (url.protocol === 'http:' && hostInterno))) {
     throw new ErrorDeNegocio('La configuración del servicio de descargas SEACE no es válida.');
   }
   return { url: new URL('mes', url.href.endsWith('/') ? url : `${url.href}/`), token };
