@@ -2,17 +2,19 @@
 import { useState } from 'react';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
 import { accionGuardarPerfilProveedor } from '@/app/admin/proveedores/actions';
-import { MAX_CONTACTOS_PROVEEDOR } from '@/lib/supplier-profile';
+import { MAX_CONTACTOS_PROVEEDOR, camposPublicacionProveedor, esquemaPublicacionProveedor } from '@/lib/supplier-profile';
 type Contacto = { isPublic?: boolean; publicNote?: string | null; dni: string; fullName: string; relationship: string; source: string | null; notes: string | null };
-export function FormularioPerfilProveedor({ supplierId, version, birthplace, currentAddress, publicDistrict, birthDate, publicNotes, publicSourceUrl, notes, contacts, esEmpresa }: {
-  publicNotes: string | null; publicSourceUrl: string | null; publicDistrict: string | null; birthDate: string | null; supplierId: string; version: string; birthplace: string | null; currentAddress: string | null; notes: string | null; contacts: Contacto[]; esEmpresa: boolean;
+export function FormularioPerfilProveedor({ supplierId, version, isPublic, publication, birthplace, currentAddress, publicDistrict, birthDate, publicNotes, publicSourceUrl, notes, contacts, esEmpresa }: {
+  isPublic: boolean; publication: unknown; publicNotes: string | null; publicSourceUrl: string | null; publicDistrict: string | null; birthDate: string | null; supplierId: string; version: string; birthplace: string | null; currentAddress: string | null; notes: string | null; contacts: Contacto[]; esEmpresa: boolean;
 }) {
+  const parsed = esquemaPublicacionProveedor.safeParse(publication);
+  const reglas = parsed.success ? parsed.data : {};
   const [personas, setPersonas] = useState(contacts);
   function cambiar(index: number, campo: keyof Contacto, valor: string | boolean) { setPersonas(actual => actual.map((p, i) => i === index ? { ...p, [campo]: valor } : p)); }
   const inputClass = 'w-full rounded-md border border-input bg-background px-3 py-2 text-sm';
   return <FormularioAccion accion={accionGuardarPerfilProveedor} etiqueta="Guardar perfil y vínculos">
     <input type="hidden" name="supplierId" value={supplierId} /><input type="hidden" name="version" value={version} /><input type="hidden" name="contacts" value={JSON.stringify(personas)} />
-    <p className="text-xs text-muted-foreground">La foto, edad, lugar de nacimiento/origen y distrito se muestran públicamente. El DNI se muestra parcialmente oculto. Las notas privadas y la dirección completa permanecen privadas. Puedes publicar notas y vínculos en los campos correspondientes, con una fuente pública.</p>
+    <fieldset className="rounded-lg border border-border p-4"><legend>Publicación de datos del perfil</legend><label className="flex items-center gap-2 text-sm"><input name="isPublic" type="checkbox" defaultChecked={isPublic} />Habilitar datos públicos de esta ficha</label><p className="my-3 text-xs text-muted-foreground">Selecciona cada dato y su fuente pública. Al guardar confirmas que revisaste esa fuente. El DNI se mostrará completo si lo habilitas; el RUC de las contrataciones permanece público.</p>{camposPublicacionProveedor.filter(c => !esEmpresa || !['dni', 'edad'].includes(c)).map(c => <div key={c} className="my-3 grid gap-2 sm:grid-cols-2"><label className="flex items-center gap-2 text-sm"><input name={`publish_${c}`} type="checkbox" defaultChecked={reglas[c]?.enabled ?? false} />Publicar {c === 'dni' ? 'DNI completo' : c}</label><input aria-label={`Fuente pública de ${c}`} type="url" name={`source_${c}`} maxLength={500} defaultValue={reglas[c]?.sourceUrl ?? ''} placeholder="Enlace a la fuente pública" className={inputClass} /></div>)}</fieldset>
     <div className="grid gap-4 sm:grid-cols-2">
       <label className="flex flex-col gap-2 text-sm">{esEmpresa ? 'Lugar de origen / constitución' : 'Lugar de nacimiento'}<input name="birthplace" maxLength={250} defaultValue={birthplace ?? ''} className={inputClass} /></label>
       <label className="flex flex-col gap-2 text-sm">{esEmpresa ? 'Dirección completa · privada' : 'Dirección completa · privada'}<input name="currentAddress" maxLength={500} defaultValue={currentAddress ?? ''} className={inputClass} /></label>

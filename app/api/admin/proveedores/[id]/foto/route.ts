@@ -1,3 +1,4 @@
+import { esquemaPublicacionProveedor } from '@/lib/supplier-profile';
 import { requierePermiso, SinPermiso } from '@/lib/auth/session';
 import { respuestaDeError } from '@/lib/api/responses';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
@@ -42,8 +43,10 @@ async function cambiarFoto(request: Request, { params }: Contexto, borrar: boole
     const anterior = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM "Supplier" WHERE id = ${id} FOR UPDATE`;
       if (!await tx.supplier.findUnique({ where: { id }, select: { id: true } })) throw new NoEncontrado('No existe este proveedor.');
-      const viejo = await tx.supplierProfile.findUnique({ where: { supplierId: id }, select: { photoKey: true } });
-      const data = { photoKey: nueva?.key ?? null, photoMime: nueva?.mime ?? null, updatedById: usuario.id };
+      const viejo = await tx.supplierProfile.findUnique({ where: { supplierId: id }, select: { photoKey: true, publication: true } });
+      const reglas = esquemaPublicacionProveedor.safeParse(viejo?.publication);
+      const publication = { ...(reglas.success ? reglas.data : {}), foto: { enabled: false, sourceUrl: null } };
+      const data = { publication, photoKey: nueva?.key ?? null, photoMime: nueva?.mime ?? null, updatedById: usuario.id };
       const perfil = await tx.supplierProfile.upsert({ where: { supplierId: id }, create: { supplierId: id, createdById: usuario.id, ...data }, update: data });
       await registrarAuditoria(tx, { userId: usuario.id, action: 'CHANGE_PHOTO', entity: 'SupplierProfile', entityId: perfil.id, metadata: { supplierId: id, retirada: borrar } });
       return viejo?.photoKey;

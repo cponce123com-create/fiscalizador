@@ -103,7 +103,7 @@ importación.
 | `AUTH_SECRET` | Sí | Secreto para firmar sesiones. Mínimo 32 caracteres. Generar con `openssl rand -base64 32`. |
 | `SEED_SUPERADMIN_EMAIL` | No | Correo del primer SUPERADMIN. Solo lo usa el seed. |
 | `SEED_SUPERADMIN_PASSWORD` | No | Contraseña del primer SUPERADMIN. Mínimo 12 caracteres. |
-| `STORAGE_DRIVER` | No | `local` (por defecto) o `cloudinary` (fase posterior). |
+| `STORAGE_DRIVER` | No | `local` para libros originales; `cloudinary` para libros aún no implementado. Las fotos usan Cloudinary por separado. |
 | `STORAGE_LOCAL_DIR` | No | Directorio de los archivos originales. Por defecto `./storage/uploads`. |
 | `CLOUDINARY_*` | No | Credenciales necesarias para subir/consultar las fotos privadas de proveedores. |
 | `NEXT_PUBLIC_CONTACTO_CORRECCIONES` | No | Correo que se muestra en `/metodologia` para solicitar correcciones o rectificaciones. Si falta, la página avisa de que el canal no está configurado. |
@@ -452,7 +452,7 @@ portal vacío, el orden es `npm run verify` (carga el libro de referencia) y des
    conviene comprobarlo antes de dar un despliegue por bueno: sube un libro y mira que
    el análisis llegue a la pantalla de revisión.
 3. **`AUTH_SECRET` distinto por entorno** y nunca reutilizado.
-4. **Añadir 2FA** para las cuentas administrativas (previsto en el pliego).
+4. **2FA implementado** para cuentas administrativas, con códigos de recuperación y control de reutilización TOTP.
 
 ---
 
@@ -638,3 +638,18 @@ Los antecedentes admiten orden en la lista y estado de inscripción. `preliminar
 Administrador → Registro electoral detecta nombres completos coincidentes normalizando mayúsculas, tildes y espacios. El administrador revisa ambas fichas y confirma “Unir fichas”, eligiendo cuál conservar. Se trasladan todos los antecedentes, de modo que el perfil público reúne elecciones, periodos y resultados. Se bloquean DNI contradictorios y antecedentes del mismo año, cargo y municipalidad para evitar sobrescrituras. La operación es transaccional y auditada. Las fuentes y la publicación de cada antecedente permanecen intactas.
 
 Los identificadores de las fichas incorporadas se conservan como alias: sus enlaces públicos redirigen al perfil definitivo y reimportar una candidatura provisional ya unificada reutiliza ese perfil. La coincidencia por nombre propone revisión; el cruce automático con proveedores continúa requiriendo documento exacto.
+
+
+### Endurecimiento de publicación y operación
+
+En Admin → Proveedores, cada ficha tiene habilitación general y controles separados para DNI completo, edad, nacimiento, distrito y foto. Cada campo habilitado requiere fuente pública; al guardar se registra la fecha de revisión. Los campos existentes se conservan, pero inicialmente quedan sin publicar. El RUC y las órdenes siguen públicos: ocultar la etiqueta DNI no anonimiza un RUC 10. Cambiar la foto revoca su habilitación hasta revisar la nueva. La ruta pública comprueba la misma política antes de leer Cloudinary. Las notas y vínculos mantienen sus controles independientes.
+
+Las exportaciones comparten un máximo de 2 solicitudes activas y 20 por minuto por proceso; búsqueda admite 3 activas y 180 por minuto. Se devuelve 429 con Retry-After antes de consultar la base. Esta protección no depende de una IP aportada por el cliente. Para varias instancias se necesita un contador distribuido. Los importadores limitan los bytes reales del formulario a 25 MB más 64 KB de sobrecarga, antes de analizar multipart. SheetJS sigue siendo síncrono: los workers y límites en el proxy deben abordarse por separado.
+
+Las pruebas nunca toman automáticamente DATABASE_URL de .env. Para integración local se requiere TEST_DATABASE_URL de una base desechable y separada; CI utiliza su PostgreSQL temporal local. Sin esa variable se ejecutan las pruebas unitarias y se omiten integraciones. Crear una rama Neon para desarrollo y otra para pruebas; no usar la conexión de producción con db:migrate, db:seed ni diagnósticos.
+
+Las credenciales expuestas deben rotarse en Neon/Render y en la cuenta administrativa siguiendo docs/operacion.md. El repositorio no puede confirmar que se haya completado esa operación. La política de proxies de Render debe comprobarse antes de configurar una IP confiable; los nuevos límites de exportación no dependen de X-Forwarded-For.
+
+Para RNP, la consulta oficial por RUC y constancia exige código de seguridad. Registrar estado, tipo de registro, “vigencia desde”, fuente y fecha de consulta; esa fecha no equivale automáticamente a primera inscripción histórica. No inferir “sin RNP” de errores, captcha o ausencia de respuesta. No se activa un scraper ni se modifica el resolvedor de SEACE en esta entrega.
+
+TRUSTED_PROXY_HOPS permanece en 0 (sin confiar en cabeceras IP) hasta comprobar la cadena de proxies que sobrescribe o añade X-Forwarded-For y que el origen no admite acceso directo. Configurar el número verificado de saltos; se selecciona desde la derecha y se valida la dirección. El bloqueo por correo sigue activo aunque no exista IP confiable. No asumir un valor para Render sin verificarlo.

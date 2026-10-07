@@ -7,6 +7,8 @@ import {
   generarSecreto,
   urlOtpAuth,
   verificarCodigo,
+  pasoDeCodigo,
+  pasoDe,
 } from '@/lib/auth/totp';
 
 /**
@@ -117,5 +119,13 @@ describe('urlOtpAuth', () => {
     expect(url).toContain('digits=6');
     expect(url).toContain('period=30');
     expect(decodeURIComponent(url)).toContain('Portal de Transparencia:admin@example.org');
+  });
+});
+
+describe('paso temporal consumible', () => {
+  it('identifica el paso validado y rechaza códigos fuera de ventana', () => {
+    const secreto = generarSecreto(); const ahora = 1_700_000_000_000;
+    expect(pasoDeCodigo(secreto, generarCodigo(secreto, ahora), ahora)).toBe(pasoDe(ahora));
+    expect(pasoDeCodigo(secreto, 'no-valido', ahora)).toBeNull();
   });
 });

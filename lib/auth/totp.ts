@@ -182,3 +182,16 @@ export function urlOtpAuth({
 
   return `otpauth://totp/${etiqueta}?${parametros.toString()}`;
 }
+
+/** Paso aceptado más reciente; permite consumirlo una sola vez en la base de datos. */
+export function pasoDeCodigo(secreto: string, codigo: string, instanteMs = Date.now()): number | null {
+  const limpio = codigo.replace(/\D/g, '');
+  if (!/^\d{6}$/.test(limpio)) return null;
+  const actual = pasoDe(instanteMs);
+  let resultado: number | null = null;
+  for (const paso of [actual - 1, actual, actual + 1]) {
+    const esperado = Buffer.from(codigoHotp(base32ADatos(secreto), paso));
+    if (timingSafeEqual(esperado, Buffer.from(limpio))) resultado = paso;
+  }
+  return resultado;
+}

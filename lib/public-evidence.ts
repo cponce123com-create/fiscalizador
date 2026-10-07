@@ -20,6 +20,11 @@ export async function camposOcultos(batchId: string | string[]): Promise<Set<str
 }
 export function celdaCsv(valor: unknown): string {
   let texto = valor == null ? '' : String(valor);
-  if (/^[\s]*[=+@-]/.test(texto) || /^[\t\r\n]/.test(texto)) texto = "'" + texto;
+  if (!(typeof valor === 'number' && Number.isFinite(valor)) && /^[\s]*[=+@-]/.test(texto) || /^[\t\r\n]/.test(texto)) texto = "'" + texto;
   return '"' + texto.replaceAll('"', '""') + '"';
+}
+
+export function celdaMontoCsv(valor: string | null): string {
+  if (valor === null) return celdaCsv(null);
+  return /^-?\d+(?:\.\d+)?$/.test(valor) ? '"' + valor + '"' : celdaCsv(valor);
 }

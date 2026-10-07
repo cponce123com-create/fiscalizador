@@ -21,7 +21,7 @@ import {
  * se toca ninguna cuenta real.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 describe('piezas puras', () => {
   it('exige el segundo factor a los roles administrativos', () => {
@@ -114,7 +114,9 @@ describe.skipIf(!hayBaseDeDatos)('alta y verificación contra la base real', () 
       select: { id: true, twoFactorSecret: true },
     });
 
-    expect(await verificarSegundoFactor(prisma, guardado!, generarCodigo(secreto))).toBe(true);
+    const codigo = generarCodigo(secreto);
+    expect(await verificarSegundoFactor(prisma, guardado!, codigo)).toBe(true);
+    expect(await verificarSegundoFactor(prisma, guardado!, codigo)).toBe(false);
   });
 
   it('acepta un código de recuperación y solo una vez', async () => {

@@ -1,7 +1,7 @@
 import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor } from '@/services/electoralService';
 import { AntecedentesElectorales } from '@/components/publico/antecedentes-electorales';
 import { prisma } from '@/lib/prisma';
-import { datosPublicosProveedor } from '@/lib/perfil-publico-proveedor';
+import { datosPublicosProveedor, fuentesPublicasProveedor } from '@/lib/perfil-publico-proveedor';
 import type { Metadata } from 'next';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import Image from 'next/image';
@@ -58,9 +58,9 @@ export default async function PaginaProveedor({
 
   if (!perfil) notFound();
 
-  const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { birthplace: true, publicDistrict: true, birthDate: true, photoKey: true, updatedAt: true } });
+  const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { isPublic: true, publication: true, birthplace: true, publicDistrict: true, birthDate: true, photoKey: true, updatedAt: true } });
   const datos = datosPublicosProveedor(perfil.ruc, ficha, perfil.id);
-  const foto = datos.foto ?? perfil.fotoUrl;
+  const foto = datos.foto;
   const [electoral, evidencia] = await Promise.all([antecedentesElectoralesProveedor(perfil.ruc), informacionDocumentadaProveedor(perfil.id)]);
 
   // El proveedor se fija aquí, no se toma de la URL: así el parámetro `proveedor`
@@ -128,10 +128,11 @@ export default async function PaginaProveedor({
           <p className="tabular text-sm text-muted-foreground">RUC {perfil.ruc}</p>
           <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
             {datos.dni ? <div><dt className="text-muted-foreground">DNI</dt><dd>{datos.dni}</dd></div> : null}
-            {datos.dni ? <div><dt className="text-muted-foreground">Edad</dt><dd>{datos.edad === null ? 'Sin registrar' : `${datos.edad} años`}</dd></div> : null}
+            {datos.edad !== null ? <div><dt className="text-muted-foreground">Edad</dt><dd>{datos.edad === null ? 'Sin registrar' : `${datos.edad} años`}</dd></div> : null}
             <div><dt className="text-muted-foreground">{datos.dni ? 'Lugar de nacimiento' : 'Lugar de origen'}</dt><dd>{datos.nacimiento ?? 'Sin registrar'}</dd></div>
             <div><dt className="text-muted-foreground">Dirección · distrito</dt><dd>{datos.distrito ?? 'Sin registrar'}</dd></div>
           </dl>
+          <div className="flex flex-wrap gap-3 text-xs">{fuentesPublicasProveedor(ficha).map(f => <Link key={f.campo} href={f.url} target="_blank" rel="noopener noreferrer" className="underline">Fuente de {f.campo} · revisada {f.revisado.slice(0, 10)}</Link>)}</div>
           <div className="flex flex-wrap items-center gap-2">
             <Insignia tono="neutro">{perfil.tipo}</Insignia>
             {perfil.anuladas > 0 ? (

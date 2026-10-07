@@ -17,7 +17,6 @@ services:
     runtime: node
     plan: starter
     # Ohio (us-east-2) porque el proyecto de Neon está en esa misma región
-    # (ep-ancient-unit-…us-east-2.aws.neon.tech). Misma región = menos latencia
     # por consulta, y aquí se hacen muchas.
     region: ohio
     branch: main
@@ -117,5 +116,5 @@ services:
 #   tipos y gestiones, la visibilidad de columnas y el usuario SUPERADMIN.
 #
 # ROTAR LA CONTRASEÑA DE NEON
-#   Pendiente desde la configuración inicial. Al rotarla hay que actualizar
+#   Verificar que se haya rotado tras la exposición. Al rotarla actualizar
 #   DATABASE_URL y DIRECT_URL en el panel de Render.

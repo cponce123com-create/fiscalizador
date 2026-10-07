@@ -11,7 +11,7 @@ import { hashearPassword, verificarPassword } from '@/lib/auth/passwords';
  * es exactamente lo contrario de lo que se busca.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 describe.skipIf(!hayBaseDeDatos)('cambiarPassword contra la base real', () => {
   let svc: typeof import('@/services/passwordService');

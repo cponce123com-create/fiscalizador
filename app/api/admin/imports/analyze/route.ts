@@ -1,3 +1,4 @@
+import { leerFormularioLimitado } from '@/lib/formulario-limitado';
 import { z } from 'zod';
 
 import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
@@ -43,8 +44,9 @@ export async function POST(request: Request): Promise<Response> {
 
     let formulario: FormData;
     try {
-      formulario = await request.formData();
-    } catch {
+      formulario = await leerFormularioLimitado(request, TAMANO_MAXIMO_BYTES + 64 * 1024);
+    } catch (error) {
+      if (error instanceof ErrorDeNegocio) throw error;
       throw new ErrorDeNegocio('Se esperaba un formulario multipart con el archivo.');
     }
 

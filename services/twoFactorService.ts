@@ -3,7 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { PrismaClient } from '@/lib/generated/prisma/client';
 import { ErrorDeNegocio } from '@/lib/errors';
 import { cifrar, descifrar } from '@/lib/auth/secrets';
-import { generarSecreto, urlOtpAuth, verificarCodigo } from '@/lib/auth/totp';
+import { generarSecreto, urlOtpAuth, verificarCodigo, pasoDeCodigo } from '@/lib/auth/totp';
 
 /**
  * Segundo factor (TOTP) para las cuentas administrativas.
@@ -92,7 +92,7 @@ export async function activar(
     // pueden sustituir un factor ya instalado.
     const { count } = await tx.user.updateMany({
       where: { id: usuarioId, isActive: true, mustChangePassword: false, twoFactorEnabled: false },
-      data: { twoFactorSecret: cifrar(secreto), twoFactorEnabled: true },
+      data: { twoFactorSecret: cifrar(secreto), lastTotpStep: null, twoFactorEnabled: true },
     });
     if (count !== 1) {
       throw new ErrorDeNegocio('No se puede activar el segundo factor: comprueba la cuenta y cambia primero la contraseña.');
@@ -116,7 +116,7 @@ export async function desactivar(db: PrismaClient, usuarioId: string): Promise<v
   await db.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: usuarioId },
-      data: { twoFactorSecret: null, twoFactorEnabled: false, sessionVersion: { increment: 1 } },
+      data: { twoFactorSecret: null, lastTotpStep: null, twoFactorEnabled: false, sessionVersion: { increment: 1 } },
     });
     await tx.twoFactorRecoveryCode.deleteMany({ where: { userId: usuarioId } });
   });
@@ -164,7 +164,11 @@ export async function verificarSegundoFactor(
   if (!usuario.twoFactorSecret) return false;
 
   try {
-    if (verificarCodigo(descifrar(usuario.twoFactorSecret), codigo)) return true;
+    const paso = pasoDeCodigo(descifrar(usuario.twoFactorSecret), codigo);
+    if (paso !== null) {
+      const { count } = await db.user.updateMany({ where: { id: usuario.id, twoFactorEnabled: true, twoFactorSecret: usuario.twoFactorSecret, OR: [{ lastTotpStep: null }, { lastTotpStep: { lt: paso } }] }, data: { lastTotpStep: paso } });
+      return count === 1;
+    }
   } catch (error) {
     console.error('No se pudo descifrar el secreto 2FA; la cuenta debe rehacer el alta.', error);
     return false;

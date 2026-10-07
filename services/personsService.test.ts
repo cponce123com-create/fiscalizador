@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * Todo lo que crea lo borra después, incluidos los rastros de auditoría.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 /**
  * El escenario no inventa proveedores: los elige del portal, así que sin órdenes
