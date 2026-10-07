@@ -51,6 +51,14 @@ mantiene su procedencia y el archivo original para revisar los datos.
 
 El contexto de portada utiliza **Open-Meteo** para el clima y series **BCRP/SBS** para
 el tipo de cambio. Muestra la fecha del dato disponible; no es una cotización en tiempo real.
+La consulta del BCRP admite hasta 12 segundos y reutiliza respuestas validadas durante
+15 minutos por proceso. Ante un fallo temporal conserva la última consulta correcta
+hasta 24 horas, con la fecha original visible; sin un dato previo muestra indisponibilidad.
+Esa reserva es temporal en memoria y se pierde al reiniciar el servicio. Las respuestas
+sin dólar no se cachean en el navegador o CDN y la fuente se vuelve a intentar después de 30 segundos.
+La lectura admite el JSON válido inicial si el BCRP añade avisos HTML al final;
+las cotizaciones y fechas se validan antes de publicar. Los indicadores reintentan
+automáticamente cuando falta una fuente y se actualizan cada 15 minutos si ambas responden.
 
 ### Búsqueda por relevancia y experiencia móvil
 
