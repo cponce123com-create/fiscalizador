@@ -6,19 +6,19 @@ vi.mock('@/services/supplierProfileService', () => ({ guardarPerfilProveedor: mo
 import { SinPermiso } from '@/lib/auth/session';
 import { accionGuardarPerfilProveedor } from './actions';
 const estado = { error: null, ok: null };
-describe('edición de perfiles privados', () => {
+describe('edición de perfiles de proveedores', () => {
   beforeEach(() => vi.resetAllMocks());
   it('no deja editar con un permiso de solo lectura', async () => {
     mocks.permiso.mockRejectedValue(new SinPermiso('No autorizado'));
     expect((await accionGuardarPerfilProveedor(estado, new FormData())).error).toBe('No autorizado');
     expect(mocks.permiso).toHaveBeenCalledWith('persons:write'); expect(mocks.guardar).not.toHaveBeenCalled();
   });
-  it('guarda la ficha privada, normaliza campos vacíos y refresca el perfil', async () => {
+  it('guarda datos públicos y privados, normaliza campos vacíos y refresca el perfil', async () => {
     mocks.permiso.mockResolvedValue({ id: 'admin' });
     const form = new FormData();
-    for (const [key, value] of Object.entries({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: '', notes: '', contacts: '[]' })) form.set(key, value);
-    expect((await accionGuardarPerfilProveedor(estado, form)).ok).toBe('Perfil privado guardado.');
-    expect(mocks.guardar).toHaveBeenCalledWith({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: null, notes: null, contacts: [] }, 'admin');
+    for (const [key, value] of Object.entries({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: '', publicDistrict: 'La Merced', birthDate: '1990-10-08', notes: '', contacts: '[]' })) form.set(key, value);
+    expect((await accionGuardarPerfilProveedor(estado, form)).ok).toBe('Perfil guardado. Foto, edad, lugar de nacimiento y distrito se muestran en el portal público.');
+    expect(mocks.guardar).toHaveBeenCalledWith({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: null, publicDistrict: 'La Merced', birthDate: '1990-10-08', notes: null, contacts: [] }, 'admin');
     expect(mocks.refresh).toHaveBeenCalledWith('/admin/proveedores/proveedor');
   });
 });
