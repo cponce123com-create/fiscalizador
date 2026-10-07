@@ -1,3 +1,4 @@
+import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
 import type { Metadata } from 'next';
 import { ListOrdered, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -133,7 +134,7 @@ export default async function PaginaOrdenes({
         </p>
       </div>
 
-      <form method="get" action="/admin/ordenes" className="flex flex-wrap items-end gap-4">
+      <BusquedaEnVivo ruta="/admin/ordenes" consulta={enlaceConPagina(filtros, 1).split('?')[1] ?? ''} className="flex flex-wrap items-end gap-4">
         <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
           <Etiqueta htmlFor="q">Buscar</Etiqueta>
           <Campo
@@ -186,7 +187,7 @@ export default async function PaginaOrdenes({
             Limpiar
           </Link>
         ) : null}
-      </form>
+      </BusquedaEnVivo>
 
       {ordenes.length === 0 ? (
         <EstadoVacio

@@ -1,9 +1,9 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { readFile, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
 import { env } from '@/lib/env';
 import { ErrorDeNegocio } from '@/lib/errors';
+import { esFotoCloudinary, leerFotoCloudinary, retirarFotoCloudinary, subirFotoCloudinary } from '@/services/cloudinaryPhotoService';
 
 export const MAX_FOTO_BYTES = 2 * 1024 * 1024;
 export function tipoFoto(buffer: Buffer): { mime: string; extension: string } {
@@ -23,11 +23,7 @@ export async function guardarFotoPrivada(buffer: Buffer) {
   try {
     imagen = await sharp(buffer, { limitInputPixels: 16_000_000, animated: false }).rotate().resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
   } catch { throw new ErrorDeNegocio('La foto no se pudo leer. Usa una imagen JPEG, PNG o WebP de hasta 16 millones de píxeles.'); }
-  const key = `${randomUUID()}.webp`;
-  const destino = rutaFoto(key);
-  await mkdir(path.dirname(destino), { recursive: true });
-  await writeFile(destino, imagen, { flag: 'wx' });
-  return { key, mime: 'image/webp' };
+  return subirFotoCloudinary(imagen);
 }
-export async function leerFotoPrivada(key: string) { return readFile(rutaFoto(key)); }
-export async function retirarFotoPrivada(key: string) { await unlink(rutaFoto(key)); }
+export async function leerFotoPrivada(key: string) { return esFotoCloudinary(key) ? leerFotoCloudinary(key) : readFile(rutaFoto(key)); }
+export async function retirarFotoPrivada(key: string) { if (esFotoCloudinary(key)) await retirarFotoCloudinary(key); else await unlink(rutaFoto(key)); }

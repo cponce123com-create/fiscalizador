@@ -33,7 +33,7 @@ const serverEnvSchema = z.object({
   STORAGE_DRIVER: z.enum(['local', 'cloudinary']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('./storage/uploads'),
 
-  // Cloudinary (Fase 11). Opcionales en esta entrega.
+  // Fotos privadas de proveedores: obligatorias al subir/leer fotos de Cloudinary.
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
