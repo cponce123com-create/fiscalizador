@@ -9,6 +9,8 @@ export const esquemaPerfilProveedor = z.object({
   version: z.string().max(40),
   birthplace: textoOpcional(250),
   currentAddress: textoOpcional(500),
+  publicDistrict: textoOpcional(120).optional(),
+  birthDate: z.string().nullable().transform(v => v || null).refine(v => !v || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v && v >= "1900-01-01" && v <= new Date().toISOString().slice(0, 10)), "La fecha de nacimiento no es válida.").optional(),
   notes: textoOpcional(3000),
   contacts: z.array(z.object({
     dni: z.string().regex(/^\d{8}$/, 'El DNI debe tener exactamente 8 dígitos.'),

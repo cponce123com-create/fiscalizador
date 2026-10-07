@@ -1,3 +1,5 @@
+import { prisma } from '@/lib/prisma';
+import { datosPublicosProveedor } from '@/lib/perfil-publico-proveedor';
 import type { Metadata } from 'next';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import Image from 'next/image';
@@ -54,6 +56,10 @@ export default async function PaginaProveedor({
 
   if (!perfil) notFound();
 
+  const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { birthplace: true, publicDistrict: true, birthDate: true, photoKey: true, updatedAt: true } });
+  const datos = datosPublicosProveedor(perfil.ruc, ficha, perfil.id);
+  const foto = datos.foto ?? perfil.fotoUrl;
+
   // El proveedor se fija aquí, no se toma de la URL: así el parámetro `proveedor`
   // no puede usarse para mezclar órdenes de dos proveedores en la misma pantalla.
   const filtros = { ...leerFiltros(await searchParams), proveedorId: perfil.id };
@@ -96,9 +102,10 @@ export default async function PaginaProveedor({
       </Link>
 
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">
-        {perfil.fotoUrl ? (
+        {foto ? (
           <Image
-            src={perfil.fotoUrl}
+            unoptimized={Boolean(datos.foto)}
+            src={foto}
             alt={`Fotografía de ${perfil.nombre}`}
             width={96}
             height={96}
@@ -116,6 +123,12 @@ export default async function PaginaProveedor({
         <div className="flex flex-col gap-2">
           <h1 className="text-xl font-semibold sm:text-2xl">{perfil.nombre}</h1>
           <p className="tabular text-sm text-muted-foreground">RUC {perfil.ruc}</p>
+          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {datos.dni ? <div><dt className="text-muted-foreground">DNI</dt><dd>{datos.dni}</dd></div> : null}
+            {datos.dni ? <div><dt className="text-muted-foreground">Edad</dt><dd>{datos.edad === null ? 'Sin registrar' : `${datos.edad} años`}</dd></div> : null}
+            <div><dt className="text-muted-foreground">{datos.dni ? 'Lugar de nacimiento' : 'Lugar de origen'}</dt><dd>{datos.nacimiento ?? 'Sin registrar'}</dd></div>
+            <div><dt className="text-muted-foreground">Dirección · distrito</dt><dd>{datos.distrito ?? 'Sin registrar'}</dd></div>
+          </dl>
           <div className="flex flex-wrap items-center gap-2">
             <Insignia tono="neutro">{perfil.tipo}</Insignia>
             {perfil.anuladas > 0 ? (
