@@ -538,3 +538,17 @@ Los originales requieren almacenamiento persistente (`STORAGE_LOCAL_DIR` en el d
 montado de Render). Un archivo perdido tras un despliegue no puede recuperarse a partir
 del extracto; debe restaurarse desde la fuente. La descarga devuelve un aviso cuando
 el original no está disponible o no coincide con su huella.
+
+### Inventario y cobertura de fuentes
+
+`/fuentes` lista todos los libros registrados, incluidos los cargados sin importar,
+los que están en proceso, los fallidos y las versiones anteriores. Ofrece filtros
+por año, mes y tipo y paginación de 12 libros consultada en la base de datos. La cifra
+de órdenes por libro cuenta los registros realmente importados. Las descargas de
+extractos se muestran únicamente en importaciones completadas.
+
+La cobertura mensual distingue archivo ausente, archivo cargado e importación
+completada. No exige una segunda aprobación ni interpreta la falta de una declaración
+de integridad como ausencia del libro. Un libro importado no garantiza que el mes
+contenga todas sus órdenes. Las decisiones sobre duplicados y observaciones se toman
+en la importación; esta vista no cambia el cálculo de totales ni activa versiones.
