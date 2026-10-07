@@ -182,7 +182,7 @@ export default async function PaginaOrdenes({
         {filtros.q || filtros.soloAnuladas ? (
           <Link
             href="/admin/ordenes"
-            className="inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted"
+            className="boton-enlace inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             Limpiar
           </Link>
@@ -272,7 +272,7 @@ export default async function PaginaOrdenes({
               {pagina > 1 ? (
                 <Link
                   href={enlaceConPagina(filtros, pagina - 1)}
-                  className="inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
+                  className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
                 >
                   Anterior
                 </Link>
@@ -281,7 +281,7 @@ export default async function PaginaOrdenes({
               {pagina < totalPaginas ? (
                 <Link
                   href={enlaceConPagina(filtros, pagina + 1)}
-                  className="inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
+                  className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
                 >
                   Siguiente
                 </Link>

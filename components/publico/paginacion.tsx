@@ -45,9 +45,9 @@ export function Paginacion({
   const enlace = (pagina: number): string => `${ruta}${serializarFiltros(filtros, { pagina })}`;
 
   const enlaceDeshabilitado =
-    'pointer-events-none inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm text-muted-foreground opacity-50';
+    'boton-enlace pointer-events-none inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm text-muted-foreground opacity-50';
   const enlaceNormal =
-    ' min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted';
+    'boton-enlace min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted';
 
   return (
     <nav aria-label="Paginación" className="flex flex-wrap items-center justify-between gap-3">
@@ -61,7 +61,7 @@ export function Paginacion({
             Anterior
           </Link>
         ) : (
-          <span className={enlaceDeshabilitado}>Anterior</span>
+          <span aria-disabled="true" className={enlaceDeshabilitado}>Anterior</span>
         )}
 
         {desde > 1 ? (
@@ -80,7 +80,7 @@ export function Paginacion({
             aria-current={numero === actual ? 'page' : undefined}
             className={
               numero === actual
-                ? 'inline-flex min-h-11 items-center rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary'
+                ? 'boton-enlace inline-flex min-h-11 items-center rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary'
                 : `hidden sm:inline-flex ${enlaceNormal}`
             }
           >
@@ -104,7 +104,7 @@ export function Paginacion({
             Siguiente
           </Link>
         ) : (
-          <span className={enlaceDeshabilitado}>Siguiente</span>
+          <span aria-disabled="true" className={enlaceDeshabilitado}>Siguiente</span>
         )}
       </div>
     </nav>

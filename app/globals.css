@@ -24,6 +24,7 @@
 
   --border: #dce6df;
   --input: #b8cbbf;
+  --control-border: #718b7b;
   --ring: #166534;
 
   --primary: #166534;
@@ -54,6 +55,7 @@
 
     --border: #2b4233;
     --input: #3a5543;
+    --control-border: #789884;
     --ring: #86efac;
 
     --primary: #86efac;
@@ -79,6 +81,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-control: var(--control-border);
   --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
@@ -119,6 +122,7 @@ body {
   --muted-foreground: #52675a;
   --border: #dce6df;
   --input: #b8cbbf;
+  --control-border: #718b7b;
   --ring: #166534;
   --primary: #166534;
   --primary-foreground: #ffffff;
@@ -146,4 +150,52 @@ body {
   .portal-publico :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; min-height: 44px; max-width: 100%; }
   .portal-publico :is(button, summary) { min-height: 44px; }
   .portal-publico .panel-portada { padding: 1rem; }
+}
+
+/* Marco común para botones nativos y enlaces que representan acciones.
+   Fuera de las capas para que los bordes antiguos border-border no lo diluyan.
+   Los fondos y colores de cada variante siguen definidos por sus utilidades. */
+@layer base {
+  :where(button, .boton-enlace) {
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: .625rem;
+    background-color: var(--card);
+    padding: .5rem .875rem;
+    font-weight: 500;
+    text-align: center;
+  }
+}
+:where(button, .boton-enlace) {
+  border: 1px solid var(--control-border);
+  box-shadow: 0 1px 2px #17251d14;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color 150ms, border-color 150ms, box-shadow 150ms;
+}
+@media (hover: hover) {
+  :where(button, .boton-enlace):not(:disabled):not([aria-disabled="true"]):hover {
+    border-color: var(--ring);
+    box-shadow: 0 2px 5px #17251d24;
+  }
+}
+:where(button, .boton-enlace):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+:where(button, .boton-enlace):disabled,
+.boton-enlace[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: .5;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(button, .boton-enlace) { transition: none; }
+}
+
+.boton-enlace[aria-current="page"] {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: none;
 }
