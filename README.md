@@ -608,3 +608,7 @@ este despliegue no migra automáticamente archivos anteriores ni recupera archiv
 ### Búsqueda en vivo
 
 La portada muestra hasta cinco coincidencias públicas mientras se escribe, sin salir del campo. Los buscadores de los listados públicos y del administrador consultan automáticamente desde tres caracteres, con una espera de 350 ms. Borrar el texto restaura el listado; los filtros y el orden se conservan, y cada nueva búsqueda vuelve a la primera página. Los formularios GET siguen funcionando con el botón Buscar/Filtrar y sin JavaScript. Las sugerencias de portada no incluyen fichas privadas.
+
+### Perfil público del proveedor
+
+La foto cargada en la ficha administrativa se muestra en el ranking y el perfil público mediante una ruta del portal, sin revelar claves de Cloudinary. El perfil muestra DNI parcialmente oculto, edad calculada, lugar de nacimiento/origen y distrito público. La fecha completa, dirección privada, notas y personas vinculadas no se publican. El distrito público se registra en un campo nuevo; no se copia la dirección anterior. La migración añade publicDistrict y birthDate sin eliminar datos.

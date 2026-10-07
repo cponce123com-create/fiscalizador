@@ -722,12 +722,14 @@ model LoginAttempt {
   @@index([blockedUntil])
 }
 
-/// Ficha privada del administrador. Nunca se incluye en consultas públicas.
+/// Ficha administrativa. La proyección pública excluye notas, dirección completa y contactos.
 model SupplierProfile {
   id             String @id @default(cuid())
   supplierId     String @unique
   birthplace     String?
   currentAddress String?
+  publicDistrict String?
+  birthDate      String?
   notes          String?
   photoKey       String?
   photoMime      String?
