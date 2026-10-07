@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ persona: vi.fn(), perfil: vi.fn(), transaction: vi.fn(), update: vi.fn(), create: vi.fn(), audit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ persona: vi.fn(), perfil: vi.fn(), transaction: vi.fn(), upsert: vi.fn(), encontrar: vi.fn(), update: vi.fn(), create: vi.fn(), audit: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: { electoralPerson: { findFirst: mocks.persona }, supplierProfile: { findUnique: mocks.perfil }, $transaction: mocks.transaction } }));
 vi.mock('./auditService', () => ({ registrarAuditoria: mocks.audit }));
-import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor, guardarPersonaElectoral, guardarRegistroElectoral } from './electoralService';
+import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor, guardarPersonaElectoral, guardarRegistroElectoral, importarAntecedentesElectorales } from './electoralService';
 
 describe('cruce electoral y datos públicos de fiscalización', () => {
-  beforeEach(() => { vi.resetAllMocks(); mocks.transaction.mockImplementation(fn => fn({ electoralPerson: { create: mocks.create, update: mocks.update }, electoralRecord: { create: mocks.create, update: mocks.update } })); });
+  beforeEach(() => { vi.resetAllMocks(); mocks.transaction.mockImplementation(fn => fn({ electoralPerson: { upsert: mocks.upsert, create: mocks.create, update: mocks.update }, electoralRecord: { findUnique: mocks.encontrar, create: mocks.create, update: mocks.update } })); });
   it('busca solo documento exacto y registros publicados; no intenta RUC 20', async () => {
     mocks.persona.mockResolvedValue(null);
     expect(await antecedentesElectoralesProveedor('20123456789')).toBeNull();
@@ -35,4 +35,19 @@ describe('cruce electoral y datos públicos de fiscalización', () => {
     await guardarRegistroElectoral({ id: 'registro', personId: 'persona', electionYear: 2022, position: 'REGIDOR', organization: 'Lista de prueba', mayorCandidate: 'Nombre de prueba', municipality: 'San Ramón', termStart: 2023, termEnd: 2026, result: 'ELECTO', source: 'Acta pública, página 2', sourceUrl: 'https://ejemplo.test/acta', isPublic: true }, 'admin');
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'registro', personId: 'persona' } }));
   });
+  it('importa nuevos registros y omite duplicados sin sustituir datos', async () => {
+    const fila = { fullName: 'Nombre de prueba', dni: '00123456', electionYear: 2022, position: 'REGIDOR', organization: 'Lista de prueba', mayorCandidate: 'Nombre de prueba', municipality: 'San Ramón', termStart: 2023, termEnd: 2026, result: 'IMPROCEDENTE', source: 'Acta pública, página 2', sourceUrl: 'https://ejemplo.test/acta' };
+    const carga = { version: 1, documentSha256: 'a'.repeat(64), records: [fila] };
+    mocks.upsert.mockResolvedValue({ id: 'persona', fullName: 'Nombre de prueba' });
+    mocks.encontrar.mockResolvedValue(null);
+    expect(await importarAntecedentesElectorales(carga, true, 'admin')).toEqual({ procesados: 1, nuevos: 1, existentes: 0 });
+    expect(mocks.create).toHaveBeenCalledWith({ data: { electionYear: 2022, position: 'REGIDOR', organization: 'Lista de prueba', mayorCandidate: 'Nombre de prueba', municipality: 'San Ramón', termStart: 2023, termEnd: 2026, result: 'IMPROCEDENTE', source: 'Acta pública, página 2', sourceUrl: 'https://ejemplo.test/acta', personId: 'persona', isPublic: true } });
+    mocks.create.mockClear(); mocks.encontrar.mockResolvedValue({ id: 'existente' });
+    expect(await importarAntecedentesElectorales(carga, true, 'admin')).toEqual({ procesados: 1, nuevos: 0, existentes: 1 });
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+    expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain('00123456');
+    mocks.upsert.mockResolvedValue({ id: 'persona', fullName: 'Otro nombre' });
+    await expect(importarAntecedentesElectorales(carga, false, 'admin')).rejects.toThrow('Revisa la identidad');
+  });
+
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esquemaPersonaElectoral, esquemaRegistroElectoral } from './electoral';
+import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral } from './electoral';
 import { esquemaPerfilProveedor } from './supplier-profile';
 
 describe('antecedentes electorales y publicación documentada', () => {
@@ -22,4 +22,10 @@ describe('antecedentes electorales y publicación documentada', () => {
     expect(esquemaPerfilProveedor.safeParse({ ...base, contacts: [{ ...contacto, isPublic: true, source: 'https://ejemplo.test/documento' }] }).success).toBe(true);
     expect(esquemaPerfilProveedor.safeParse({ ...base, publicNotes: 'Nota sin fuente.' }).success).toBe(false);
   });
+  it('conserva improcedentes y rechaza repetidos dentro del mismo archivo', () => {
+    const fila = { ...registro, dni: '00123456', fullName: 'Nombre de prueba', result: 'IMPROCEDENTE' };
+    expect(esquemaCargaElectoral.safeParse({ version: 1, documentSha256: 'a'.repeat(64), records: [fila] }).success).toBe(true);
+    expect(esquemaCargaElectoral.safeParse({ version: 1, documentSha256: 'a'.repeat(64), records: [fila, fila] }).success).toBe(false);
+  });
+
 });

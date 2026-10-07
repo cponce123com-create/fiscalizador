@@ -1,6 +1,7 @@
+import { ErrorDeNegocio } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 import { registrarAuditoria } from './auditService';
-import { esquemaPersonaElectoral, esquemaRegistroElectoral } from '@/lib/electoral';
+import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral } from '@/lib/electoral';
 import { dniDesdeRuc, fuentePublica } from '@/lib/supplier-profile';
 import type { z } from 'zod';
 
@@ -37,4 +38,25 @@ export async function informacionDocumentadaProveedor(supplierId: string) {
   const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId }, select: { publicNotes: true, publicSourceUrl: true, contacts: { where: { isPublic: true }, select: { id: true, fullName: true, relationship: true, source: true, publicNote: true } } } });
   if (!ficha) return null;
   return { notas: ficha.publicNotes && fuentePublica.safeParse(ficha.publicSourceUrl).success ? ficha.publicNotes : null, fuente: fuentePublica.safeParse(ficha.publicSourceUrl).success ? ficha.publicSourceUrl : null, vinculos: ficha.contacts.filter(c => fuentePublica.safeParse(c.source).success) };
+}
+
+/** Carga revisada y atómica; los identificadores nunca se registran en auditoría. */
+export async function importarAntecedentesElectorales(entrada: unknown, publicar: boolean, userId: string) {
+  const payload = esquemaCargaElectoral.parse(entrada);
+  const nombre = (v: string) => v.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return prisma.$transaction(async tx => {
+    let nuevos = 0;
+    for (const [indice, fila] of payload.records.entries()) {
+      const { dni, fullName, ...datos } = fila;
+      const persona = await tx.electoralPerson.upsert({ where: { dni }, update: {}, create: { dni, fullName, isPublic: publicar }, select: { id: true, fullName: true } });
+      if (nombre(persona.fullName) !== nombre(fullName)) throw new ErrorDeNegocio(`La fila ${indice + 1} coincide por documento con una ficha de otro nombre. Revisa la identidad antes de importar.`);
+      const where = { personId_electionYear_position_municipality: { personId: persona.id, electionYear: datos.electionYear, position: datos.position, municipality: datos.municipality } };
+      const existente = await tx.electoralRecord.findUnique({ where, select: { id: true } });
+      if (existente) continue;
+      await tx.electoralRecord.create({ data: { ...datos, personId: persona.id, isPublic: publicar } });
+      nuevos++;
+    }
+    await registrarAuditoria(tx, { userId, action: 'IMPORT', entity: 'ElectoralRecord', metadata: { documentSha256: payload.documentSha256, procesados: payload.records.length, nuevos, publicacion: publicar } });
+    return { procesados: payload.records.length, nuevos, existentes: payload.records.length - nuevos };
+  }, { timeout: 60000 });
 }
