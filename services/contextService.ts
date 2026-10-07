@@ -4,16 +4,19 @@ import { z } from 'zod';
 // Coordenadas de San Ramón, Chanchamayo: geonames.org/3929314/san-ramon.html.
 const CLIMA = 'https://api.open-meteo.com/v1/forecast?latitude=-11.12417&longitude=-75.35733&current=temperature_2m,weather_code&timezone=America%2FLima&timeformat=unixtime';
 const CAMBIO = 'https://estadisticas.bcrp.gob.pe/estadisticas/series/api/PD04639PD-PD04640PD/json';
+const SUNAT = 'https://www.sunat.gob.pe/a/txt/tipoCambio.txt';
+const ESPERA_SUNAT_MS = 8000;
 const ESPERA_BCRP_MS = 12_000;
 const CACHE_CAMBIO_MS = 15 * 60_000;
 const REINTENTO_CAMBIO_MS = 30_000;
 const RETENCION_CAMBIO_MS = 24 * 60 * 60_000;
 export const FUENTE_CLIMA = 'https://open-meteo.com/';
 export const FUENTE_CAMBIO = 'https://estadisticas.bcrp.gob.pe/estadisticas/series/diarias/tipo-de-cambio';
+export const FUENTE_SUNAT = SUNAT;
 
 export type ContextoLocal = {
   clima: { temperatura: number; condicion: string; fecha: string } | null;
-  dolar: { compra: string; venta: string; fecha: string } | null;
+  dolar: { compra: string; venta: string; fecha: string; fuente: 'SUNAT' | 'BCRP' } | null;
 };
 
 const esquemaClima = z.object({ current: z.object({
@@ -56,19 +59,45 @@ function fechaBcrp(valor: string): string | null {
   return fecha.toISOString().slice(0, 10);
 }
 
-export function interpretarCambio(datos: unknown, ahora = Date.now()): ContextoLocal['dolar'] {
-  const resultado = esquemaCambio.safeParse(datos);
-  if (!resultado.success) return null;
+function fechaLima(ahora: number): string {
   // No depender del orden de fecha de un locale: varía entre versiones de ICU.
   const partes = new Intl.DateTimeFormat('en', { timeZone: 'America/Lima', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ahora));
   const parte = (tipo: string) => partes.find(p => p.type === tipo)?.value;
-  const hoy = `${parte('year')}-${parte('month')}-${parte('day')}`;
+  return `${parte('year')}-${parte('month')}-${parte('day')}`;
+}
+
+/** SUNAT: fecha|compra|venta|, con fecha ISO o DD/MM/AAAA. */
+export function interpretarSunat(texto: string, ahora = Date.now()): ContextoLocal['dolar'] {
+  if (texto.length > 256 * 1024) return null;
+  const hoy = fechaLima(ahora);
+  const validos = texto.trim().split(/\r?\n/).flatMap(linea => {
+    const [f, c, v] = linea.trim().split('|').map(valor => valor.trim());
+    if (!f || !c || !v) return [];
+    const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(f);
+    const local = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(f);
+    if (!iso && !local) return [];
+    const fecha = iso ? f : `${local![3]}-${local![2]}-${local![1]}`;
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const instante = new Date(Date.UTC(anio, mes - 1, dia));
+    if (instante.getUTCFullYear() !== anio || instante.getUTCMonth() !== mes - 1 || instante.getUTCDate() !== dia || fecha > hoy) return [];
+    if (!/^\d+(\.\d+)?$/.test(c) || !/^\d+(\.\d+)?$/.test(v)) return [];
+    const compra = Number(c), venta = Number(v);
+    if (!Number.isFinite(compra) || !Number.isFinite(venta) || compra <= 0 || venta <= 0) return [];
+    return [{ fecha, compra: compra.toFixed(3), venta: venta.toFixed(3), fuente: 'SUNAT' as const }];
+  });
+  return validos.sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
+}
+
+export function interpretarCambio(datos: unknown, ahora = Date.now()): ContextoLocal['dolar'] {
+  const resultado = esquemaCambio.safeParse(datos);
+  if (!resultado.success) return null;
+  const hoy = fechaLima(ahora);
   const validos = resultado.data.periods.flatMap(periodo => {
     const fecha = fechaBcrp(periodo.name);
     const [compra, venta] = periodo.values.map(valor => valor.trim());
     if (!fecha || fecha > hoy || !compra || !venta || !/^\d+(\.\d+)?$/.test(compra) || !/^\d+(\.\d+)?$/.test(venta)) return [];
     if (!Number.isFinite(Number(compra)) || !Number.isFinite(Number(venta)) || Number(compra) <= 0 || Number(venta) <= 0) return [];
-    return [{ fecha, compra: Number(compra).toFixed(3), venta: Number(venta).toFixed(3) }];
+    return [{ fecha, compra: Number(compra).toFixed(3), venta: Number(venta).toFixed(3), fuente: 'BCRP' as const }];
   });
   return validos.sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
 }
@@ -118,6 +147,18 @@ async function consultarCambio(): Promise<ContextoLocal['dolar']> {
   if (Date.now() < siguienteConsulta) return anterior();
   if (consultaPendiente) return consultaPendiente;
   consultaPendiente = (async () => {
+    try {
+      const respuesta = await fetch(SUNAT, { signal: AbortSignal.timeout(ESPERA_SUNAT_MS), cache: 'no-store', headers: { 'User-Agent': 'Fiscalizador/1.0', Accept: 'text/plain' } });
+      const dato = respuesta.ok ? interpretarSunat(await respuesta.text()) : null;
+      if (dato) {
+        ultimoCambio = { dato, consultado: Date.now() };
+        siguienteConsulta = Date.now() + CACHE_CAMBIO_MS;
+        return dato;
+      }
+      console.warn('[contexto] SUNAT sin cotización válida; se consulta el respaldo BCRP.');
+    } catch (error) {
+      console.warn('[contexto] SUNAT no disponible; se consulta el respaldo BCRP.', { tipo: error instanceof Error ? error.name : 'Error' });
+    }
     try {
       const dato = interpretarCambio(await consultar(CAMBIO, ESPERA_BCRP_MS, false));
       if (!dato) throw new Error('Respuesta sin cotización válida');

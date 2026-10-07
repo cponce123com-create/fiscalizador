@@ -11,7 +11,7 @@ describe('respuesta pública de clima y dólar', () => {
     expect((await response.json()).dolar).toBeNull();
   });
   it('cachea brevemente los datos válidos y devuelve compra, venta y fecha sin alterarlos', async () => {
-    const dato = { clima: null, dolar: { compra: '3.431', venta: '3.437', fecha: '2026-10-06' } };
+    const dato = { clima: null, dolar: { compra: '3.431', venta: '3.437', fecha: '2026-10-06', fuente: 'BCRP' } };
     mocks.contexto.mockResolvedValue(dato);
     const response = await GET();
     expect(response.headers.get('cache-control')).toBe('public, max-age=60, s-maxage=60');
