@@ -34,7 +34,9 @@ async function cambiar(request: Request, contexto: Contexto, borrar: boolean) {
     const imagen = nueva ?? { url: '', publicId: null, cloud: null, credito: '' };
     const anterior = await prisma.$transaction(async tx => {
       // Serializa sustituciones de una misma imagen; los titulares se guardan por separado.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))`;
+      // La función devuelve void, un tipo que el adapter de Prisma no deserializa.
+      // Se adquiere el mismo bloqueo devolviendo únicamente una columna entera.
+      await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${key}))`;
       const previo = await tx.appSetting.findUnique({ where: { key } });
       await tx.appSetting.upsert({ where: { key }, create: { key, value: imagen }, update: { value: imagen } });
       await registrarAuditoria(tx, { userId: usuario.id, action: 'CHANGE_SETTINGS', entity: 'AppSetting', entityId: key, metadata: { tipo, retirada: borrar, url: imagen.url } });
