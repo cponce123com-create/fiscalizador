@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
+const imagenPublica = z.string().trim().max(500).default('').refine(valor => {
+  if (!valor) return true;
+  try { const url = new URL(valor); return url.protocol === 'https:' && url.hostname === 'res.cloudinary.com' && !url.username && !url.password && !url.port; } catch { return false; }
+}, 'Usa una imagen HTTPS alojada en res.cloudinary.com.');
+
 export const esquemaPortal = z.object({
+  logo: imagenPublica,
+  favicon: imagenPublica,
+  imagenSocial: imagenPublica,
   municipio: z.string().trim().min(3).max(120),
   cintaActiva: z.boolean(),
   titular: z.string().trim().max(280),
@@ -23,5 +31,5 @@ export const esquemaPortal = z.object({
 export type ConfiguracionPortal = z.infer<typeof esquemaPortal>;
 export const CLAVE_PORTAL = 'portal-ciudadano';
 export function configuracionPorDefecto(): ConfiguracionPortal {
-  return { municipio: process.env.NEXT_PUBLIC_MUNICIPALIDAD?.trim() || 'Municipalidad Distrital de San Ramón', cintaActiva: false, titular: '', enlace: '', velocidad: 'normal', fotoPortada: '', creditoFoto: '' };
+  return { municipio: process.env.NEXT_PUBLIC_MUNICIPALIDAD?.trim() || 'Municipalidad Distrital de San Ramón', cintaActiva: false, titular: '', enlace: '', velocidad: 'normal', fotoPortada: '', creditoFoto: '', logo: '', favicon: '', imagenSocial: '' };
 }

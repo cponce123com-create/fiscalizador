@@ -156,6 +156,15 @@ Los recursos se guardan como `authenticated`. El portal los sirve mediante rutas
 que comprueban permisos o la política de publicación de la ficha, sin revelar las
 credenciales ni la URL firmada de Cloudinary.
 
+En **Admin → Apariencia y titulares** se pueden subir, previsualizar, sustituir y
+retirar el logo, favicon, fotografía de portada e imagen para compartir enlaces.
+Estas imágenes del portal son públicas y se alojan en una carpeta independiente
+de las fotos protegidas de proveedores. Admiten JPEG, PNG y WebP de hasta 5 MB;
+el favicon se convierte a PNG de 256 × 256 px y la imagen social a 1200 × 630 px.
+La portada exige lugar y crédito. Cada tarjeta se publica con su propio botón,
+sin tener que pegar URLs ni configurar un upload preset. Al retirar el logo o
+favicon se recupera el recurso predeterminado. No se requiere migración de datos.
+
 Los **libros originales siguen en almacenamiento local**: el driver Cloudinary
 para libros no está implementado. Un disco efímero pierde esos archivos al desplegar;
 Cloudinary para fotos no sustituye el volumen de originales.

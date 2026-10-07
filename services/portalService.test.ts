@@ -18,4 +18,14 @@ describe('lectura pública de la configuración', () => {
     mocks.leer.mockResolvedValue({value:config,updatedAt:new Date()});
     expect(await leerConfiguracionPortal()).toEqual(config);
   });
+  it('conecta imágenes guardadas y permite retirar la portada antigua sin borrar titulares', async () => {
+    const config = { ...configuracionPorDefecto(), titular: 'Titular vigente', fotoPortada: 'https://res.cloudinary.com/test/image/upload/antigua.webp', creditoFoto: 'Foto anterior' };
+    mocks.leer.mockImplementation(async ({ where }: { where: { key: string } }) => {
+      if (where.key === 'portal-ciudadano') return { value: config };
+      if (where.key === 'portal-imagen-portada') return { value: { url: '', publicId: null, cloud: null, credito: '' } };
+      if (where.key === 'portal-imagen-logo') return { value: { url: 'https://res.cloudinary.com/test/image/upload/logo.webp', publicId: 'fiscalizador/portal/01234567-0123-0123-0123-012345678901', cloud: 'test', credito: '' } };
+      return null;
+    });
+    expect(await leerConfiguracionPortal()).toMatchObject({ titular: 'Titular vigente', fotoPortada: '', creditoFoto: '', logo: 'https://res.cloudinary.com/test/image/upload/logo.webp' });
+  });
 });

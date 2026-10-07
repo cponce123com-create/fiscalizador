@@ -2,8 +2,11 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import { METADATA_BASE } from '@/lib/site';
+import { leerConfiguracionPortal } from '@/services/portalService';
 
 import './globals.css';
+
+export const dynamic = 'force-dynamic';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -18,7 +21,7 @@ const geistMono = Geist_Mono({
 const DESCRIPCION =
   'Consulta y análisis de las órdenes de compra y de servicio registradas en el Portal de Transparencia.';
 
-export const metadata: Metadata = {
+const metadataPorDefecto: Metadata = {
   // Hace absolutas las URLs de OpenGraph y el canónico; sin él, Next avisa en desarrollo.
   metadataBase: METADATA_BASE,
   title: {
@@ -42,6 +45,19 @@ export const metadata: Metadata = {
     description: DESCRIPCION,
   },
 };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await leerConfiguracionPortal();
+  return {
+    ...metadataPorDefecto,
+    icons: {
+      icon: config.favicon ? { url: config.favicon, type: 'image/png', sizes: '256x256' } : '/favicon.ico',
+      ...(config.favicon ? { apple: { url: config.favicon, type: 'image/png', sizes: '256x256' } } : {}),
+    },
+    openGraph: { ...metadataPorDefecto.openGraph, ...(config.imagenSocial ? { images: [{ url: config.imagenSocial, width: 1200, height: 630, alt: 'Fiscalizador · San Ramón' }] } : {}) },
+    twitter: { ...metadataPorDefecto.twitter, card: config.imagenSocial ? 'summary_large_image' : 'summary', ...(config.imagenSocial ? { images: [config.imagenSocial] } : {}) },
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
