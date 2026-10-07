@@ -612,3 +612,11 @@ La portada muestra hasta cinco coincidencias públicas mientras se escribe, sin 
 ### Perfil público del proveedor
 
 La foto cargada en la ficha administrativa se muestra en el ranking y el perfil público mediante una ruta del portal, sin revelar claves de Cloudinary. El perfil muestra DNI parcialmente oculto, edad calculada, lugar de nacimiento/origen y distrito público. La fecha completa, dirección privada, notas y personas vinculadas no se publican. El distrito público se registra en un campo nuevo; no se copia la dirección anterior. La migración añade publicDistrict y birthDate sin eliminar datos.
+
+### Registro electoral y vínculos documentados
+
+El administrador tiene una pestaña Registro electoral: permite crear personas sin que sean proveedores, editar su identidad y añadir o editar participaciones con elección, cargo, organización, candidato a alcalde de la lista, municipalidad, periodo, resultado y fuente enlazada. El DNI es privado y opcional; se usa exclusivamente para coincidencias exactas con RUC 10. No hay emparejamiento automático por nombres. Las fichas sobreviven a la eliminación de importaciones. El directorio y los perfiles públicos muestran solo identidades habilitadas y antecedentes marcados para publicar.
+
+Las notas de fiscalización y los vínculos del proveedor cuentan con campos públicos separados y fuente obligatoria. Los vínculos se publican individualmente después de contrastar la fuente; el DNI y las notas privadas se excluyen. Los vínculos antiguos permanecen en borrador. Una relación registrada o participación electoral no se presenta como conclusión de nepotismo o conflicto de intereses.
+
+La migración agrega tablas electorales y campos de publicación sin eliminar datos. No se cargan nombres ficticios ni se inventan los resultados de 2022: deben registrarse a partir del acta.

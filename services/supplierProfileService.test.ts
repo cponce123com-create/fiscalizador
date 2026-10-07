@@ -11,7 +11,7 @@ describe('guardado de perfiles privados', () => {
   });
   it('guarda relaciones solo en la ficha privada y audita sin DNIs/direcciones', async () => {
     await guardarPerfilProveedor(datos, 'admin');
-    expect(mocks.contacts).toHaveBeenCalledWith({ data: [{ ...datos.contacts[0], profileId: 'perfil' }] });
+    expect(mocks.contacts).toHaveBeenCalledWith({ data: [{ ...datos.contacts[0], isPublic: false, profileId: 'perfil' }] });
     const audit = JSON.stringify(mocks.audit.mock.calls);
     expect(audit).not.toContain('12345678'); expect(audit).not.toContain(datos.currentAddress);
   });

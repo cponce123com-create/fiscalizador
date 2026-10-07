@@ -728,6 +728,8 @@ model SupplierProfile {
   supplierId     String @unique
   birthplace     String?
   currentAddress String?
+  publicNotes    String?
+  publicSourceUrl String?
   publicDistrict String?
   birthDate      String?
   notes          String?
@@ -748,9 +750,47 @@ model SupplierProfileContact {
   dni          String
   fullName     String
   relationship String
+  isPublic     Boolean @default(false)
+  publicNote   String?
   source       String?
   notes        String?
   createdAt    DateTime @default(now())
   profile      SupplierProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   @@unique([profileId, dni])
+}
+
+/// Identidad electoral independiente de proveedores; el DNI solo se usa en el panel.
+model ElectoralPerson {
+  id          String @id @default(cuid())
+  fullName    String
+  dni         String? @unique
+  isPublic    Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  records     ElectoralRecord[]
+  @@index([fullName])
+  @@index([isPublic])
+}
+
+/// Antecedente consignado en una fuente electoral; no representa afiliación actual.
+model ElectoralRecord {
+  id           String @id @default(cuid())
+  personId     String
+  electionYear Int
+  position     String
+  organization String
+  mayorCandidate String
+  municipality String
+  termStart    Int
+  termEnd      Int
+  result       String
+  source       String
+  sourceUrl    String
+  isPublic     Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  person       ElectoralPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
+  @@unique([personId, electionYear, position, municipality])
+  @@index([electionYear])
+  @@index([isPublic])
 }
