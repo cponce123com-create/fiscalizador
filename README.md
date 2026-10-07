@@ -514,3 +514,27 @@ Las versiones críticas están fijadas a propósito:
 | `docs/operacion.md` | Rotación de credenciales, reinicio de 2FA y copias de seguridad/restauración de Neon |
 | `docs/plan-de-trabajo.md` | Plan original del proyecto |
 | `docs/reference/FORMATOS.md` | Formato de los libros del Portal de Transparencia |
+
+### Descargas de libros
+
+En **Fuentes y cobertura** cada versión ofrece un extracto público Excel `.xlsx`
+y el CSV compatible con la API existente (`?formato=xlsx` selecciona Excel).
+Ambos respetan las columnas públicas. El Excel conserva identificadores como texto,
+incluidos sus ceros iniciales, y no convierte texto en fórmulas.
+
+En **Administración → Importaciones → Original** un administrador con permiso
+`imports:write` puede habilitar o retirar la descarga del archivo original por lote.
+Para habilitarla debe revisar todas las hojas y columnas y confirmar que su contenido
+puede publicarse íntegramente. Las columnas restringidas impiden la descarga incluso
+si el original se publicó antes de cambiar la visibilidad. Se verifica el SHA-256
+antes de publicar y en cada descarga; los bytes originales no se modifican.
+
+Los títulos y nombres de descarga incluyen tipo de órdenes, mes, año, municipalidad
+(configurada en el portal) y versión. Se conserva el nombre del archivo recibido como
+referencia de procedencia. No hay migración de base de datos: la autorización por libro
+se guarda en `AppSetting` y sus cambios quedan auditados.
+
+Los originales requieren almacenamiento persistente (`STORAGE_LOCAL_DIR` en el disco
+montado de Render). Un archivo perdido tras un despliegue no puede recuperarse a partir
+del extracto; debe restaurarse desde la fuente. La descarga devuelve un aviso cuando
+el original no está disponible o no coincide con su huella.

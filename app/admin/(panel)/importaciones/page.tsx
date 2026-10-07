@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { FileSpreadsheet, Info } from 'lucide-react';
 import Link from 'next/link';
 
-import { accionEliminarImportacion } from '@/app/admin/importaciones/actions';
+import { accionEliminarImportacion, accionPublicarOriginal } from '@/app/admin/importaciones/actions';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
 import { Aviso, EstadoVacio, Insignia, Tabla, TablaCelda, TablaCeldaEncabezado, TablaCuerpo, TablaEncabezado, TablaFila } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
@@ -10,6 +10,9 @@ import { usuarioActual } from '@/lib/auth/session';
 // Excepción deliberada a la arquitectura por capas: esta página de solo lectura consulta
 // Prisma directamente. Son consultas de presentación (listar y contar lotes), sin reglas
 // de negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
+import { tituloLibro } from '@/lib/book-download';
+import { leerConfiguracionPortal } from '@/services/portalService';
+import { claveOriginal, esOriginalPublicado } from '@/services/bookPublicationService';
 import { prisma } from '@/lib/prisma';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,
@@ -59,6 +62,8 @@ export default async function PaginaImportaciones({
       take: POR_PAGINA,
       select: {
         id: true,
+        year: true,
+        month: true,
         originalFilename: true,
         period: true,
         version: true,
@@ -79,6 +84,11 @@ export default async function PaginaImportaciones({
     prisma.importBatch.count(),
   ]);
 
+  const [config, ajustes] = await Promise.all([
+    leerConfiguracionPortal(),
+    prisma.appSetting.findMany({ where: { key: { in: lotes.map(l => claveOriginal(l.id)) } } }),
+  ]);
+  const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   return (
@@ -127,7 +137,7 @@ export default async function PaginaImportaciones({
               <TablaCeldaEncabezado className="text-right">Errores</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Estado</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Subido por</TablaCeldaEncabezado>
-              {puedeEscribir ? <TablaCeldaEncabezado>Eliminar</TablaCeldaEncabezado> : null}
+              {puedeEscribir ? <TablaCeldaEncabezado>Descarga original / eliminar</TablaCeldaEncabezado> : null}
             </TablaFila>
           </TablaEncabezado>
 
@@ -145,8 +155,9 @@ export default async function PaginaImportaciones({
 
                 <TablaCelda className="tabular">{lote.version}</TablaCelda>
 
-                <TablaCelda className="max-w-[16rem] truncate" title={lote.originalFilename}>
-                  {lote.originalFilename}
+                <TablaCelda className="min-w-64 max-w-[24rem]" title={lote.originalFilename}>
+                  {tituloLibro(lote, config.municipio)}
+                  <span className="block text-xs text-muted-foreground">Original: {lote.originalFilename}</span>
                 </TablaCelda>
 
                 <TablaCelda className="text-xs text-muted-foreground">
@@ -190,6 +201,15 @@ export default async function PaginaImportaciones({
 
                 {puedeEscribir ? (
                   <TablaCelda>
+                    <details className="mb-3">
+                      <summary className="cursor-pointer text-xs font-medium">Original: {publicados.has(claveOriginal(lote.id)) ? 'publicado' : 'privado'}</summary>
+                      <FormularioAccion accion={accionPublicarOriginal} etiqueta="Guardar descarga" size="sm" className="mt-3 w-72 gap-3">
+                        <input type="hidden" name="importBatchId" value={lote.id} />
+                        <label className="flex gap-2 text-xs"><input type="checkbox" name="publicarOriginal" defaultChecked={publicados.has(claveOriginal(lote.id))} />Permitir descargar el archivo original</label>
+                        <label className="flex gap-2 text-xs"><input type="checkbox" name="revisionOriginal" />Revisé todas las hojas y columnas y pueden publicarse íntegramente.</label>
+                        <p className="text-xs text-muted-foreground">El original conserva todas sus hojas. Las columnas restringidas bloquean esta descarga. El extracto público sigue disponible.</p>
+                      </FormularioAccion>
+                    </details>
                     {lote.status === 'PROCESSING' ? (
                       <span className="text-xs text-muted-foreground">en proceso</span>
                     ) : (
