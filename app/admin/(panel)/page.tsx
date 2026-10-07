@@ -1,3 +1,4 @@
+import { ESTADOS_IMPORTADOS } from '@/lib/source-books';
 import type { Metadata } from 'next';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -45,6 +46,7 @@ export default async function PaginaPanel() {
         _sum: { amount: true },
       }),
       prisma.importBatch.findMany({
+        where: { status: { in: ESTADOS_IMPORTADOS } },
         orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
         take: 5,
         select: {

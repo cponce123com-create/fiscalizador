@@ -202,11 +202,13 @@ determinan qué suma al **monto considerado**. Las fechas de las órdenes se for
 
 ### Revisión de montos al importar
 
-El análisis marca órdenes desde **S/ 1 000 000**, montos desde **S/ 100 000** que superan **50 veces la mediana** del libro (mínimo cinco montos positivos), y valores que coinciden con el RUC del proveedor. Son alertas de calidad de datos, no límites legales ni pruebas de sobrevaloración.
+El análisis marca órdenes que superan **S/ 2 000 000**, montos desde **S/ 100 000** que superan **50 veces la mediana** del libro (mínimo cinco montos positivos), y valores que coinciden con el RUC del proveedor. Son alertas de calidad de datos, no límites legales ni pruebas de sobrevaloración.
 
 Las filas señaladas quedan excluidas por defecto, con el detalle abierto para revisar la fila física, la orden, el proveedor y el valor original. Para conservar una, activa **«Confirmar monto e incluir»** después de verificar la fuente y el mapeo. Los totales descuentan las filas excluidas; el servidor repite las comprobaciones y registra las decisiones al confirmar. Un libro donde todas las filas válidas tengan montos sospechosos también queda excluido de la tanda inicialmente.
 
-No se corrigen importes automáticamente. Las importaciones existentes conservan sus datos; para aplicar la revisión a un libro anterior, vuelve a analizar su archivo original.
+No se corrigen importes automáticamente. El análisis previo permanece como preparación privada: no aparece en Fuentes y cobertura, en el historial de importaciones ni en sus contadores. Solo se incorporan los libros cuando el administrador pulsa «Importar» y el proceso termina correctamente.
+
+Las importaciones existentes conservan sus datos; para aplicar la revisión a un libro anterior, vuelve a analizar su archivo original.
 
 ### Descargas y trazabilidad
 

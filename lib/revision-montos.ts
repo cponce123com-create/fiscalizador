@@ -1,5 +1,5 @@
 /** Señales de revisión, no límites legales ni pruebas de sobrevaloración. */
-export const MONTO_ALTO_SOLES = 1_000_000;
+export const MONTO_ALTO_SOLES = 2_000_000;
 export const MONTO_ATIPICO_MINIMO_SOLES = 100_000;
 export const FACTOR_MONTO_ATIPICO = 50;
 

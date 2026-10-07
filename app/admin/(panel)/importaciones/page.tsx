@@ -1,3 +1,4 @@
+import { ESTADOS_IMPORTADOS } from '@/lib/source-books';
 import type { Metadata } from 'next';
 import { FileSpreadsheet, Info } from 'lucide-react';
 import Link from 'next/link';
@@ -58,6 +59,7 @@ export default async function PaginaImportaciones({
 
   const [lotes, total] = await Promise.all([
     prisma.importBatch.findMany({
+      where: { status: { in: ESTADOS_IMPORTADOS } },
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
       skip: (pagina - 1) * POR_PAGINA,
       take: POR_PAGINA,
@@ -82,7 +84,7 @@ export default async function PaginaImportaciones({
         _count: { select: { orders: true } },
       },
     }),
-    prisma.importBatch.count(),
+    prisma.importBatch.count({ where: { status: { in: ESTADOS_IMPORTADOS } } }),
   ]);
 
   const [config, ajustes] = await Promise.all([
@@ -98,8 +100,8 @@ export default async function PaginaImportaciones({
       <div className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold">Importaciones</h1>
         <p className="text-sm text-muted-foreground">
-          Historial de libros cargados. Cada intento queda registrado, incluso los fallidos, y solo se
-          puede eliminar una importación a propósito: la baja también queda en la auditoría.
+          Historial de libros importados. Los análisis previos no aparecen aquí: un libro se incorpora
+          cuando confirmas la importación y termina correctamente. Las eliminaciones quedan en la auditoría.
         </p>
       </div>
 
@@ -115,7 +117,7 @@ export default async function PaginaImportaciones({
       {borrado && borrado.lotes > 0 ? (
         <details className="rounded-lg border border-destructive/40 bg-card p-4">
           <summary className="cursor-pointer font-medium text-destructive">Eliminar todas las importaciones</summary>
-          <p className="my-3 text-sm">Se eliminarán {borrado.lotes} libros de todos los periodos, sus {borrado.ordenes} órdenes, columnas, hallazgos, resúmenes y archivos originales. Se conservan los proveedores y sus perfiles, fotos y vínculos. No se puede deshacer.</p>
+          <p className="my-3 text-sm">Se eliminarán {borrado.lotes} archivos de todos los periodos (libros importados y preparaciones privadas), sus {borrado.ordenes} órdenes, columnas, hallazgos, resúmenes y archivos originales. Se conservan los proveedores y sus perfiles, fotos y vínculos. No se puede deshacer.</p>
           <FormularioAccion key={borrado.huella} accion={accionEliminarTodasImportaciones} etiqueta="Eliminar todas las importaciones" variante="destructive" confirmar={`¿Eliminar definitivamente ${borrado.lotes} importaciones y ${borrado.ordenes} órdenes?`}>
             <input type="hidden" name="huella" value={borrado.huella} />
             <label className="flex max-w-xl flex-col gap-2 text-sm">Para confirmar, escribe {CONFIRMACION_BORRADO_MASIVO}<input required name="confirmacion" autoComplete="off" className="h-10 rounded-md border border-input bg-background px-3" /></label>

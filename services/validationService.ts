@@ -495,8 +495,8 @@ export function validateRows(input: ValidateInput): ValidationResult {
     if (orden.ruc && monto === Number(orden.ruc)) {
       advertir('MONTO_COINCIDE_RUC', `El monto ${moneda(monto)} coincide con el RUC del proveedor. Revisa la celda y el mapeo de columnas.`);
     }
-    if (monto >= MONTO_ALTO_SOLES) {
-      advertir('MONTO_ALTO', `Monto elevado: ${moneda(monto)}. Desde ${moneda(MONTO_ALTO_SOLES)} se exige revisión; es una alerta de calidad, no un límite legal.`);
+    if (monto > MONTO_ALTO_SOLES) {
+      advertir('MONTO_ALTO', `Monto elevado: ${moneda(monto)}. Al superar ${moneda(MONTO_ALTO_SOLES)} se exige revisión; es una alerta de calidad, no un límite legal.`);
     }
     if (mediana !== null && monto >= MONTO_ATIPICO_MINIMO_SOLES && monto > mediana * FACTOR_MONTO_ATIPICO) {
       advertir('MONTO_ATIPICO', `El monto ${moneda(monto)} supera ${FACTOR_MONTO_ATIPICO} veces la mediana del libro (${moneda(mediana)}). Revisa posibles errores de digitación, separadores o columnas.`);

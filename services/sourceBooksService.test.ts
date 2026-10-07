@@ -6,14 +6,15 @@ describe('inventario público de fuentes', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.count.mockResolvedValue(25);
-    mocks.findMany.mockResolvedValueOnce([{ id: 'cargado', status: 'UPLOADED' }, { id: 'fallido', status: 'FAILED' }]).mockResolvedValueOnce([{ id: 'cargado', status: 'UPLOADED' }]);
+    mocks.findMany.mockResolvedValueOnce([{ id: 'importado', status: 'COMPLETED' }, { id: 'observado', status: 'COMPLETED_WITH_WARNINGS' }]).mockResolvedValueOnce([{ id: 'importado', status: 'COMPLETED' }]);
   });
-  it('incluye archivos cargados y fallidos; no filtra solo importaciones completadas', async () => {
+  it('solo consulta libros confirmados en inventario, listado y contador', async () => {
     const datos = await listarFuentesLibros({});
-    expect(datos.inventario.map(b => b.id)).toEqual(['cargado', 'fallido']);
-    expect(datos.lotes[0].status).toBe('UPLOADED');
-    expect(mocks.findMany.mock.calls[0][0].where).toBeUndefined();
-    expect(mocks.findMany.mock.calls[1][0].where).toEqual({});
+    expect(datos.inventario.map(b => b.id)).toEqual(['importado', 'observado']);
+    expect(datos.lotes[0].status).toBe('COMPLETED');
+    expect(mocks.findMany.mock.calls[0][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
+    expect(mocks.findMany.mock.calls[1][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
+    expect(mocks.count.mock.calls[0][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
     expect(mocks.findMany.mock.calls[1][0].select._count).toEqual({ select: { orders: true } });
   });
   it('filtra periodo y tipo, con páginas limitadas en la base', async () => {

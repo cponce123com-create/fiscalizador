@@ -379,10 +379,16 @@ describe('montos desproporcionados antes de importar', () => {
     expect(r.orders[4]?.amount).toBe('61726647029.20'); // Nunca corrige el original.
   });
 
-  it('advierte desde un millón incluso si todas las filas son igualmente elevadas', () => {
-    const r = validar([1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000]);
+  it('advierte por encima de dos millones incluso si todas las filas son igualmente elevadas', () => {
+    const r = validar([2_000_000.01, 2_000_000.01, 2_000_000.01, 2_000_000.01, 2_000_000.01]);
     expect(r.summary.warningRows).toBe(5);
     expect(r.issues.filter(i => i.code === 'MONTO_ATIPICO')).toHaveLength(0);
+  });
+
+  it('respeta exactamente el umbral de dos millones sin aplicar un límite al total del libro', () => {
+    const r = validar([1_000_000, 2_000_000, '2,000,000.01']);
+    expect(r.issues.filter(i => i.code === 'MONTO_ALTO').map(i => i.sourceRow)).toEqual([4]);
+    expect(r.orders.map(o => o.amount)).toEqual(['1000000.00', '2000000.00', '2000000.01']);
   });
 
   it('detecta un atípico inferior a un millón sin usar un promedio contaminado', () => {
