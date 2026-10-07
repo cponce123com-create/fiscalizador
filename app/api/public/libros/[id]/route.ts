@@ -1,8 +1,10 @@
 import { prisma } from '@/lib/prisma';
 import { camposOcultos, celdaCsv } from '@/lib/public-evidence';
+import { cabeceraDescarga, extractoExcel, nombreDescargaLibro } from '@/lib/book-download';
+import { leerConfiguracionPortal } from '@/services/portalService';
 export const runtime = 'nodejs';
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const { id } = await params;
@@ -68,6 +70,7 @@ export async function GET(
     'considerada',
   ].filter((c) => !ocultos.has(c));
   const lineas = [campos.map(celdaCsv).join(',')];
+  const registros: Record<string, unknown>[] = [];
   for (const o of filas) {
     const valores: Record<string, unknown> = {
       id: o.id,
@@ -90,11 +93,21 @@ export async function GET(
       considerada: !o.isCancelled && o.status?.countsEconomically === true,
     };
     lineas.push(campos.map((c) => celdaCsv(valores[c])).join(','));
+    registros.push(valores);
   }
+  const config = await leerConfiguracionPortal();
+  const excel = new URL(request.url).searchParams.get('formato') === 'xlsx';
+  if (excel) return new Response(Buffer.from(extractoExcel(campos, registros)), {
+    headers: {
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': cabeceraDescarga(nombreDescargaLibro(batch, config.municipio, 'xlsx', true)),
+      'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+    },
+  });
   return new Response('\uFEFF' + lineas.join('\r\n'), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="libro-${batch.year}-${batch.month}.csv"`,
+      'Content-Disposition': cabeceraDescarga(nombreDescargaLibro(batch, config.municipio, 'csv', true)),
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
     },

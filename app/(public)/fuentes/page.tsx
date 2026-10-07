@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { tituloLibro } from '@/lib/book-download';
+import { leerConfiguracionPortal } from '@/services/portalService';
+import { claveOriginal, esOriginalPublicado } from '@/services/bookPublicationService';
 import { prisma } from '@/lib/prisma';
 import { formatearFechaHora } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
@@ -27,6 +30,11 @@ export default async function Fuentes() {
       warningRows: true,
     },
   });
+  const [config, ajustes] = await Promise.all([
+    leerConfiguracionPortal(),
+    prisma.appSetting.findMany({ where: { key: { in: lotes.map(l => claveOriginal(l.id)) } } }),
+  ]);
+  const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));
   const anios = [...new Set(lotes.map((b) => b.year))];
   return (
     <article className="flex flex-col gap-6">
@@ -86,7 +94,7 @@ export default async function Fuentes() {
       {lotes.map((b) => (
         <section key={b.id} id={b.id} className="rounded border p-4 flex flex-col gap-2">
           <h3 className="font-semibold">
-            {b.year}-{String(b.month).padStart(2, '0')} · {b.importType} · versión {b.version} · {b.originalFilename}
+            {tituloLibro(b, config.municipio)}
           </h3>
           <p>
             {b.isCurrent
@@ -98,6 +106,7 @@ export default async function Fuentes() {
             {b.successfulRows}; errores: {b.errorRows}; excluidas: {b.excludedRows}; advertencias:{' '}
             {b.warningRows}
           </p>
+          <p className="text-sm text-muted-foreground">Archivo cargado: {b.originalFilename}</p>
           <p>Hoja: {b.sheetName ?? 'Sin registro de hoja en esta versión antigua'}</p>
           <p className="break-all text-xs">SHA-256 del original: {b.checksum}</p>
           {b.sourceUrl ? (
@@ -107,14 +116,20 @@ export default async function Fuentes() {
           ) : (
             <p>Enlace original pendiente de documentar.</p>
           )}
+          <Link className="underline font-medium" href={`/api/public/libros/${b.id}?formato=xlsx`}>
+            Descargar extracto público Excel (.xlsx)
+          </Link>
+          {publicados.has(claveOriginal(b.id)) ? (
+            <Link className="underline font-medium" href={`/api/public/libros/${b.id}/original`}>Descargar libro original</Link>
+          ) : <p className="text-sm text-muted-foreground">Descarga del original no habilitada. Puedes consultar la fuente o descargar el extracto público.</p>}
           <Link className="underline" href={`/api/public/libros/${b.id}`}>
             Descargar extracto público CSV de esta versión
           </Link>
         </section>
       ))}
       <p>
-        El CSV contiene los campos públicos normalizados y referencias de fila. No es una copia del
-        archivo original. El hash identifica el original conservado por el portal. Las filas de
+        Los extractos Excel y CSV contienen los campos públicos normalizados y referencias de fila. No son copias del
+        archivo original. La descarga del original, cuando está habilitada, conserva sus hojas y contenido. El hash identifica el original conservado por el portal. Las filas de
         versiones antiguas sin hoja registrada requieren revalidación.
       </p>
     </article>
