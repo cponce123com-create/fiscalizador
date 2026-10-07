@@ -981,6 +981,12 @@ describe.skipIf(!hayBaseDeDatos)('revisión obligatoria de montos sospechosos', 
 
   it('rechaza confirmación sin revisión, permite excluir y devuelve el total realmente importado', async () => {
     const r = await analizar('excluir');
+    // Analizar prepara el original, pero todavía no publica un libro ni crea órdenes.
+    const { listarFuentesLibros } = await import('@/services/sourceBooksService');
+    const antes = await listarFuentesLibros({ year: '2050', month: '1' });
+    expect(antes.inventario.some(b => b.id === r.importBatchId)).toBe(false);
+    expect(antes.lotes.some(b => b.id === r.importBatchId)).toBe(false);
+    expect(await prisma.order.count({ where: { importBatchId: r.importBatchId } })).toBe(0);
     expect(r.filasConHallazgos[0]?.sourceRow).toBe(2);
     expect(r.montosPorFila).toHaveLength(2);
     await expect(svc.confirmar({ importBatchId: r.importBatchId, userId: null, reemplazarPeriodo: true, filasMontosConfirmados: [999] })).rejects.toThrow('montos sospechosos sin revisar');
@@ -989,6 +995,9 @@ describe.skipIf(!hayBaseDeDatos)('revisión obligatoria de montos sospechosos', 
     expect(confirmado.ordenesInsertadas).toBe(1);
     expect(confirmado.ordenesExcluidasPorDecision).toBe(1);
     expect(confirmado.summary.consideredCents).toBe(10_000);
+    const despues = await listarFuentesLibros({ year: '2050', month: '1' });
+    expect(despues.inventario.some(b => b.id === r.importBatchId)).toBe(true);
+    expect(despues.lotes.some(b => b.id === r.importBatchId)).toBe(true);
     const log = await prisma.auditLog.findFirstOrThrow({ where: { entityId: r.importBatchId, action: 'IMPORT' } });
     expect(log.metadata).toMatchObject({ consideredCents: 10_000, reviewedAmountRows: [] });
   });

@@ -1,3 +1,4 @@
+import { ESTADOS_IMPORTADOS } from '@/lib/source-books';
 import { okJson, respuestaDeError } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
@@ -17,6 +18,7 @@ export async function GET(request: Request): Promise<Response> {
 
     const [lotes, total] = await Promise.all([
       prisma.importBatch.findMany({
+        where: { status: { in: ESTADOS_IMPORTADOS } },
         orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
         skip: (pagina - 1) * TAMANO_PAGINA,
         take: TAMANO_PAGINA,
@@ -41,7 +43,7 @@ export async function GET(request: Request): Promise<Response> {
           _count: { select: { orders: true, issues: true } },
         },
       }),
-      prisma.importBatch.count(),
+      prisma.importBatch.count({ where: { status: { in: ESTADOS_IMPORTADOS } } }),
     ]);
 
     return okJson({

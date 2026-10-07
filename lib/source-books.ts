@@ -1,7 +1,8 @@
 export const MESES_LIBROS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+export const ESTADOS_IMPORTADOS: Array<'COMPLETED' | 'COMPLETED_WITH_WARNINGS'> = ['COMPLETED', 'COMPLETED_WITH_WARNINGS'];
 export type EstadoLibro = { status: string; isCurrent: boolean; requiresReview: boolean };
 export function libroImportado(libro: Pick<EstadoLibro, 'status'>): boolean {
-  return ['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(libro.status);
+  return ESTADOS_IMPORTADOS.some(estado => estado === libro.status);
 }
 export function estadoLibro(libro: EstadoLibro): { etiqueta: string; tono: 'exito' | 'advertencia' | 'error' | 'neutro'; detalle: string } {
   if (libroImportado(libro)) {
@@ -14,10 +15,10 @@ export function estadoLibro(libro: EstadoLibro): { etiqueta: string; tono: 'exit
   return { etiqueta: estados[libro.status] ?? 'Sin datos importados', tono: libro.status === 'FAILED' ? 'error' : 'neutro', detalle: libro.status === 'FAILED' ? 'La importación no se completó correctamente. Este archivo no aporta órdenes a los totales.' : 'El archivo está registrado, pero la importación no ha finalizado. No aporta órdenes a los totales.' };
 }
 export function coberturaLibros(libros: EstadoLibro[]): { etiqueta: string; tono: 'exito' | 'advertencia' | 'error' | 'neutro' } {
-  if (!libros.length) return { etiqueta: 'Sin libro cargado', tono: 'neutro' };
+  libros = libros.filter(libroImportado);
+  if (!libros.length) return { etiqueta: 'Sin libro importado', tono: 'neutro' };
   const vigente = libros.find(b => libroImportado(b) && b.isCurrent && !b.requiresReview);
   if (vigente) return { etiqueta: vigente.status === 'COMPLETED_WITH_WARNINGS' ? 'Importado con observaciones' : 'Importado', tono: vigente.status === 'COMPLETED_WITH_WARNINGS' ? 'advertencia' : 'exito' };
   if (libros.some(libroImportado)) return { etiqueta: 'Libros importados sin versión vigente', tono: 'advertencia' };
-  if (libros.some(b => ['UPLOADED', 'VALIDATING', 'PROCESSING'].includes(b.status))) return { etiqueta: 'Cargado · importación sin finalizar', tono: 'advertencia' };
-  return { etiqueta: 'Importación fallida', tono: 'error' };
+  return { etiqueta: 'Sin libro importado', tono: 'neutro' };
 }
