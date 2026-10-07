@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { formatearMonto } from '@/lib/utils';
 import type { PuntoEvolucion } from '@/services/statisticsService';
+import { GraficoEvolucion } from './grafico-evolucion';
 
 const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
 
@@ -9,9 +10,11 @@ export function EvolucionPortada({ puntos }: { puntos: PuntoEvolucion[] }) {
   const anio = puntos.at(-1)?.periodo.slice(0, 4);
   if (!anio) return <p className="rounded-xl bg-muted p-6 text-sm text-muted-foreground">Todavía no hay órdenes con fecha de emisión. Consulta los libros disponibles en Fuentes.</p>;
   const serie = puntos.filter(p => p.periodo.startsWith(`${anio}-`));
+  if (serie.some(p => Number(p.considerado) < 0)) return <GraficoEvolucion puntos={serie.map(p => ({ periodo: p.periodo, valor: Number(p.considerado), exacto: p.considerado, ordenes: p.ordenes }))} etiquetaSerie="Monto considerado" nombrePeriodo="mes" />;
+  const mayor = serie.reduce<PuntoEvolucion | undefined>((actual, p) => !actual || Number(p.considerado) > Number(actual.considerado) ? p : actual, undefined);
   const maximo = Math.max(...serie.map(p => Number(p.considerado)), 1);
   return <div>
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>Año {anio} · por fecha de emisión</span><span>Máximo: {formatearMonto(String(maximo))}</span></div>
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"><span>Año {anio} · por fecha de emisión</span><span>Mayor monto: {formatearMonto(mayor?.considerado ?? '0.00')}</span></div>
     <div className="grid h-52 grid-cols-12 items-end gap-1 border-b border-border bg-[linear-gradient(to_top,var(--border)_1px,transparent_1px)] bg-[length:100%_25%] sm:gap-2" aria-label={`Monto considerado por mes de ${anio}`}>
       {meses.map((mes, i) => {
         const punto = serie.find(p => p.periodo === `${anio}-${String(i + 1).padStart(2, '0')}`);
