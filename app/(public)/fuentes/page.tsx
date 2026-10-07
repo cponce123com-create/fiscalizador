@@ -42,7 +42,7 @@ export default async function Fuentes({ searchParams }: { searchParams: Promise<
       </div>
       <section id="libros" className="flex scroll-mt-6 flex-col gap-4">
         <div><h2 className="text-xl font-semibold">Libros cargados</h2><p className="text-sm text-muted-foreground">{total} libro(s) en este listado. Se muestran también archivos sin importación finalizada y versiones anteriores.</p></div>
-        <form action="/fuentes" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+        <form key={`${filtros.year ?? ""}-${filtros.month ?? ""}-${filtros.tipo ?? ""}`} action="/fuentes" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
           <label className="flex flex-col gap-1 text-sm">Año<select name="year" defaultValue={filtros.year ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option>{anios.map(anio => <option key={anio} value={anio}>{anio}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm">Mes<select name="month" defaultValue={filtros.month ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option>{MESES_LIBROS.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm">Tipo de libro<select name="tipo" defaultValue={filtros.tipo ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option><option value="ORDENES_COMPRA">Órdenes de compra</option><option value="ORDENES_SERVICIO">Órdenes de servicio</option><option value="CONSOLIDADO">Compras y servicios</option></select></label>
