@@ -1,11 +1,13 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
 import { AntecedentesElectorales } from '@/components/publico/antecedentes-electorales';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Perfil electoral' };
 export default async function PerfilElectoral({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const alias = await prisma.electoralPersonAlias.findUnique({ where: { id } });
+  if (alias) redirect(`/electoral/${alias.personId}`);
   const persona = await prisma.electoralPerson.findFirst({ where: { id, isPublic: true, records: { some: { isPublic: true } } }, select: { id: true, fullName: true, dni: true, records: { where: { isPublic: true }, orderBy: { electionYear: 'desc' }, select: { id: true, electionYear: true, position: true, organization: true, mayorCandidate: true, municipality: true, termStart: true, termEnd: true, result: true, listPosition: true, registrationStatus: true, preliminaryOutcome: true, preliminarySource: true, source: true, sourceUrl: true } } } });
   if (!persona) notFound();
   const proveedores = persona.dni ? await prisma.supplier.findMany({ where: { ruc: { startsWith: `10${persona.dni}` } }, select: { id: true, name: true, slug: true, ruc: true, _count: { select: { orders: true } } }, take: 20 }) : [];

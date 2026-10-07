@@ -631,3 +631,10 @@ En Administrador → Registro electoral → Importar acta preparada se carga un 
 La carga versión 2 admite DNI vacío si incluye `sourceRowKey` (SHA-256 estable de la fila de origen). Conserva fichas independientes sin vincularlas por nombre ni deducir documentos del nombre de una foto. Reimportar el mismo archivo conserva los perfiles y no duplica antecedentes. El cruce con proveedores requiere completar y verificar el DNI.
 
 Los antecedentes admiten orden en la lista y estado de inscripción. `preliminaryOutcome: POSIBLE_ELECTO` exige `preliminarySource`; se presenta separado del resultado `POR_VERIFICAR`, con aviso de ausencia de proclamación acreditada. Después del acta se edita el resultado oficial en el administrador. La huella de una transcripción identifica esa carga, no un acta oficial. Las fotos externas no se importan ni se usan para verificar identidad.
+
+
+### Unificar perfiles electorales
+
+Administrador → Registro electoral detecta nombres completos coincidentes normalizando mayúsculas, tildes y espacios. El administrador revisa ambas fichas y confirma “Unir fichas”, eligiendo cuál conservar. Se trasladan todos los antecedentes, de modo que el perfil público reúne elecciones, periodos y resultados. Se bloquean DNI contradictorios y antecedentes del mismo año, cargo y municipalidad para evitar sobrescrituras. La operación es transaccional y auditada. Las fuentes y la publicación de cada antecedente permanecen intactas.
+
+Los identificadores de las fichas incorporadas se conservan como alias: sus enlaces públicos redirigen al perfil definitivo y reimportar una candidatura provisional ya unificada reutiliza ese perfil. La coincidencia por nombre propone revisión; el cruce automático con proveedores continúa requiriendo documento exacto.

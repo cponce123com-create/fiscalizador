@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral } from './electoral';
+import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral, detectarCoincidenciasElectorales } from './electoral';
 import { esquemaPerfilProveedor } from './supplier-profile';
 
 describe('antecedentes electorales y publicación documentada', () => {
@@ -35,6 +35,11 @@ describe('antecedentes electorales y publicación documentada', () => {
     expect(esquemaCargaElectoral.safeParse({ ...carga, version: 1 }).success).toBe(false);
     expect(esquemaCargaElectoral.safeParse({ ...carga, records: [{ ...fila, sourceRowKey: undefined }] }).success).toBe(false);
     expect(esquemaCargaElectoral.safeParse({ ...carga, records: [{ ...fila, preliminarySource: '' }] }).success).toBe(false);
+  });
+
+  it('detecta nombres completos coincidentes sin unir automáticamente nombres parecidos', () => {
+    const personas = [{ id: 'a', fullName: '  José   Pérez ', dni: null }, { id: 'b', fullName: 'JOSE PEREZ', dni: '00123456' }, { id: 'c', fullName: 'José Pérez López', dni: null }];
+    expect(detectarCoincidenciasElectorales(personas).map(g => g.map(p => p.id))).toEqual([['a', 'b']]);
   });
 
 });
