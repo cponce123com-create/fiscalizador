@@ -121,6 +121,7 @@ export type FilaRanking = {
   ruc: string;
   nombre: string;
   slug: string;
+  fotoUrl?: string | null;
   ordenes: number;
   anuladas: number;
   considerado: string;
@@ -142,6 +143,7 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
       ruc: string;
       name: string;
       slug: string;
+      photoUrl: string | null;
       ordenes: number;
       anuladas: number;
       considerado: string;
@@ -153,6 +155,7 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
       s.ruc,
       s.name,
       s.slug,
+      s."photoUrl",
       COUNT(*)::int AS ordenes,
       COUNT(*) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
       COALESCE(
@@ -184,6 +187,7 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
     ruc: fila.ruc,
     nombre: fila.name,
     slug: fila.slug,
+    fotoUrl: fila.photoUrl ?? null,
     ordenes: aNumero(fila.ordenes),
     anuladas: aNumero(fila.anuladas),
     considerado: aDecimal2(fila.considerado),
@@ -556,6 +560,7 @@ export type FilaUltimoRegistro = {
   ruc: string;
   tipo: string | null;
   estado: string | null;
+  descripcion?: string | null;
 };
 
 export async function ultimosRegistros(limite = 8): Promise<FilaUltimoRegistro[]> {
@@ -566,6 +571,7 @@ export async function ultimosRegistros(limite = 8): Promise<FilaUltimoRegistro[]
     select: {
       id: true,
       orderNumber: true,
+      description: true,
       issueDate: true,
       amount: true,
       isCancelled: true,
@@ -579,6 +585,7 @@ export async function ultimosRegistros(limite = 8): Promise<FilaUltimoRegistro[]
   return ordenes.map((orden) => ({
     id: orden.id,
     orderNumber: orden.orderNumber,
+    descripcion: orden.description,
     issueDate: orden.issueDate,
     amount: orden.amount === null ? null : orden.amount.toFixed(2),
     isCancelled: orden.isCancelled,

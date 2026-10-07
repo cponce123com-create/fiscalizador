@@ -68,7 +68,7 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
         {b.sheetName ? orden.sourceRow : 'referencia antigua pendiente de revalidar'}.
       </p>
       <p className="break-all text-xs">SHA-256 del original: {b.checksum}</p>
-      <Link className="rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground" href={`/fuentes#${b.id}`}>
+      <Link id="fuente-orden" className="scroll-mt-6 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground" href={`/fuentes#${b.id}`}>
         Ver fuente, cobertura y descargar extracto
       </Link>
       <p>

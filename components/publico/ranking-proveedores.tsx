@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { formatearMonto } from '@/lib/utils';
 import type { FilaRanking } from '@/services/statisticsService';
+import { FotoProveedor } from './foto-proveedor';
 
 /**
  * Ranking de proveedores por monto considerado.
@@ -35,16 +36,17 @@ export function RankingProveedores({
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
         {ranking.map((fila, indice) => (
-          <li key={fila.supplierId} className="flex flex-col gap-2 px-4 py-3 sm:px-5">
-            <div className="flex items-baseline justify-between gap-4">
-              <div className="flex min-w-0 items-baseline gap-3">
-                <span className="tabular w-6 shrink-0 text-sm font-medium text-muted-foreground">
+          <li key={fila.supplierId} className="flex flex-col gap-3 px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className={`tabular flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${indice === 0 ? 'bg-amber-100 text-amber-900' : 'bg-muted text-muted-foreground'}`}>
                   {indice + 1}
                 </span>
+                <FotoProveedor key={fila.fotoUrl} url={fila.fotoUrl} nombre={fila.nombre} />
                 <div className="min-w-0">
                   <Link
                     href={`/proveedores/${fila.slug}`}
-                    className="block truncate text-sm font-medium text-foreground hover:underline"
+                    className="block text-sm font-semibold leading-snug text-foreground hover:underline break-words"
                     title={fila.nombre}
                   >
                     {fila.nombre}
@@ -52,12 +54,12 @@ export function RankingProveedores({
                   <p className="tabular text-xs text-muted-foreground">
                     RUC {fila.ruc} · {fila.ordenes}{' '}
                     {fila.ordenes === 1 ? 'orden' : 'órdenes'}
-                    {fila.anuladas > 0 ? ` · ${fila.anuladas} anulada` : ''}
+                    {fila.anuladas > 0 ? ` · ${fila.anuladas} ${fila.anuladas === 1 ? 'anulada' : 'anuladas'}` : ''}
                   </p>
                 </div>
               </div>
 
-              <div className="shrink-0 text-right">
+              <div className="ml-auto shrink-0 text-right">
                 <p className="tabular text-sm font-semibold text-foreground">
                   {formatearMonto(fila.considerado)}
                 </p>
@@ -72,7 +74,7 @@ export function RankingProveedores({
             >
               <div
                 className="h-full rounded-full bg-primary/70"
-                style={{ width: `${Math.max(fila.peso, 0.5)}%` }}
+                style={{ width: `${Math.min(100, Math.max(fila.peso, 0))}%` }}
               />
             </div>
           </li>

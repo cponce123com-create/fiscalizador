@@ -17,4 +17,18 @@ describe('configuración pública de titulares', () => {
   it('mantiene la cinta oculta por defecto', () => {
     expect(configuracionPorDefecto().cintaActiva).toBe(false);
   });
+  it('conserva la configuración anterior al añadir fotografía opcional', () => {
+    const anterior = { municipio: base.municipio, cintaActiva: base.cintaActiva, titular: base.titular, enlace: base.enlace, velocidad: base.velocidad };
+    const actual = esquemaPortal.parse(anterior);
+    expect(actual.titular).toBe(base.titular);
+    expect(actual.fotoPortada).toBe('');
+    expect(actual.creditoFoto).toBe('');
+  });
+  it('requiere una foto del alojamiento permitido y crédito propio', () => {
+    expect(esquemaPortal.safeParse({ ...base, fotoPortada: 'https://res.cloudinary.com/municipio/image/upload/san-ramon.jpg', creditoFoto: 'San Ramón · Foto: propietario' }).success).toBe(true);
+    expect(esquemaPortal.safeParse({ ...base, fotoPortada: 'https://res.cloudinary.com/municipio/image/upload/san-ramon.jpg' }).success).toBe(false);
+  });
+  it.each(['https://otro.test/foto.jpg', 'http://res.cloudinary.com/foto.jpg', 'https://res.cloudinary.com.evil.test/foto.jpg', 'https://user:password@res.cloudinary.com/foto.jpg', 'https://res.cloudinary.com:8443/foto.jpg'])('rechaza fotografía fuera del alojamiento seguro %s', fotoPortada => {
+    expect(esquemaPortal.safeParse({ ...base, fotoPortada, creditoFoto: 'Fuente' }).success).toBe(false);
+  });
 });

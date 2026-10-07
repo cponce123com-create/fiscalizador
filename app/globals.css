@@ -108,6 +108,30 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* La portada aprobada tiene un fondo claro, incluso con el sistema en modo oscuro.
+   Los tokens están limitados al portal; la administración conserva su preferencia. */
+.portal-publico {
+  --background: #f6f8f7;
+  --foreground: #17251d;
+  --card: #ffffff;
+  --card-foreground: #17251d;
+  --muted: #edf3ef;
+  --muted-foreground: #52675a;
+  --border: #dce6df;
+  --input: #b8cbbf;
+  --ring: #166534;
+  --primary: #166534;
+  --primary-foreground: #ffffff;
+  --destructive: #c02626;
+  --success: #15803d;
+  --warning: #a16207;
+  background: var(--background);
+  color: var(--foreground);
+}
+.titulo-editorial { font-family: Georgia, 'Times New Roman', serif; }
+.panel-portada { border: 1px solid var(--border); border-radius: 1rem; background: var(--card); padding: 1.25rem; box-shadow: 0 3px 20px #17251d04; }
+@media (min-width: 640px) { .panel-portada { padding: 1.5rem; } }
+
 :where(a, button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .cinta-texto { display: inline-block; min-width: 100%; white-space: nowrap; font-size: .875rem; animation: titular 40s linear infinite; }
 .cinta-lenta { animation-duration: 60s; }

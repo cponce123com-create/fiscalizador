@@ -3,26 +3,26 @@ import Link from 'next/link';
 import { NavPublica } from '@/components/publico/nav-publica';
 import { CintaTitulares } from '@/components/publico/cinta-titulares';
 import { leerConfiguracionPortal } from '@/services/portalService';
+import { IndicadoresLocales } from '@/components/publico/contexto-local';
+import { LockKeyhole, ShieldCheck } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export default async function LayoutPublico({ children }: { children: React.ReactNode }) {
   const config = await leerConfiguracionPortal();
-  return <div className="flex min-h-full flex-col">
+  return <div className="portal-publico flex min-h-full flex-col">
     <a href="#contenido" className="sr-only z-50 rounded bg-card p-3 focus:not-sr-only focus:absolute">Ir al contenido</a>
+    <div className="bg-emerald-950 text-white"><div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6"><p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.15em]"><ShieldCheck size={14} aria-hidden="true" />Información pública verificable</p><IndicadoresLocales /></div></div>
     <header className="border-b border-border bg-card">
-      <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <Link href="/" className="flex items-center gap-3"><span className="h-12 w-1 rounded-full bg-amber-500" aria-hidden="true" /><span><span className="block text-2xl font-bold tracking-tight">Fiscalizador <span className="text-primary">· San Ramón</span></span><span className="text-xs text-muted-foreground">Vigilancia ciudadana independiente</span></span></Link>
-          <div className="flex max-w-xs items-center gap-3"><Image src="/identidad/escudo-san-ramon.webp" alt="Escudo de San Ramón" width={44} height={45} className="rounded bg-white p-1" /><div><p className="text-[10px] uppercase tracking-wider text-muted-foreground">Municipalidad consultada</p><p className="text-xs font-medium">{config.municipio}</p></div></div>
-        </div>
-        <NavPublica />
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-5 px-4 py-5 sm:px-6">
+          <Link href="/" className="flex items-center gap-3"><Image src="/identidad/escudo-san-ramon.webp" alt="Escudo de San Ramón" width={52} height={54} className="h-14 w-auto object-contain" /><span><span className="titulo-editorial block text-xl font-bold tracking-tight text-emerald-950 sm:text-2xl">Fiscalizador · San Ramón</span><span className="text-[11px] text-muted-foreground">Vigilancia ciudadana independiente</span></span></Link>
+          <div className="flex flex-wrap items-center gap-3"><NavPublica /><Link href="/admin" className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted"><LockKeyhole size={14} aria-hidden="true" />Acceso admin</Link></div>
       </div>
     </header>
     <CintaTitulares config={config} />
     <main id="contenido" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6 sm:py-10">{children}</main>
-    <footer className="mt-6 border-t border-border bg-card"><div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2 sm:px-6">
-      <div><p className="font-semibold">Fiscalizador · San Ramón</p><p className="mt-2 max-w-lg text-xs leading-relaxed text-muted-foreground">Portal ciudadano independiente. Datos obtenidos de libros mensuales publicados en el Portal de Transparencia de la municipalidad. Las órdenes registradas no acreditan pagos realizados.</p></div>
-      <div className="flex flex-wrap items-start gap-4 text-sm"><Link href="/fuentes">Fuentes y cobertura</Link><Link href="/metodologia">Metodología</Link><Link href="/admin" className="text-muted-foreground">Administración</Link></div>
+    <footer className="mt-6 bg-emerald-950 text-white"><div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2 sm:px-6">
+      <div className="flex items-start gap-3"><Image src="/identidad/escudo-san-ramon.webp" alt="" width={42} height={44} /><div><p className="titulo-editorial text-lg font-semibold">Fiscalizador · San Ramón</p><p className="mt-2 max-w-lg text-xs leading-relaxed text-emerald-100/80">Portal ciudadano independiente. Municipalidad consultada: {config.municipio}. Datos de libros mensuales publicados por la municipalidad; las órdenes no acreditan pagos.</p></div></div>
+      <div className="flex flex-wrap items-start gap-4 text-sm text-emerald-100"><Link href="/fuentes" className="hover:underline">Fuentes y cobertura</Link><Link href="/metodologia" className="hover:underline">Metodología</Link><Link href="/admin" className="hover:underline">Administración</Link></div>
     </div></footer>
   </div>;
 }
