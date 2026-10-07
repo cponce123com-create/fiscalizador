@@ -8,14 +8,35 @@ export function IndicadoresLocales() {
   const [datos, setDatos] = useState<ContextoLocal | null>(null);
   const [terminado, setTerminado] = useState(false);
   useEffect(() => {
-    const control = new AbortController();
-    const timeout = setTimeout(() => control.abort(), 8000);
-    fetch('/api/contexto', { signal: control.signal })
-      .then(respuesta => respuesta.ok ? respuesta.json() : null)
-      .then(datos => { if (!control.signal.aborted) setDatos(datos); })
-      .catch(() => { /* Las fuentes externas no bloquean el portal. */ })
-      .finally(() => { clearTimeout(timeout); setTerminado(true); });
-    return () => { clearTimeout(timeout); control.abort(); };
+    let cancelado = false;
+    let control: AbortController | null = null;
+    let reintento: ReturnType<typeof setTimeout> | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    async function consultar() {
+      control = new AbortController();
+      // El BCRP dispone de 12 s en servidor; deja margen para red y arranque.
+      timeout = setTimeout(() => control?.abort(), 18000);
+      let completo = false;
+      try {
+        const respuesta = await fetch('/api/contexto', { signal: control.signal, cache: 'no-store' });
+        if (!respuesta.ok) throw new Error('Contexto no disponible');
+        const resultado: ContextoLocal = await respuesta.json();
+        if (!cancelado && !control.signal.aborted) {
+          setDatos(resultado);
+          completo = Boolean(resultado?.dolar && resultado?.clima);
+        }
+      } catch { /* Mantener visibles los datos previos mientras se reintenta. */ }
+      finally {
+        clearTimeout(timeout);
+        if (!cancelado) {
+          setTerminado(true);
+          // Recuperarse sin exigir recargar la página; actualizar también datos válidos.
+          reintento = setTimeout(consultar, completo ? 15 * 60_000 : 35_000);
+        }
+      }
+    }
+    void consultar();
+    return () => { cancelado = true; clearTimeout(timeout); clearTimeout(reintento); control?.abort(); };
   }, []);
   const fechaClima = datos?.clima ? new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima', hour: '2-digit', minute: '2-digit' }).format(new Date(datos.clima.fecha)) : '';
   const fechaCambio = datos?.dolar ? datos.dolar.fecha.split('-').reverse().join('/') : '';
