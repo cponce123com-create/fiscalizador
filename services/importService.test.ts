@@ -947,3 +947,59 @@ describe.skipIf(!hayBaseDeDatos)('atomicidad y recuperación del importador', ()
     expect(versiones[0]).not.toBe(versiones[1]);
   });
 });
+
+describe.skipIf(!hayBaseDeDatos)('revisión obligatoria de montos sospechosos', () => {
+  const ids: string[] = [];
+  const claves: string[] = [];
+  const RUC = '20666666661';
+  let svc: typeof import('@/services/importService');
+  let prisma: (typeof import('@/lib/prisma'))['prisma'];
+  let storage: typeof import('@/services/storageService');
+
+  beforeAll(async () => {
+    svc = await import('@/services/importService');
+    ({ prisma } = await import('@/lib/prisma'));
+    storage = await import('@/services/storageService');
+  });
+  afterAll(async () => {
+    await prisma.importBatch.deleteMany({ where: { id: { in: ids } } });
+    await prisma.auditLog.deleteMany({ where: { entityId: { in: ids } } });
+    await prisma.supplier.deleteMany({ where: { ruc: RUC } });
+    for (const clave of claves) await storage.getStorage().remove(clave).catch(() => undefined);
+  });
+
+  async function analizar(nombre: string) {
+    const sospechosa = fila(1, '2050-01-05 00:00:00.0', `MONTO-${nombre}`, RUC);
+    sospechosa[9] = 'S/. 10604553841.17';
+    const r = await svc.analizar({ buffer: libro([sospechosa, fila(2, '2050-01-06 00:00:00.0', `LIMPIA-${nombre}`, RUC)]),
+      originalFilename: `prueba-monto-${nombre}.xlsx`, year: 2050, month: 1, importType: 'CONSOLIDADO', userId: null });
+    ids.push(r.importBatchId);
+    const lote = await prisma.importBatch.findUniqueOrThrow({ where: { id: r.importBatchId }, select: { storageKey: true } });
+    if (lote.storageKey) claves.push(lote.storageKey);
+    return r;
+  }
+
+  it('rechaza confirmación sin revisión, permite excluir y devuelve el total realmente importado', async () => {
+    const r = await analizar('excluir');
+    expect(r.filasConHallazgos[0]?.sourceRow).toBe(2);
+    expect(r.montosPorFila).toHaveLength(2);
+    await expect(svc.confirmar({ importBatchId: r.importBatchId, userId: null, reemplazarPeriodo: true, filasMontosConfirmados: [999] })).rejects.toThrow('montos sospechosos sin revisar');
+    expect(await prisma.order.count({ where: { importBatchId: r.importBatchId } })).toBe(0);
+    const confirmado = await svc.confirmar({ importBatchId: r.importBatchId, userId: null, reemplazarPeriodo: true, filasExcluidas: [2] });
+    expect(confirmado.ordenesInsertadas).toBe(1);
+    expect(confirmado.ordenesExcluidasPorDecision).toBe(1);
+    expect(confirmado.summary.consideredCents).toBe(10_000);
+    const log = await prisma.auditLog.findFirstOrThrow({ where: { entityId: r.importBatchId, action: 'IMPORT' } });
+    expect(log.metadata).toMatchObject({ consideredCents: 10_000, reviewedAmountRows: [] });
+  });
+
+  it('permite conservar la cifra original tras confirmar esa fila y deja auditoría', async () => {
+    const r = await analizar('conservar');
+    const confirmado = await svc.confirmar({ importBatchId: r.importBatchId, userId: null, reemplazarPeriodo: true, filasMontosConfirmados: [2] });
+    expect(confirmado.ordenesInsertadas).toBe(2);
+    const orden = await prisma.order.findFirstOrThrow({ where: { importBatchId: r.importBatchId, sourceRow: 2 } });
+    expect(orden.amount?.toString()).toBe('10604553841.17');
+    const log = await prisma.auditLog.findFirstOrThrow({ where: { entityId: r.importBatchId, action: 'IMPORT' } });
+    expect(log.metadata).toMatchObject({ reviewedAmountRows: [2] });
+  });
+});

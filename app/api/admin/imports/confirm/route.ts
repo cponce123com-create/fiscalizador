@@ -49,6 +49,7 @@ const cuerpoSchema = z.object({
    * hallazgos. Es una DECISIÓN, no un dato: el servidor vuelve a leer el archivo y
    * descarta esas filas, así que el navegador no puede colar registros que no existen.
    */
+  filasMontosConfirmados: z.array(z.number().int().min(1).max(1_000_000)).max(20_000).optional(),
   filasExcluidas: z.array(z.number().int().min(1).max(1_000_000)).max(20_000).optional(),
   mapping: z
     .array(
@@ -89,6 +90,7 @@ export async function POST(request: Request): Promise<Response> {
       coverageComplete: parsed.data.coverageComplete,
       omitirDuplicados: parsed.data.omitirDuplicados,
       filasExcluidas: parsed.data.filasExcluidas,
+      filasMontosConfirmados: parsed.data.filasMontosConfirmados,
     });
 
     return okJson(resultado, 200);

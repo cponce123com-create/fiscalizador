@@ -360,3 +360,54 @@ describe('trazabilidad con filas físicas', () => {
     expect(r.issues.some((i) => i.sourceRow === 4)).toBe(true);
   });
 });
+
+describe('montos desproporcionados antes de importar', () => {
+  function validar(montos: unknown[], estados?: string[], sourceRows?: number[]) {
+    return validateRows({
+      headers: ['Orden', 'Monto', 'RUC', 'Proveedor', 'Estado', 'Fecha'], headerRowIndex: 0,
+      indices: { orderNumber: 0, amount: 1, ruc: 2, supplierName: 3, status: 4, issueDate: 5 },
+      rows: montos.map((monto, i) => [String(i + 1), monto, '20541487710', 'ACME', estados?.[i] ?? 'Devengada', '2015-12-01 00:00:00.0']),
+      sourceRows, statuses: ESTADOS, orderTypes: [], contractTypes: [], managementPeriods: GESTIONES,
+    });
+  }
+
+  it('detecta una cifra de miles de millones que sí cabe en Decimal(14,2)', () => {
+    const r = validar([100, 150, 200, 300, '61726647029.20'], undefined, [2, 5, 9, 12, 389]);
+    expect(r.summary.warningRows).toBe(1);
+    expect(r.issues.filter(i => i.code.startsWith('MONTO_')).map(i => i.code)).toEqual(['MONTO_ALTO', 'MONTO_ATIPICO']);
+    expect(r.issues.find(i => i.code === 'MONTO_ALTO')).toMatchObject({ sourceRow: 389, rawValue: '61726647029.20', severity: 'WARNING' });
+    expect(r.orders[4]?.amount).toBe('61726647029.20'); // Nunca corrige el original.
+  });
+
+  it('advierte desde un millón incluso si todas las filas son igualmente elevadas', () => {
+    const r = validar([1_000_000, 1_000_000, 1_000_000, 1_000_000, 1_000_000]);
+    expect(r.summary.warningRows).toBe(5);
+    expect(r.issues.filter(i => i.code === 'MONTO_ATIPICO')).toHaveLength(0);
+  });
+
+  it('detecta un atípico inferior a un millón sin usar un promedio contaminado', () => {
+    const r = validar([100, 200, 300, 400, 500, 125_000]);
+    expect(r.issues.filter(i => i.code === 'MONTO_ATIPICO')).toHaveLength(1);
+    expect(r.issues.some(i => i.code === 'MONTO_ALTO')).toBe(false);
+  });
+
+  it('no confunde variaciones normales, libros pequeños ni ceros con errores', () => {
+    expect(validar([100, 200, 500, 10_000, 35_000]).issues.some(i => i.code.startsWith('MONTO_'))).toBe(false);
+    expect(validar([100, 125_000]).issues.some(i => i.code === 'MONTO_ATIPICO')).toBe(false);
+    expect(validar([0, 0, 0, 0, 125_000]).issues.some(i => i.code === 'MONTO_ATIPICO')).toBe(false);
+  });
+
+  it('señala un monto que coincide con el RUC, incluso en órdenes anuladas', () => {
+    const r = validar(['20541487710'], ['Anulada']);
+    expect(r.issues.find(i => i.code === 'MONTO_COINCIDE_RUC')?.rawValue).toBe('20541487710');
+    expect(r.orders[0]?.hasWarning).toBe(true);
+    expect(r.summary.warningRows).toBe(1);
+    expect(r.summary.consideredCents).toBe(0);
+  });
+
+  it('mantiene los separadores de miles y decimales válidos', () => {
+    const r = validar(['S/. 1,234.56', 'S/. 1.234,56', '1234,56']);
+    expect(r.orders.map(o => o.amount)).toEqual(['1234.56', '1234.56', '1234.56']);
+    expect(r.issues.some(i => i.code.startsWith('MONTO_'))).toBe(false);
+  });
+});

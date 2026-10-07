@@ -51,6 +51,7 @@ import {
   type ConfirmarRespuesta,
   type PeriodoRespuesta,
 } from '@/lib/api/cliente';
+import { requiereRevisionMonto, resumenConExclusiones } from '@/lib/revision-montos';
 import { formatearCentavos, MESES } from '@/lib/utils';
 
 /**
@@ -178,11 +179,11 @@ export function ImportacionPorLotes() {
 
   const totales = incluidos.reduce(
     (acumulado, archivo) => {
-      const resumen = archivo.analisis?.summary;
-      if (!resumen) return acumulado;
+      if (!archivo.analisis) return acumulado;
+      const resumen = resumenConExclusiones(archivo.analisis.summary, archivo.analisis.montosPorFila, new Set(archivo.excluidas));
       return {
-        filas: acumulado.filas + resumen.totalRows,
-        validas: acumulado.validas + resumen.successfulRows,
+        filas: acumulado.filas + resumen.totalRows - archivo.excluidas.length,
+        validas: acumulado.validas + resumen.successfulRows - archivo.excluidas.length,
         avisos: acumulado.avisos + resumen.warningRows,
         errores: acumulado.errores + resumen.errorRows,
         considerado: acumulado.considerado + resumen.consideredCents,
@@ -320,15 +321,18 @@ export function ImportacionPorLotes() {
         const yaImportado =
           datos.duplicadoContenido.filasRepetidas > 0 && datos.duplicadoContenido.filasNuevas === 0;
         const sinColumnas = datos.camposFaltantes.length > 0;
+        const filasMontoSospechoso = [...new Set(datos.issues.filter(i => requiereRevisionMonto([i])).map(i => i.sourceRow))];
         const sinFilas = datos.summary.successfulRows === 0;
+        const sinFilasSeguras = !sinFilas && filasMontoSospechoso.length === datos.summary.successfulRows;
 
         actualizar(archivo.id, {
           estado: 'analizado',
           analisis: datos,
           mapeo: mapeoDesdeAnalisis(datos),
-          // Un análisis nuevo parte sin decisiones tomadas.
-          excluidas: [],
-          incluido: !(mismoArchivo || yaImportado || sinColumnas || sinFilas),
+          // Los montos sospechosos requieren una decisión expresa por fila.
+          excluidas: filasMontoSospechoso,
+          detalleAbierto: datos.issues.some(i => requiereRevisionMonto([i])),
+          incluido: !(mismoArchivo || yaImportado || sinColumnas || sinFilas || sinFilasSeguras),
           motivoExclusion: mismoArchivo
             ? 'Ya se importó un archivo con este mismo contenido.'
             : yaImportado
@@ -337,7 +341,9 @@ export function ImportacionPorLotes() {
                 ? 'Faltan columnas obligatorias.'
                 : sinFilas
                   ? 'No hay ninguna fila válida.'
-                  : null,
+                  : sinFilasSeguras
+                    ? 'Todas las filas válidas tienen montos sospechosos. Revisa sus montos y el mapeo antes de incluir este libro.'
+                    : null,
           error: null,
         });
       } catch (fallo) {
@@ -385,6 +391,7 @@ export function ImportacionPorLotes() {
               omitirDuplicados: true,
               // Las filas que el administrador dejó fuera al revisar los hallazgos.
               filasExcluidas: archivo.excluidas,
+              filasMontosConfirmados: [...new Set(archivo.analisis?.issues.filter(i => requiereRevisionMonto([i]) && !archivo.excluidas.includes(i.sourceRow)).map(i => i.sourceRow) ?? [])],
               mapping: archivo.mapeo,
             }),
           },
@@ -673,7 +680,7 @@ export function ImportacionPorLotes() {
                         <TarjetaDescripcion>
                           Periodo {archivo.periodo} · {analisis.summary.successfulRows} filas
                           válidas de {analisis.summary.totalRows} · considerado{' '}
-                          {formatearCentavos(analisis.summary.consideredCents)}
+                          {formatearCentavos(resumenConExclusiones(analisis.summary, analisis.montosPorFila, new Set(archivo.excluidas)).consideredCents)}
                         </TarjetaDescripcion>
 
                         <div className="flex flex-wrap items-center gap-2 pt-1">
