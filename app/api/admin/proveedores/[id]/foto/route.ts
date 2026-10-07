@@ -8,7 +8,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Contexto = { params: Promise<{ id: string }> };
 function verificarOrigen(request: Request) {
-  if (request.headers.get('origin') !== new URL(request.url).origin) throw new SinPermiso('La foto solo puede modificarse desde este panel.');
+  let origin: URL;
+  try { origin = new URL(request.headers.get('origin') ?? ''); }
+  catch { throw new SinPermiso('La foto solo puede modificarse desde este panel.'); }
+  // Render puede usar una URL interna: compara el host público reenviado, como Server Actions.
+  const host = (request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? new URL(request.url).host).split(',')[0].trim();
+  if (!['https:', 'http:'].includes(origin.protocol) || origin.host !== host) throw new SinPermiso('La foto solo puede modificarse desde este panel.');
 }
 export async function GET(_request: Request, { params }: Contexto) {
   try {

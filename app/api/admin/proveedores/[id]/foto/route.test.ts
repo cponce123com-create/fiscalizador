@@ -22,6 +22,12 @@ describe('privacidad de fotos de perfiles', () => {
     expect(response.status).toBe(200); expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(mocks.permiso).toHaveBeenCalledWith('persons:read');
   });
+  it('acepta el origen público tras el proxy de Render sin depender de la URL interna', async () => {
+    const request = new Request('http://internal:10000/api/admin/proveedores/id/foto', { method: 'POST', body: new FormData(), headers: { origin: 'https://fiscalizador.onrender.com', host: 'internal:10000', 'x-forwarded-host': 'fiscalizador.onrender.com' } });
+    const response = await POST(request, contexto());
+    expect(response.status).toBe(409); // Falta una foto, pero el origen fue aceptado.
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
   it('bloquea modificaciones sin permiso y solicitudes de otro origen', async () => {
     mocks.permiso.mockRejectedValueOnce(new SinPermiso('Sin permiso'));
     expect((await POST(new Request(url, { method: 'POST' }), contexto())).status).toBe(403);
