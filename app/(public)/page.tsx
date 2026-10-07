@@ -1,197 +1,73 @@
 import type { Metadata } from 'next';
-import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
-
-import { GraficoBarras, type BarraGrafico } from '@/components/publico/grafico-barras';
-import { GraficoEvolucion, type PuntoGrafico } from '@/components/publico/grafico-evolucion';
+import { ArrowRight, BookOpen, CalendarDays, Database, FileSearch, MapPin, Search, ShieldCheck, TriangleAlert } from 'lucide-react';
+import { EvolucionPortada } from '@/components/publico/evolucion-portada';
+import { GraficoBarras } from '@/components/publico/grafico-barras';
 import { RankingProveedores } from '@/components/publico/ranking-proveedores';
-import { TarjetasResumen } from '@/components/publico/tarjetas-resumen';
+import { ResumenPortada } from '@/components/publico/resumen-portada';
 import { UltimosRegistros } from '@/components/publico/ultimos-registros';
-import { Aviso } from '@/components/ui/data';
 import { Seccion } from '@/components/ui/seccion';
 import { prisma } from '@/lib/prisma';
 import { formatearFechaHora } from '@/lib/utils';
 import { datosPortada } from '@/services/statisticsService';
+import { leerConfiguracionPortal } from '@/services/portalService';
 
-/**
- * Portada del portal público.
- *
- * Se renderiza en cada petición (`force-dynamic`) a propósito: las cifras deben
- * reflejar lo que hay en la base de datos ahora mismo. Si Next.js la prerenderizara,
- * los totales quedarían congelados en el momento del build y un administrador
- * importaría un libro sin que el portal cambiara. La caché es una optimización
- * para cuando el volumen de datos lo justifique, no antes.
- */
 export const dynamic = 'force-dynamic';
-
 export const metadata: Metadata = {
   title: 'Inicio',
-  description:
-    'Gasto en órdenes de compra y de servicio registradas en el Portal de Transparencia.',
+  description: 'Vigilancia ciudadana de San Ramón: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
 };
+const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
 export default async function PortadaPublica() {
-  const [datos, pendientes, ultimaActualizacion] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
     datosPortada(),
     prisma.importBatch.count({ where: { requiresReview: true } }),
     prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
+    leerConfiguracionPortal(),
   ]);
   const { resumen } = datos;
-
-  // Los dos gráficos de evolución son idénticos cuando solo hay un periodo. En vez
-  // de repetir el mismo aviso dos veces, se explica una sola vez.
-  const evolucionDegenerada = datos.mensual.length < 2 && datos.anual.length < 2;
-
-  const barrasContratacion: BarraGrafico[] = datos.contrataciones.map((fila) => ({
-    etiqueta: fila.etiqueta,
-    valor: Number(fila.considerado),
-    exacto: fila.considerado,
-    detalle: `${fila.ordenes} ${fila.ordenes === 1 ? 'orden' : 'órdenes'}`,
-  }));
-
-  const barrasGestion: BarraGrafico[] = datos.gestiones.map((fila) => ({
-    etiqueta: `Gestión ${fila.gestion}`,
-    valor: Number(fila.considerado),
-    exacto: fila.considerado,
-    detalle:
-      fila.ordenes === 0
-        ? 'sin datos cargados'
-        : `${fila.ordenes} órdenes · ${fila.proveedores} proveedores`,
-    atenuada: fila.ordenes === 0,
-  }));
-
-  const barrasTipoOrden: BarraGrafico[] = datos.tiposOrden.map((fila) => ({
-    etiqueta: `${fila.codigo} · ${fila.etiqueta}`,
-    valor: Number(fila.considerado),
-    exacto: fila.considerado,
-    detalle: `${fila.ordenes} ${fila.ordenes === 1 ? 'orden' : 'órdenes'}`,
-  }));
-
-  const puntosMensuales: PuntoGrafico[] = datos.mensual.map((punto) => ({
-    periodo: punto.periodo,
-    valor: Number(punto.considerado),
-    exacto: punto.considerado,
-    ordenes: punto.ordenes,
-  }));
-
-  const puntosAnuales: PuntoGrafico[] = datos.anual.map((punto) => ({
-    periodo: punto.periodo,
-    valor: Number(punto.considerado),
-    exacto: punto.considerado,
-    ordenes: punto.ordenes,
-  }));
-
-  return (
-    <div className="flex flex-col gap-10">
-      <section className="relative overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:p-10">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-[.2em] text-amber-300">Información pública · Vigilancia ciudadana</p>
-        <h1 className="max-w-3xl text-3xl font-semibold leading-tight tracking-tight sm:text-5xl">Conoce las compras y contrataciones de tu municipalidad</h1>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-emerald-100 sm:text-base">Explora órdenes, proveedores y documentos de origen. Sigue cada cifra hasta el libro mensual del que procede.</p>
-        <form action="/ordenes" method="get" role="search" className="mt-7 flex flex-col gap-3 rounded-xl bg-white p-2 sm:flex-row">
-          <label htmlFor="buscar-portada" className="sr-only">Busca un proveedor, RUC o qué se compró</label>
-          <input id="buscar-portada" name="texto" type="search" maxLength={120} placeholder="Busca un proveedor, RUC o qué se compró" className="min-w-0 flex-1 rounded-lg px-4 py-3 text-base text-gray-900 placeholder:text-gray-500" />
-          <button className="rounded-lg bg-emerald-800 px-6 py-3 font-semibold text-white hover:bg-emerald-700">Buscar órdenes</button>
+  const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
+  return <div className="flex flex-col gap-7 sm:gap-9">
+    <section className="grid items-center gap-7 lg:grid-cols-[1.15fr_1fr]" aria-labelledby="titulo-portada">
+      <div>
+        <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · San Ramón</p>
+        <h1 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h1>
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {config.municipio.replace(/^Municipalidad /, 'municipalidad ')}.</p>
+        <form action="/ordenes" method="get" role="search" className="mt-6 flex flex-col gap-2 rounded-xl border border-border bg-card p-2 shadow-sm sm:flex-row">
+          <div className="flex min-w-0 flex-1 items-center gap-2 pl-2"><Search size={18} className="shrink-0 text-muted-foreground" aria-hidden="true" /><label htmlFor="buscar-portada" className="sr-only">Busca un proveedor, RUC o qué se compró</label><input id="buscar-portada" name="texto" type="search" maxLength={120} placeholder="Busca un proveedor, RUC o qué se compró" className="min-w-0 w-full rounded-lg px-1 py-3 text-sm placeholder:text-muted-foreground" /></div>
+          <button className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-emerald-800">Buscar</button>
         </form>
-        <div className="mt-4 flex flex-wrap gap-3 text-xs text-emerald-100"><span>Prueba con:</span>{['combustible', 'limpieza', 'publicidad'].map(texto => <Link key={texto} href={`/ordenes?texto=${texto}`} className="underline underline-offset-4">{texto}</Link>)}</div>
-      </section>
-
-      <p className="rounded border p-4 text-sm">
-        Las cifras corresponden a órdenes en libros vigentes disponibles; no son pagos realizados ni
-        el presupuesto municipal completo.{' '}
-        <Link href="/fuentes" className="underline">
-          Consultar fuentes, actualización y cobertura
-        </Link>
-        .{' '}
-        {pendientes > 0
-          ? `${pendientes} versiones antiguas requieren revisión y están excluidas de los totales; su ausencia no significa gasto cero.`
-          : ''}
-      </p>
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground"><p>Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Todavía no hay libros publicados'}</p><Link href="/fuentes" className="font-medium text-primary underline underline-offset-4">Ver periodos disponibles y cobertura</Link></div>
-      <TarjetasResumen resumen={resumen} />
-
-      <Seccion
-        titulo="Proveedores con mayor monto"
-        descripcion="Ordenados por monto considerado, con su peso sobre el total."
-      >
-        <RankingProveedores ranking={datos.ranking} totalProveedores={resumen.proveedores} />
-      </Seccion>
-
-      {evolucionDegenerada ? (
-        <Seccion
-          titulo="Evolución del monto de órdenes"
-          descripcion="Comparación entre meses y entre años."
-        >
-          <Aviso tono="info" titulo="Todavía no hay evolución que mostrar">
-            Con un único periodo cargado ({resumen.primerPeriodo}) no hay tendencia que comparar: un
-            gráfico de un solo punto parece un error. Estas dos vistas se completarán solas al
-            importar los siguientes libros mensuales.
-          </Aviso>
-        </Seccion>
-      ) : (
-        <Seccion
-          titulo="Evolución del monto de órdenes"
-          descripcion="Comparación entre meses y entre años."
-        >
-          <div className="grid gap-4 lg:grid-cols-2">
-            <GraficoEvolucion
-              puntos={puntosMensuales}
-              etiquetaSerie="Monto considerado"
-              nombrePeriodo="mes"
-            />
-            <GraficoEvolucion
-              puntos={puntosAnuales}
-              etiquetaSerie="Monto considerado"
-              nombrePeriodo="año"
-            />
-          </div>
-        </Seccion>
-      )}
-
-      <details className="rounded-xl border border-border bg-card p-5"><summary className="cursor-pointer font-semibold">Explorar modalidades y comparaciones por gestión</summary><div className="mt-6 flex flex-col gap-8">
-      <Seccion
-        titulo="Principales tipos de contratación"
-        descripcion="Modalidad declarada en el libro, ordenada por monto considerado."
-      >
-        <GraficoBarras barras={barrasContratacion} etiquetaSerie="Monto considerado" />
-        <p className="text-xs text-muted-foreground">
-          Los importes del gráfico son los <strong>considerados</strong>: excluyen anuladas y
-          estados fuera del análisis. No acreditan pagos.
-        </p>
-      </Seccion>
-
-      <div className="grid gap-10 lg:grid-cols-2">
-        <Seccion
-          titulo="Gasto por gestión"
-          descripcion="Periodos de gobierno definidos en el sistema."
-        >
-          <GraficoBarras barras={barrasGestion} etiquetaSerie="Monto considerado" />
-        </Seccion>
-
-        <Seccion
-          titulo="Órdenes de compra y de servicio"
-          descripcion="Reparto por tipo de orden, sobre el monto considerado."
-        >
-          <GraficoBarras barras={barrasTipoOrden} etiquetaSerie="Monto considerado" />
-        </Seccion>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={`/ordenes?texto=${texto.toLowerCase()}`} className="rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
+      <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
+        {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src="/identidad/escudo-san-ramon.webp" alt="Escudo de San Ramón" width={132} height={136} className="relative mx-auto my-4 h-36 w-auto object-contain" /></>}
+        <div className={`relative mt-auto rounded-xl p-4 ${config.fotoPortada ? 'bg-emerald-950/85' : 'border border-white/15 bg-white/5'}`}><p className="flex items-center gap-2 text-sm font-semibold"><MapPin size={16} className="shrink-0 text-amber-300" aria-hidden="true" />San Ramón, Chanchamayo</p><p className="mt-1 text-xs text-emerald-100">{config.fotoPortada ? config.creditoFoto : 'Municipalidad consultada · Portal ciudadano independiente'}</p></div>
+      </div>
+    </section>
 
-      </div></details>
-
-      <Seccion
-        titulo="Últimos registros"
-        descripcion="Las órdenes más recientes incorporadas al portal."
-        accion={
-          <Link
-            href="/metodologia"
-            className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-          >
-            Cómo se obtienen los datos
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
-        }
-      >
-        <UltimosRegistros registros={datos.ultimos} />
-      </Seccion>
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card px-5 py-4 text-xs">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2"><p className="flex items-center gap-2"><CalendarDays size={15} className="text-primary" aria-hidden="true" /><strong>Libros disponibles:</strong> {periodo}</p><p className="flex items-center gap-2"><Database size={15} className="text-primary" aria-hidden="true" />{resumen.mesesCargados} meses con libros vigentes</p></div>
+      <div><p className="text-[10px] text-muted-foreground">Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Sin datos publicados'}</p><Link href="/fuentes" className={enlaceSeccion}>Ver fuentes y cobertura <ArrowRight size={13} aria-hidden="true" /></Link></div>
     </div>
-  );
+    {pendientes > 0 ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-950">{pendientes} versiones antiguas requieren revisión y están excluidas de los totales. La ausencia de información no significa gasto cero. <Link href="/fuentes" className="font-semibold underline">Consultar los periodos pendientes</Link>.</p> : null}
+    <ResumenPortada resumen={resumen} />
+
+    <div className="grid items-start gap-5 lg:grid-cols-2">
+      <div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div>
+      <div className="panel-portada"><Seccion titulo="Ranking de proveedores" descripcion="Por monto considerado · todos los periodos disponibles." accion={<Link href="/ranking" className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><RankingProveedores ranking={datos.ranking.slice(0, 5)} totalProveedores={resumen.proveedores} /></Seccion></div>
+    </div>
+
+    <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">
+      <div className="flex items-start gap-3"><TriangleAlert className="mt-1 shrink-0 text-amber-700" size={22} aria-hidden="true" /><div><h2 id="titulo-revision" className="titulo-editorial text-2xl font-bold">Órdenes para revisar</h2><p className="mt-1 text-xs text-amber-950/80">Comienza por consultar el detalle y contrastar el documento de origen.</p></div></div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2"><Link href="/ordenes?orden=monto&direccion=desc" className="rounded-xl border border-amber-200 bg-white p-5 transition-colors hover:border-amber-500"><FileSearch size={21} className="mb-3 text-primary" aria-hidden="true" /><h3 className="text-sm font-semibold">Explora las órdenes de mayor monto</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Consulta qué se contrató, quién es el proveedor y cuál es la fuente. Un monto alto no demuestra una irregularidad.</p><span className={`${enlaceSeccion} mt-3`}>Consultar órdenes <ArrowRight size={13} aria-hidden="true" /></span></Link><div className="rounded-xl border border-amber-200 bg-white p-5"><ShieldCheck size={21} className="mb-3 text-amber-700" aria-hidden="true" /><h3 className="text-sm font-semibold">Sobrevaloración: sin evaluación disponible</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Los libros actuales registran montos de órdenes. No hay precios unitarios ni referencias de mercado suficientes para publicar alertas de sobrevaloración.</p><Link href="/metodologia" className={`${enlaceSeccion} mt-3`}>Conoce la metodología <ArrowRight size={13} aria-hidden="true" /></Link></div></div>
+    </section>
+
+    <div className="panel-portada"><Seccion titulo="Últimas órdenes registradas" descripcion="Órdenes con fecha de emisión más reciente en los libros vigentes." accion={<Link href="/ordenes" className={enlaceSeccion}>Ver todas las órdenes <ArrowRight size={13} aria-hidden="true" /></Link>}><UltimosRegistros registros={datos.ultimos} /></Seccion></div>
+
+    <section className="panel-portada" aria-labelledby="titulo-fuentes"><div className="mb-5 flex items-center gap-3"><BookOpen size={24} className="text-primary" aria-hidden="true" /><div><h2 id="titulo-fuentes" className="titulo-editorial text-2xl font-bold">Comprueba cada cifra</h2><p className="mt-1 text-xs text-muted-foreground">Información pública con procedencia y límites visibles.</p></div></div><div className="grid gap-3 sm:grid-cols-3">{[{ titulo: 'Libros originales', texto: 'Consulta los archivos, versiones y referencias que respaldan las órdenes.', href: '/fuentes', icono: BookOpen }, { titulo: 'Cobertura mensual', texto: 'Distingue libros completos, parciales y periodos sin información.', href: '/fuentes', icono: CalendarDays }, { titulo: 'Metodología', texto: 'Conoce qué sumamos, qué excluimos y cómo verificar la evidencia.', href: '/metodologia', icono: ShieldCheck }].map(({ titulo, texto, href, icono: Icono }) => <Link key={titulo} href={href} className="flex items-start gap-3 rounded-xl border border-border p-4 hover:border-primary"><span className="rounded-lg bg-muted p-2 text-primary"><Icono size={20} aria-hidden="true" /></span><span><span className="block text-sm font-semibold">{titulo}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{texto}</span></span></Link>)}</div></section>
+
+    <details className="rounded-xl border border-border bg-card p-5"><summary className="cursor-pointer text-sm font-semibold">Más análisis: modalidades, gestiones y tipos de orden</summary><div className="mt-6 grid gap-8 lg:grid-cols-2"><Seccion titulo="Tipos de contratación"><GraficoBarras barras={datos.contrataciones.map(f => ({ etiqueta: f.etiqueta, valor: Number(f.considerado), exacto: f.considerado, detalle: `${f.ordenes} órdenes` }))} etiquetaSerie="Monto considerado" /></Seccion><Seccion titulo="Montos por gestión"><GraficoBarras barras={datos.gestiones.map(f => ({ etiqueta: f.gestion, valor: Number(f.considerado), exacto: f.considerado, detalle: `${f.ordenes} órdenes`, atenuada: f.ordenes === 0 }))} etiquetaSerie="Monto considerado" /></Seccion><Seccion titulo="Compras y servicios"><GraficoBarras barras={datos.tiposOrden.map(f => ({ etiqueta: f.etiqueta, valor: Number(f.considerado), exacto: f.considerado, detalle: `${f.ordenes} órdenes` }))} etiquetaSerie="Monto considerado" /></Seccion><p className="text-xs leading-relaxed text-muted-foreground">Estas cifras no acreditan pagos. Consulta la cobertura de meses y tipos de libro antes de comparar gestiones: la falta de información nunca representa gasto cero.</p></div></details>
+  </div>;
 }

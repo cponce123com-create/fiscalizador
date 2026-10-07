@@ -1,86 +1,14 @@
+import Link from 'next/link';
+import { ArrowUpRight } from 'lucide-react';
 import { Insignia } from '@/components/ui/data';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 import type { FilaUltimoRegistro } from '@/services/statisticsService';
 
-/**
- * Últimos registros importados.
- *
- * La orden anulada se marca de forma explícita y con la palabra «no suma», no
- * solo con color. En un portal de transparencia, que una cifra aparezca en una
- * tabla y no en un total es justo lo que hay que explicar.
- */
 export function UltimosRegistros({ registros }: { registros: FilaUltimoRegistro[] }) {
-  if (registros.length === 0) {
-    return (
-      <p className="rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
-        Todavía no hay órdenes importadas.
-      </p>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/60">
-          <tr>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Emisión
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Nº orden
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Proveedor
-            </th>
-            <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Estado
-            </th>
-            <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Monto
-            </th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {registros.map((registro) => (
-            <tr key={registro.id} className="border-t border-border">
-              <td className="tabular whitespace-nowrap px-3 py-2.5">
-                {formatearFecha(registro.issueDate)}
-              </td>
-
-              <td className="px-3 py-2.5">
-                <span className="font-medium">{registro.orderNumber}</span>
-                {registro.tipo ? (
-                  <span className="ml-2 text-xs text-muted-foreground">{registro.tipo}</span>
-                ) : null}
-              </td>
-
-              <td className="max-w-[16rem] truncate px-3 py-2.5" title={registro.proveedor}>
-                {registro.proveedor}
-                <span className="tabular block text-xs text-muted-foreground">{registro.ruc}</span>
-              </td>
-
-              <td className="px-3 py-2.5">
-                {registro.isCancelled ? (
-                  <Insignia tono="error">{registro.estado ?? 'Anulada'} · no suma</Insignia>
-                ) : (
-                  <Insignia tono="exito">{registro.estado ?? '—'}</Insignia>
-                )}
-              </td>
-
-              <td
-                className={
-                  registro.isCancelled
-                    ? 'tabular whitespace-nowrap px-3 py-2.5 text-right text-muted-foreground line-through'
-                    : 'tabular whitespace-nowrap px-3 py-2.5 text-right font-medium'
-                }
-              >
-                {formatearMonto(registro.amount)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+  if (!registros.length) return <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Todavía no hay órdenes importadas.</p>;
+  const estado = (r: FilaUltimoRegistro) => r.isCancelled ? <Insignia tono="error">{r.estado ?? 'Anulada'} · no suma</Insignia> : <Insignia tono="neutro">{r.estado ?? 'Sin estado informado'}</Insignia>;
+  return <>
+    <ul className="divide-y divide-border md:hidden">{registros.map(r => <li key={r.id} className="py-4 first:pt-0"><div className="flex items-start justify-between gap-3"><Link href={`/ordenes/${r.id}`} className="text-sm font-semibold text-primary hover:underline">{r.descripcion || `Orden ${r.orderNumber}`}</Link><p className={`tabular shrink-0 text-sm font-semibold ${r.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(r.amount)}</p></div><p className="mt-2 text-xs text-muted-foreground">{r.proveedor}</p><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-[11px] text-muted-foreground">{formatearFecha(r.issueDate)} · {r.tipo} {r.orderNumber}</span>{estado(r)}</div><Link href={`/ordenes/${r.id}#fuente-orden`} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">Detalle y fuente <ArrowUpRight size={13} aria-hidden="true" /></Link></li>)}</ul>
+    <div className="hidden overflow-x-auto rounded-xl border border-border md:block"><table className="w-full text-sm"><thead className="bg-muted/70"><tr>{['Emisión', 'Orden y concepto', 'Proveedor', 'Monto', 'Estado', 'Evidencia'].map(t => <th key={t} className={`px-3 py-3 text-xs font-semibold ${t === 'Monto' ? 'text-right' : 'text-left'}`}>{t}</th>)}</tr></thead><tbody>{registros.map(r => <tr key={r.id} className="border-t border-border hover:bg-muted/40"><td className="tabular whitespace-nowrap px-3 py-3 text-xs">{formatearFecha(r.issueDate)}</td><td className="max-w-64 px-3 py-3"><Link href={`/ordenes/${r.id}`} className="font-medium text-primary hover:underline">{r.tipo} {r.orderNumber}</Link><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{r.descripcion || 'Concepto no informado'}</p></td><td className="max-w-52 px-3 py-3"><p className="line-clamp-2 text-xs font-medium">{r.proveedor}</p><p className="tabular mt-1 text-[10px] text-muted-foreground">RUC {r.ruc}</p></td><td className={`tabular whitespace-nowrap px-3 py-3 text-right text-xs font-semibold ${r.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(r.amount)}</td><td className="px-3 py-3">{estado(r)}</td><td className="px-3 py-3"><Link href={`/ordenes/${r.id}#fuente-orden`} aria-label={`Consultar detalle y fuente de la orden ${r.orderNumber}`} className="inline-flex items-center gap-1 rounded-lg border border-primary/40 px-3 py-2 text-xs font-semibold text-primary hover:bg-muted">Consultar <ArrowUpRight size={13} aria-hidden="true" /></Link></td></tr>)}</tbody></table></div>
+  </>;
 }
