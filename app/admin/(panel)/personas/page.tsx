@@ -96,7 +96,17 @@ function CamposPersona({
             id={`${idPrefijo}-dni`}
             name="dni"
             inputMode="numeric"
- …82 tokens truncated…     name="fullName"
+            maxLength={8}
+            required
+            defaultValue={persona?.dni}
+            placeholder="41056973"
+          />
+        </GrupoCampo>
+
+        <GrupoCampo etiqueta="Nombre completo" htmlFor={`${idPrefijo}-nombre`} obligatorio>
+          <Campo
+            id={`${idPrefijo}-nombre`}
+            name="fullName"
             required
             maxLength={200}
             defaultValue={persona?.fullName}
