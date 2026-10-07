@@ -28,6 +28,37 @@ El detalle y las pruebas están en [`docs/reconocimiento.md`](docs/reconocimient
 
 ---
 
+## Descargar los Excel originales de un año
+
+La herramienta independiente [`herramientas/descargar_excel_anual.py`](herramientas/descargar_excel_anual.py) abre los doce meses de SEACE, guarda el Excel original y permite reanudar descargas. No usa el resolvedor de CAPTCHA del scraper anterior ni importa datos al portal.
+
+**Windows, Python 3.10 o superior y Chrome instalado:** desde la raíz del repositorio:
+
+```powershell
+py -m pip install playwright==1.63.0
+py scrapers/herramientas/descargar_excel_anual.py --anio 2015
+```
+
+Sin `--anio`, pregunta qué año descargar. El RUC por defecto es `20146657142` y el municipio es San Ramón. En Linux/macOS, usa `python3` en lugar de `py`.
+
+```powershell
+# Usar Edge en lugar de Chrome
+py scrapers/herramientas/descargar_excel_anual.py --anio 2017 --navegador msedge
+# Usar Chromium si no tienes Chrome/Edge
+py -m playwright install chromium
+py scrapers/herramientas/descargar_excel_anual.py --anio 2017 --navegador chromium
+```
+
+Los archivos quedan bajo `descargas-seace/<municipio>-<RUC>/<año>/`, con nombres como `Ordenes-y-servicios-2015-12-Municipalidad-Distrital-de-San-Ramon.xls`. Conserva los bytes del original, registra URL, nombre recibido y SHA-256 en `resumen-descargas.json`, y no sobrescribe archivos existentes. Al repetir el comando, omite únicamente descargas cuyo formato y huella coincidan con el resumen. Un fallo nunca se interpreta automáticamente como «sin registros».
+
+**Estado de verificación:** la navegación real a SEACE estuvo bloqueada en el entorno de desarrollo. El clic automático se intenta únicamente cuando existe un único botón/enlace visible con nombre Excel; ese selector semántico todavía requiere una prueba en tu PC. Si no lo reconoce o aparece CAPTCHA, el script espera tu intervención en el navegador. Después de pulsar Excel, vuelve a la consola y pulsa Enter. `S` declara que tú comprobaste que el mes no tiene registros; `P` lo deja pendiente y `Q` termina. Los meses sin registros se vuelven a revisar si repites la ejecución.
+
+`--manual` fuerza el clic manual. `--selector-excel 'selector CSS real'` permite fijar el botón una vez inspeccionado desde tu navegador. No se utilizan técnicas para ocultar la automatización, resolver CAPTCHA ni evadir bloqueos. Si SEACE responde un error HTTP, se registra el mes como fallido.
+
+Código de salida: `0` cuando los doce meses están descargados o declarados sin registros por ti; `2` si quedan meses pendientes; `1` si no pudo iniciarse. **No se ha verificado la descarga de doce meses reales**; las pruebas locales cubren generación de URLs, nombres, detección de formatos, integridad, reanudación y conservación de archivos.
+
+---
+
 ## Arquitectura
 
 ```
