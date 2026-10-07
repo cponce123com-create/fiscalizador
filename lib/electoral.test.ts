@@ -28,4 +28,13 @@ describe('antecedentes electorales y publicación documentada', () => {
     expect(esquemaCargaElectoral.safeParse({ version: 1, documentSha256: 'a'.repeat(64), records: [fila, fila] }).success).toBe(false);
   });
 
+  it('admite candidaturas sin documento solamente con clave estable versión 2 y exige fuente provisional', () => {
+    const fila = { ...registro, result: 'POR_VERIFICAR', fullName: 'Nombre de prueba', dni: '', sourceRowKey: 'b'.repeat(64), preliminaryOutcome: 'POSIBLE_ELECTO', preliminarySource: 'Proyección del administrador, pendiente acta oficial.' };
+    const carga = { version: 2, documentSha256: 'a'.repeat(64), records: [fila] };
+    expect(esquemaCargaElectoral.parse(carga).records[0].result).toBe('POR_VERIFICAR');
+    expect(esquemaCargaElectoral.safeParse({ ...carga, version: 1 }).success).toBe(false);
+    expect(esquemaCargaElectoral.safeParse({ ...carga, records: [{ ...fila, sourceRowKey: undefined }] }).success).toBe(false);
+    expect(esquemaCargaElectoral.safeParse({ ...carga, records: [{ ...fila, preliminarySource: '' }] }).success).toBe(false);
+  });
+
 });

@@ -624,3 +624,10 @@ La migración agrega tablas electorales y campos de publicación sin eliminar da
 ### Cargar un acta electoral revisada
 
 En Administrador → Registro electoral → Importar acta preparada se carga un JSON versión 1 con huella SHA-256 del documento y hasta 200 filas. La carga es atómica, audita solo la huella y los conteos y conserva los registros existentes. El DNI solo se almacena para el cruce interno, no en el repositorio. Las candidaturas improcedentes mantienen su estado. No se ejecuta una carga en producción desde las pruebas ni se incluyen identificadores personales en fixtures públicas.
+
+
+### Candidaturas previas a la proclamación
+
+La carga versión 2 admite DNI vacío si incluye `sourceRowKey` (SHA-256 estable de la fila de origen). Conserva fichas independientes sin vincularlas por nombre ni deducir documentos del nombre de una foto. Reimportar el mismo archivo conserva los perfiles y no duplica antecedentes. El cruce con proveedores requiere completar y verificar el DNI.
+
+Los antecedentes admiten orden en la lista y estado de inscripción. `preliminaryOutcome: POSIBLE_ELECTO` exige `preliminarySource`; se presenta separado del resultado `POR_VERIFICAR`, con aviso de ausencia de proclamación acreditada. Después del acta se edita el resultado oficial en el administrador. La huella de una transcripción identifica esa carga, no un acta oficial. Las fotos externas no se importan ni se usan para verificar identidad.

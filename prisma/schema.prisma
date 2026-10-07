@@ -784,6 +784,10 @@ model ElectoralRecord {
   termStart    Int
   termEnd      Int
   result       String
+  listPosition Int?
+  registrationStatus String?
+  preliminaryOutcome String?
+  preliminarySource String?
   source       String
   sourceUrl    String
   isPublic     Boolean @default(false)
