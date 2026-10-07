@@ -49,6 +49,7 @@ const ENLACES: readonly Enlace[] = [
     permiso: 'imports:write',
   },
   { href: '/admin/ordenes', etiqueta: 'Órdenes', icono: ListOrdered, permiso: 'orders:read' },
+  { href: '/admin/proveedores', etiqueta: 'Perfiles de proveedores', icono: Users, permiso: 'persons:read' },
   { href: '/admin/personas', etiqueta: 'Personas', icono: Users, permiso: 'persons:read' },
   { href: '/admin/etiquetas', etiqueta: 'Etiquetas', icono: Tags, permiso: 'persons:read' },
 ];

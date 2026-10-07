@@ -1,3 +1,4 @@
+import { procesoCaducado, PROCESO_CADUCADO_MS } from '@/lib/import-process';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { Prisma } from '@/lib/generated/prisma/client';
@@ -134,15 +135,7 @@ const LIMITE_FILAS_CON_HALLAZGOS = 500;
  * de sobra y permite recuperar el trabajo de un proceso que murió a mitad (un
  * reinicio del servicio, por ejemplo) en lugar de dejarlo atascado para siempre.
  */
-export const PROCESO_CADUCADO_MS = 10 * 60 * 1000;
-
-/** ¿El lote lleva demasiado tiempo procesándose y puede darse por perdido? */
-function procesoCaducado(iniciadoEn: Date | null, ahora: Date): boolean {
-  // Sin fecha no hay forma de saber si sigue vivo, y bloquearlo para siempre sería
-  // peor: se trata como caducado.
-  if (!iniciadoEn) return true;
-  return ahora.getTime() - iniciadoEn.getTime() > PROCESO_CADUCADO_MS;
-}
+export { PROCESO_CADUCADO_MS } from '@/lib/import-process';
 
 /**
  * Toma el lote para procesarlo con una transición atómica.
@@ -1142,7 +1135,7 @@ export async function eliminarImportacion(
       let huerfanos: string[] = [];
 
       if (borrarProveedoresHuerfanos && proveedoresDelLote.length > 0) {
-        const [conOrdenes, conVinculos, conFotos] = await Promise.all([
+        const [conOrdenes, conVinculos, conFotos, conPerfil] = await Promise.all([
           tx.order.groupBy({
             by: ['supplierId'],
             where: { supplierId: { in: proveedoresDelLote } },
@@ -1158,12 +1151,14 @@ export async function eliminarImportacion(
             where: { supplierId: { in: proveedoresDelLote } },
             _count: { _all: true },
           }),
+          tx.supplierProfile.findMany({ where: { supplierId: { in: proveedoresDelLote } }, select: { supplierId: true } }),
         ]);
 
         const vivos = new Set<string>([
           ...conOrdenes.map((fila) => fila.supplierId),
           ...conVinculos.map((fila) => fila.supplierId),
           ...conFotos.map((fila) => fila.supplierId),
+          ...conPerfil.map((fila) => fila.supplierId),
         ]);
 
         huerfanos = proveedoresDelLote.filter((id) => !vivos.has(id));

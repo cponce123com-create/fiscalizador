@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { FileSpreadsheet, Info } from 'lucide-react';
 import Link from 'next/link';
 
-import { accionEliminarImportacion, accionPublicarOriginal } from '@/app/admin/importaciones/actions';
+import { accionEliminarImportacion, accionPublicarOriginal, accionEliminarTodasImportaciones } from '@/app/admin/importaciones/actions';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
 import { Aviso, EstadoVacio, Insignia, Tabla, TablaCelda, TablaCeldaEncabezado, TablaCuerpo, TablaEncabezado, TablaFila } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
@@ -13,6 +13,7 @@ import { usuarioActual } from '@/lib/auth/session';
 import { tituloLibro } from '@/lib/book-download';
 import { leerConfiguracionPortal } from '@/services/portalService';
 import { claveOriginal, esOriginalPublicado } from '@/services/bookPublicationService';
+import { CONFIRMACION_BORRADO_MASIVO, resumenBorradoImportaciones } from '@/services/bulkImportDeletionService';
 import { prisma } from '@/lib/prisma';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,
@@ -89,6 +90,7 @@ export default async function PaginaImportaciones({
     prisma.appSetting.findMany({ where: { key: { in: lotes.map(l => claveOriginal(l.id)) } } }),
   ]);
   const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));
+  const borrado = puedeEscribir ? await resumenBorradoImportaciones() : null;
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   return (
@@ -106,8 +108,19 @@ export default async function PaginaImportaciones({
           Se borran sus órdenes, sus columnas, sus hallazgos y el archivo original, y se rehacen los
           resúmenes de los proveedores que tocaba, para que el portal no siga sumando órdenes que ya no
           existen. Los proveedores que se queden sin ninguna orden se borran también, salvo que tengan
-          órdenes en otra importación, un vínculo declarado o una fotografía. No se puede deshacer.
+          órdenes en otra importación, un vínculo declarado, una fotografía o un perfil privado. No se puede deshacer.
         </Aviso>
+      ) : null}
+
+      {borrado && borrado.lotes > 0 ? (
+        <details className="rounded-lg border border-destructive/40 bg-card p-4">
+          <summary className="cursor-pointer font-medium text-destructive">Eliminar todas las importaciones</summary>
+          <p className="my-3 text-sm">Se eliminarán {borrado.lotes} libros de todos los periodos, sus {borrado.ordenes} órdenes, columnas, hallazgos, resúmenes y archivos originales. Se conservan los proveedores y sus perfiles, fotos y vínculos. No se puede deshacer.</p>
+          <FormularioAccion key={borrado.huella} accion={accionEliminarTodasImportaciones} etiqueta="Eliminar todas las importaciones" variante="destructive" confirmar={`¿Eliminar definitivamente ${borrado.lotes} importaciones y ${borrado.ordenes} órdenes?`}>
+            <input type="hidden" name="huella" value={borrado.huella} />
+            <label className="flex max-w-xl flex-col gap-2 text-sm">Para confirmar, escribe {CONFIRMACION_BORRADO_MASIVO}<input required name="confirmacion" autoComplete="off" className="h-10 rounded-md border border-input bg-background px-3" /></label>
+          </FormularioAccion>
+        </details>
       ) : null}
 
       {lotes.length === 0 ? (

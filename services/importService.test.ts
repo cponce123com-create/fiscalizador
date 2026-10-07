@@ -409,10 +409,12 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
    */
   const RUC = '20888888888';
   const RUC_HUERFANO = '20999999991';
+  const RUC_PERFIL = '20889999992';
   const NOMBRE_A = 'libro-eliminar-a-2023-07.xlsx';
   const NOMBRE_B = 'libro-eliminar-b-2023-08.xlsx';
   const NOMBRE_C = 'libro-eliminar-c-2023-09.xlsx';
   const NOMBRE_D = 'libro-eliminar-d-2023-10.xlsx';
+  const NOMBRE_PERFIL = 'libro-eliminar-perfil-2023-11.xlsx';
 
   const lotes: string[] = [];
   const claves: string[] = [];
@@ -451,9 +453,9 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
 
   afterAll(async () => {
     await prisma.importBatch.deleteMany({
-      where: { originalFilename: { in: [NOMBRE_A, NOMBRE_B, NOMBRE_C, NOMBRE_D] } },
+      where: { originalFilename: { in: [NOMBRE_A, NOMBRE_B, NOMBRE_C, NOMBRE_D, NOMBRE_PERFIL] } },
     });
-    await prisma.supplier.deleteMany({ where: { ruc: { in: [RUC, RUC_HUERFANO] } } });
+    await prisma.supplier.deleteMany({ where: { ruc: { in: [RUC, RUC_HUERFANO, RUC_PERFIL] } } });
     await prisma.auditLog.deleteMany({ where: { entityId: { in: lotes } } });
 
     for (const clave of claves) {
@@ -544,6 +546,17 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
     expect(
       await prisma.supplierManagementSummary.count({ where: { supplierId: proveedor!.id } }),
     ).toBe(0);
+  });
+
+  it('conserva la ficha privada y sus vínculos aunque ya no queden órdenes', async () => {
+    const lote = await importar(NOMBRE_PERFIL, 11, [fila(1, '2023-11-05 00:00:00.0', 'EP-1', RUC_PERFIL, 'PRUEBA PERFIL PRIVADO')]);
+    const proveedor = await prisma.supplier.findUniqueOrThrow({ where: { ruc: RUC_PERFIL } });
+    const perfil = await prisma.supplierProfile.create({ data: { supplierId: proveedor.id, birthplace: 'Lugar de prueba', contacts: { create: { dni: '00123456', fullName: 'Contacto de prueba', relationship: 'Familiar' } } } });
+    const resultado = await svc.eliminarImportacion({ importBatchId: lote, userId: null });
+    expect(resultado.proveedoresEliminados).toBe(0);
+    expect(await prisma.supplierProfile.findUnique({ where: { id: perfil.id } })).not.toBeNull();
+    expect(await prisma.supplierProfileContact.count({ where: { profileId: perfil.id } })).toBe(1);
+    expect(await prisma.order.count({ where: { supplierId: proveedor.id } })).toBe(0);
   });
 
   it('borra los proveedores que se quedan sin ninguna orden', async () => {

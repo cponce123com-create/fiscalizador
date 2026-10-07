@@ -416,6 +416,7 @@ model Supplier {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  profile   SupplierProfile?
   orders    Order[]
   aliases   SupplierAlias[]
   photos    SupplierPhoto[]
@@ -719,4 +720,35 @@ model LoginAttempt {
 
   @@unique([scope, key])
   @@index([blockedUntil])
+}
+
+/// Ficha privada del administrador. Nunca se incluye en consultas públicas.
+model SupplierProfile {
+  id             String @id @default(cuid())
+  supplierId     String @unique
+  birthplace     String?
+  currentAddress String?
+  notes          String?
+  photoKey       String?
+  photoMime      String?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  supplier       Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  contacts       SupplierProfileContact[]
+}
+
+/// Vínculos privados declarados manualmente, independientes de las personas públicas.
+model SupplierProfileContact {
+  id           String @id @default(cuid())
+  profileId    String
+  dni          String
+  fullName     String
+  relationship String
+  source       String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  profile      SupplierProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  @@unique([profileId, dni])
 }

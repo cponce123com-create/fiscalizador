@@ -66,7 +66,7 @@ import { formatearCentavos, MESES } from '@/lib/utils';
  * confirma por su cuenta, y lo que falla se queda marcado en su fila.
  */
 
-const MAX_ARCHIVOS = 20;
+const MAX_ARCHIVOS = 50;
 const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
 const EXTENSIONES = ['.xls', '.xlsx', '.csv'];
 /** Cuántas lecturas de periodo se piden a la vez al soltar los archivos. */

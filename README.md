@@ -552,3 +552,36 @@ completada. No exige una segunda aprobación ni interpreta la falta de una decla
 de integridad como ausencia del libro. Un libro importado no garantiza que el mes
 contenga todas sus órdenes. Las decisiones sobre duplicados y observaciones se toman
 en la importación; esta vista no cambia el cálculo de totales ni activa versiones.
+
+### Administración: carga masiva y perfiles privados
+
+La carga por lotes admite **50 archivos**, de hasta 25 MB cada uno, conservando la
+concurrencia limitada y la revisión de duplicados/observaciones de cada libro.
+
+En **Importaciones → Eliminar todas las importaciones**, un ADMIN o SUPERADMIN
+puede retirar todos los libros y sus órdenes, hallazgos, columnas, resúmenes y
+originales. Se exige la frase `ELIMINAR TODAS LAS IMPORTACIONES` y una confirmación
+final. El servidor comprueba que el inventario no cambió y bloquea el borrado si hay
+procesos activos; los procesos caducados siguen la política compartida de 10 minutos.
+La eliminación de datos es transaccional y queda auditada. Los archivos se retiran
+tras confirmar la transacción; los fallos de limpieza se informan. Los proveedores,
+fichas privadas, fotos, personas y vínculos se conservan. No se ejecuta ningún borrado
+al desplegar este cambio.
+
+En **Perfiles de proveedores** se busca en vivo desde tres caracteres por nombre,
+RUC o DNI. Cada proveedor existente tiene una ficha editable; no se duplican sus
+identificadores. Un RUC 10 de 11 dígitos permite mostrar sus ocho dígitos centrales
+como DNI (`10 + DNI + verificador`); un RUC 20 no genera un DNI personal.
+
+Las fichas permiten registrar lugar de nacimiento/origen, dirección actual, notas,
+foto y hasta **10 personas vinculadas**, con DNI, nombre, tipo de relación y fuente
+opcional. No se deduce un parentesco a partir de un DNI. Se guardan en tablas privadas
+separadas de las personas publicadas. Lectura: `persons:read`; edición: `persons:write`.
+Las modificaciones de datos/fotos se auditan y las ediciones obsoletas se rechazan.
+Los perfiles también se conservan al borrar individualmente la última importación.
+
+Las fotos JPEG/PNG/WebP, de hasta 2 MB y 16 millones de píxeles, se decodifican,
+orientan y convierten a WebP de hasta 1200 px, sin metadatos EXIF. Se guardan bajo
+`STORAGE_LOCAL_DIR/private-profiles`, y solo se sirven mediante una API autenticada
+con caché privada desactivada. Necesitan el mismo disco persistente que los libros.
+La migración `20261007142500_supplier_private_profiles` crea las fichas y sus contactos.
