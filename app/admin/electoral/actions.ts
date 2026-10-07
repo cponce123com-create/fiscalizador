@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { requierePermiso } from '@/lib/auth/session';
 import { mensajeDeErrorDeAccion } from '@/lib/api/responses';
 import type { EstadoFormulario } from '@/components/admin/formulario-accion';
-import { guardarPersonaElectoral, guardarRegistroElectoral, eliminarRegistroElectoral, importarAntecedentesElectorales } from '@/services/electoralService';
+import { guardarPersonaElectoral, guardarRegistroElectoral, eliminarRegistroElectoral, importarAntecedentesElectorales, unirPersonasElectorales } from '@/services/electoralService';
 import { esquemaPersonaElectoral, esquemaRegistroElectoral } from '@/lib/electoral';
 
 function refrescar() { revalidatePath('/admin/electoral'); revalidatePath('/electoral', 'layout'); revalidatePath('/proveedores', 'layout'); }
@@ -44,5 +44,16 @@ export async function accionImportarElectoral(_estado: EstadoFormulario, form: F
     const resultado = await importarAntecedentesElectorales(datos, form.has('publicar'), user.id);
     refrescar();
     return { error: null, ok: `${resultado.procesados} antecedentes procesados: ${resultado.nuevos} nuevos y ${resultado.existentes} ya registrados. No se duplicaron ni sustituyeron registros.` };
+  } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }
+}
+
+export async function accionUnirPersonasElectorales(_estado: EstadoFormulario, form: FormData): Promise<EstadoFormulario> {
+  try {
+    const user = await requierePermiso('persons:write');
+    const origen = form.get('origenId'); const destino = form.get('destinoId');
+    if (typeof origen !== 'string' || typeof destino !== 'string') return { error: 'Selecciona las fichas que deseas unir.', ok: null };
+    await unirPersonasElectorales(origen, destino, user.id);
+    refrescar();
+    return { error: null, ok: 'Fichas unificadas. Los periodos y resultados están reunidos en el perfil conservado.' };
   } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }
 }

@@ -767,6 +767,7 @@ model ElectoralPerson {
   isPublic    Boolean @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  aliases     ElectoralPersonAlias[]
   records     ElectoralRecord[]
   @@index([fullName])
   @@index([isPublic])
@@ -797,4 +798,12 @@ model ElectoralRecord {
   @@unique([personId, electionYear, position, municipality])
   @@index([electionYear])
   @@index([isPublic])
+}
+
+/// Enlaces antiguos e identidades de importación confirmadas por el administrador.
+model ElectoralPersonAlias {
+  id String @id
+  personId String
+  person ElectoralPerson @relation(fields: [personId], references: [id], onDelete: Cascade)
+  @@index([personId])
 }

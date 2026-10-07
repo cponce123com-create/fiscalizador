@@ -1,7 +1,7 @@
 import { ErrorDeNegocio } from '@/lib/errors';
 import { prisma } from '@/lib/prisma';
 import { registrarAuditoria } from './auditService';
-import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral } from '@/lib/electoral';
+import { esquemaPersonaElectoral, esquemaRegistroElectoral, esquemaCargaElectoral, normalizarNombreElectoral } from '@/lib/electoral';
 import { dniDesdeRuc, fuentePublica } from '@/lib/supplier-profile';
 import type { z } from 'zod';
 
@@ -44,12 +44,13 @@ export async function informacionDocumentadaProveedor(supplierId: string) {
 /** Carga revisada y atómica; los identificadores nunca se registran en auditoría. */
 export async function importarAntecedentesElectorales(entrada: unknown, publicar: boolean, userId: string) {
   const payload = esquemaCargaElectoral.parse(entrada);
-  const nombre = (v: string) => v.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const nombre = normalizarNombreElectoral;
   return prisma.$transaction(async tx => {
     let nuevos = 0;
     for (const [indice, fila] of payload.records.entries()) {
       const { dni, fullName, sourceRowKey, ...datos } = fila;
-      const persona = await tx.electoralPerson.upsert({ where: dni ? { dni } : { id: `pre-${sourceRowKey?.slice(0, 40)}` }, update: {}, create: { ...(dni ? { dni } : { id: `pre-${sourceRowKey?.slice(0, 40)}`, dni: null }), fullName, isPublic: publicar }, select: { id: true, fullName: true } });
+      const alias = !dni ? await tx.electoralPersonAlias.findUnique({ where: { id: `pre-${sourceRowKey?.slice(0, 40)}` } }) : null;
+      const persona = await tx.electoralPerson.upsert({ where: dni ? { dni } : { id: alias?.personId ?? `pre-${sourceRowKey?.slice(0, 40)}` }, update: {}, create: { ...(dni ? { dni } : { id: `pre-${sourceRowKey?.slice(0, 40)}`, dni: null }), fullName, isPublic: publicar }, select: { id: true, fullName: true } });
       if (nombre(persona.fullName) !== nombre(fullName)) throw new ErrorDeNegocio(`La fila ${indice + 1} coincide por documento con una ficha de otro nombre. Revisa la identidad antes de importar.`);
       const where = { personId_electionYear_position_municipality: { personId: persona.id, electionYear: datos.electionYear, position: datos.position, municipality: datos.municipality } };
       const existente = await tx.electoralRecord.findUnique({ where, select: { id: true } });
@@ -59,5 +60,28 @@ export async function importarAntecedentesElectorales(entrada: unknown, publicar
     }
     await registrarAuditoria(tx, { userId, action: 'IMPORT', entity: 'ElectoralRecord', metadata: { documentSha256: payload.documentSha256, procesados: payload.records.length, nuevos, publicacion: publicar } });
     return { procesados: payload.records.length, nuevos, existentes: payload.records.length - nuevos };
-  }, { timeout: 60000 });
+  }, { timeout: 60000, isolationLevel: 'Serializable' });
+}
+
+/** Une identidades confirmadas sin descartar ni sobrescribir antecedentes. */
+export async function unirPersonasElectorales(origenId: string, destinoId: string, userId: string) {
+  if (!origenId || !destinoId || origenId === destinoId || origenId.length > 64 || destinoId.length > 64) throw new ErrorDeNegocio('Selecciona dos fichas diferentes.');
+  return prisma.$transaction(async tx => {
+    const personas = await tx.electoralPerson.findMany({ where: { id: { in: [origenId, destinoId] } }, include: { records: true } });
+    const origen = personas.find(p => p.id === origenId);
+    const destino = personas.find(p => p.id === destinoId);
+    if (!origen || !destino) throw new ErrorDeNegocio('Una ficha ya fue unificada o no existe. Actualiza el listado.');
+    if (normalizarNombreElectoral(origen.fullName) !== normalizarNombreElectoral(destino.fullName)) throw new ErrorDeNegocio('Los nombres completos no coinciden. Revisa las fichas antes de unirlas.');
+    if (origen.dni && destino.dni && origen.dni !== destino.dni) throw new ErrorDeNegocio('Las fichas tienen documentos distintos. No se pueden unir.');
+    if (origen.records.some(r => destino.records.some(d => d.electionYear === r.electionYear && d.position === r.position && d.municipality === r.municipality))) throw new ErrorDeNegocio('Hay antecedentes de la misma elección y cargo en ambas fichas. Revísalos antes de unir; no se sobrescribirá ninguno.');
+    await tx.electoralRecord.updateMany({ where: { personId: origenId }, data: { personId: destinoId } });
+    await tx.electoralPersonAlias.updateMany({ where: { personId: origenId }, data: { personId: destinoId } });
+    await tx.electoralPersonAlias.create({ data: { id: origenId, personId: destinoId } });
+    // Liberar el documento único antes de trasladarlo al destino.
+    if (origen.dni && !destino.dni) await tx.electoralPerson.update({ where: { id: origenId }, data: { dni: null } });
+    await tx.electoralPerson.update({ where: { id: destinoId }, data: { dni: destino.dni ?? origen.dni, isPublic: destino.isPublic || origen.isPublic } });
+    await tx.electoralPerson.delete({ where: { id: origenId } });
+    await registrarAuditoria(tx, { userId, action: 'UPDATE', entity: 'ElectoralPerson', entityId: destinoId, metadata: { operacion: 'UNIFICAR', origenId, antecedentes: origen.records.length } });
+    return destinoId;
+  }, { isolationLevel: 'Serializable' });
 }

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ persona: vi.fn(), perfil: vi.fn(), transaction: vi.fn(), upsert: vi.fn(), encontrar: vi.fn(), update: vi.fn(), create: vi.fn(), audit: vi.fn() }));
+const mocks = vi.hoisted(() => ({ persona: vi.fn(), perfil: vi.fn(), transaction: vi.fn(), upsert: vi.fn(), encontrar: vi.fn(), update: vi.fn(), create: vi.fn(), audit: vi.fn(), alias: vi.fn(), personas: vi.fn(), mover: vi.fn(), borrar: vi.fn(), crearAlias: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: { electoralPerson: { findFirst: mocks.persona }, supplierProfile: { findUnique: mocks.perfil }, $transaction: mocks.transaction } }));
 vi.mock('./auditService', () => ({ registrarAuditoria: mocks.audit }));
-import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor, guardarPersonaElectoral, guardarRegistroElectoral, importarAntecedentesElectorales } from './electoralService';
+import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor, guardarPersonaElectoral, guardarRegistroElectoral, importarAntecedentesElectorales, unirPersonasElectorales } from './electoralService';
 
 describe('cruce electoral y datos públicos de fiscalización', () => {
-  beforeEach(() => { vi.resetAllMocks(); mocks.transaction.mockImplementation(fn => fn({ electoralPerson: { upsert: mocks.upsert, create: mocks.create, update: mocks.update }, electoralRecord: { findUnique: mocks.encontrar, create: mocks.create, update: mocks.update } })); });
+  beforeEach(() => { vi.resetAllMocks(); mocks.transaction.mockImplementation(fn => fn({ electoralPersonAlias: { findUnique: mocks.alias, updateMany: mocks.mover, create: mocks.crearAlias }, electoralPerson: { findMany: mocks.personas, delete: mocks.borrar, upsert: mocks.upsert, create: mocks.create, update: mocks.update }, electoralRecord: { updateMany: mocks.mover, findUnique: mocks.encontrar, create: mocks.create, update: mocks.update } })); });
   it('busca solo documento exacto y registros publicados; no intenta RUC 20', async () => {
     mocks.persona.mockResolvedValue(null);
     expect(await antecedentesElectoralesProveedor('20123456789')).toBeNull();
@@ -59,8 +59,36 @@ describe('cruce electoral y datos públicos de fiscalización', () => {
     expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'pre-' + 'b'.repeat(40) }, update: {}, create: expect.objectContaining({ dni: null }) }));
     expect(mocks.create.mock.calls[0][0].data.result).toBe('POR_VERIFICAR');
     mocks.create.mockClear(); mocks.encontrar.mockResolvedValue({ id: 'existente' });
+    mocks.alias.mockResolvedValue({ personId: 'perfil-confirmado' });
     expect(await importarAntecedentesElectorales(carga, true, 'admin')).toEqual({ procesados: 1, nuevos: 0, existentes: 1 });
+    expect(mocks.upsert).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: 'perfil-confirmado' } }));
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it('reúne periodos, conserva documentos y mantiene un alias para enlaces y reimportación', async () => {
+    mocks.personas.mockResolvedValue([{ id: 'origen', fullName: 'Nombre de Prueba', dni: null, isPublic: true, records: [{ electionYear: 2026, position: 'ALCALDE', municipality: 'San Ramón' }] }, { id: 'destino', fullName: 'NOMBRE DE PRUEBA', dni: '00123456', isPublic: false, records: [{ electionYear: 2022, position: 'ALCALDE', municipality: 'San Ramón' }] }]);
+    expect(await unirPersonasElectorales('origen', 'destino', 'admin')).toBe('destino');
+    expect(mocks.mover).toHaveBeenCalledWith({ where: { personId: 'origen' }, data: { personId: 'destino' } });
+    expect(mocks.crearAlias).toHaveBeenCalledWith({ data: { id: 'origen', personId: 'destino' } });
+    expect(mocks.update).toHaveBeenCalledWith({ where: { id: 'destino' }, data: { dni: '00123456', isPublic: true } });
+    expect(mocks.borrar).toHaveBeenCalledWith({ where: { id: 'origen' } });
+    expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain('00123456');
+  });
+  it('rechaza documentos contradictorios y antecedentes coincidentes antes de modificar datos', async () => {
+    const origen = { id: 'origen', fullName: 'Nombre de prueba', dni: '00123456', records: [] };
+    const destino = { id: 'destino', fullName: origen.fullName, dni: '00123457', records: [] };
+    mocks.personas.mockResolvedValue([origen, destino]);
+    await expect(unirPersonasElectorales('origen', 'destino', 'admin')).rejects.toThrow('documentos distintos');
+    const registro = { electionYear: 2022, position: 'ALCALDE', municipality: 'San Ramón' };
+    mocks.personas.mockResolvedValue([{ ...origen, dni: null, records: [registro] }, { ...destino, records: [registro] }]);
+    await expect(unirPersonasElectorales('origen', 'destino', 'admin')).rejects.toThrow('misma elección');
+    expect(mocks.mover).not.toHaveBeenCalled(); expect(mocks.borrar).not.toHaveBeenCalled();
+  });
+
+  it('traslada el documento único liberándolo antes de asignarlo al destino', async () => {
+    mocks.personas.mockResolvedValue([{ id: 'origen', fullName: 'Nombre de prueba', dni: '00123456', isPublic: false, records: [] }, { id: 'destino', fullName: 'Nombre de prueba', dni: null, isPublic: false, records: [] }]);
+    await unirPersonasElectorales('origen', 'destino', 'admin');
+    expect(mocks.update.mock.calls.map(c => c[0])).toEqual([{ where: { id: 'origen' }, data: { dni: null } }, { where: { id: 'destino' }, data: { dni: '00123456', isPublic: false } }]);
   });
 
 });

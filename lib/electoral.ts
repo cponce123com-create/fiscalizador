@@ -51,3 +51,15 @@ export const esquemaCargaElectoral = z.object({
   }).refine(v => v.termEnd >= v.termStart && v.termStart >= v.electionYear, 'Periodo no válido.').refine(v => !v.preliminaryOutcome || (v.preliminarySource?.length ?? 0) >= 12, 'La proyección necesita fuente.')).min(1).max(200),
 }).refine(v => new Set(v.records.map(r => `${r.dni || r.sourceRowKey}|${r.electionYear}|${r.position}|${r.municipality}`)).size === v.records.length, 'La carga repite un antecedente.')
 .refine(v => v.records.every(r => v.version === 1 ? /^\d{8}$/.test(r.dni) : Boolean(r.dni || r.sourceRowKey)), 'Las filas sin DNI necesitan una clave estable de origen en formato versión 2.');
+
+export function normalizarNombreElectoral(nombre: string) {
+  return nombre.normalize('NFD').replace(/\p{M}/gu, '').replace(/\s+/g, ' ').trim().toUpperCase();
+}
+export function detectarCoincidenciasElectorales<T extends { id: string; fullName: string; dni: string | null }>(personas: T[]) {
+  const grupos = new Map<string, T[]>();
+  for (const persona of personas) {
+    const clave = normalizarNombreElectoral(persona.fullName);
+    grupos.set(clave, [...(grupos.get(clave) ?? []), persona]);
+  }
+  return [...grupos.values()].filter(g => g.length > 1);
+}
