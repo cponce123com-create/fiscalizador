@@ -49,9 +49,10 @@ export default async function PaginaOrdenes({
 
       <Link className="underline" href={`/api/public/orders/export?${serializarFiltros(filtros)}`}>Descargar todo el resultado filtrado (CSV, hasta 20.000 órdenes)</Link>
       <p className="text-xs text-muted-foreground">Extracto normalizado de versiones vigentes con procedencia y criterio de búsqueda. Las columnas restringidas se omiten; la huella corresponde al original. El monto considerado se reproduce sumando el monto de las filas con considerada=true. Los montos desconocidos quedan vacíos.</p>
+      {filtros.texto && filtros.orden === 'relevancia' ? <p className="text-sm text-muted-foreground">Primero se muestran coincidencias exactas y palabras completas en la descripción; después, coincidencias parciales.</p> : null}
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ordenes" />
 
-      <TablaOrdenes ordenes={resultado.filas} />
+      <TablaOrdenes ordenes={resultado.filas} consulta={filtros.texto ?? undefined} />
 
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ordenes" />
     </div>

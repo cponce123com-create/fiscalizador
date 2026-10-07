@@ -61,7 +61,7 @@ export function NavPrincipal({ permisos }: { permisos: readonly string[] }) {
   const visibles = ENLACES.filter((e) => e.permiso === null || permisos.includes(e.permiso));
 
   return (
-    <nav aria-label="Secciones del panel" className="flex flex-wrap items-center gap-1">
+    <nav aria-label="Secciones del panel" className="flex items-center gap-1 overflow-x-auto pb-1 sm:flex-wrap">
       {visibles.map((enlace) => {
         // "/admin" es prefijo de todas las demás, así que se compara exacto.
         const activo = enlace.href === '/admin' ? ruta === '/admin' : ruta.startsWith(enlace.href);
@@ -73,7 +73,7 @@ export function NavPrincipal({ permisos }: { permisos: readonly string[] }) {
             href={enlace.href}
             aria-current={activo ? 'page' : undefined}
             className={cn(
-              'inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              'inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
               activo
                 ? 'bg-primary/10 text-primary'
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground',

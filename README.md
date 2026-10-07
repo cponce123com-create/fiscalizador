@@ -653,3 +653,12 @@ Las credenciales expuestas deben rotarse en Neon/Render y en la cuenta administr
 Para RNP, la consulta oficial por RUC y constancia exige código de seguridad. Registrar estado, tipo de registro, “vigencia desde”, fuente y fecha de consulta; esa fecha no equivale automáticamente a primera inscripción histórica. No inferir “sin RNP” de errores, captcha o ausencia de respuesta. No se activa un scraper ni se modifica el resolvedor de SEACE en esta entrega.
 
 TRUSTED_PROXY_HOPS permanece en 0 (sin confiar en cabeceras IP) hasta comprobar la cadena de proxies que sobrescribe o añade X-Forwarded-For y que el origen no admite acceso directo. Configurar el número verificado de saltos; se selecciona desde la derecha y se valida la dirección. El bloqueo por correo sigue activo aunque no exista IP confiable. No asumir un valor para Render sin verificarlo.
+
+
+### Búsqueda por relevancia y navegación móvil
+
+Con texto de búsqueda y sin orden explícito, las órdenes se muestran por relevancia antes de paginar: identificador exacto (orden/RUC/SIAF), frase completa en descripción, todas las palabras completas, fragmentos en descripción y otras coincidencias. “IPAD” se adelanta a “EQUIPADO” aunque la segunda orden sea más reciente. Se normalizan mayúsculas, tildes y separadores mediante una columna calculada por PostgreSQL, que se actualiza al importar o editar sin sustituir la descripción original. Los demás filtros permanecen aplicados; se puede escoger fecha, monto o proveedor. Sin búsqueda se mantiene la fecha. La portada y el listado usan el mismo algoritmo.
+
+La migración añade una columna STORED y calcula los datos existentes; puede reescribir/bloquear temporalmente la tabla de órdenes durante el despliegue. No requiere reimportar libros. La paginación consulta solo los grupos necesarios, nunca todos los resultados para ordenarlos en memoria.
+
+En móvil, navegación desplegable, controles de al menos 44 px y campos de 16 px, tarjetas de proveedores y ranking, montos y textos que se adaptan al ancho y paginación abreviada. La coincidencia aparece resaltada y con contexto en búsquedas. Las tablas se mantienen para escritorio; el menú del administrador permite desplazamiento horizontal.

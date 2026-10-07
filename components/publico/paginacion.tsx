@@ -45,9 +45,9 @@ export function Paginacion({
   const enlace = (pagina: number): string => `${ruta}${serializarFiltros(filtros, { pagina })}`;
 
   const enlaceDeshabilitado =
-    'pointer-events-none rounded-md border border-border px-2.5 py-1.5 text-xs text-muted-foreground opacity-50';
+    'pointer-events-none inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm text-muted-foreground opacity-50';
   const enlaceNormal =
-    'rounded-md border border-border px-2.5 py-1.5 text-xs transition-colors hover:bg-muted';
+    ' min-h-11 items-center justify-center rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted';
 
   return (
     <nav aria-label="Paginación" className="flex flex-wrap items-center justify-between gap-3">
@@ -55,9 +55,9 @@ export function Paginacion({
         Página {actual} de {totalPaginas} · {total.toLocaleString('es-PE')} resultados
       </p>
 
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="flex max-w-full flex-wrap items-center gap-1">
         {actual > 1 ? (
-          <Link href={enlace(actual - 1)} className={enlaceNormal} rel="prev">
+          <Link href={enlace(actual - 1)} className={`inline-flex ${enlaceNormal}`} rel="prev">
             Anterior
           </Link>
         ) : (
@@ -66,10 +66,10 @@ export function Paginacion({
 
         {desde > 1 ? (
           <>
-            <Link href={enlace(1)} className={enlaceNormal}>
+            <Link href={enlace(1)} className={`hidden sm:inline-flex ${enlaceNormal}`}>
               1
             </Link>
-            {desde > 2 ? <span className="px-1 text-xs text-muted-foreground">…</span> : null}
+            {desde > 2 ? <span className="hidden px-1 text-xs text-muted-foreground sm:inline">…</span> : null}
           </>
         ) : null}
 
@@ -80,8 +80,8 @@ export function Paginacion({
             aria-current={numero === actual ? 'page' : undefined}
             className={
               numero === actual
-                ? 'rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary'
-                : enlaceNormal
+                ? 'inline-flex min-h-11 items-center rounded-md border border-primary bg-primary/10 px-3 py-2 text-sm font-medium text-primary'
+                : `hidden sm:inline-flex ${enlaceNormal}`
             }
           >
             {numero}
@@ -91,16 +91,16 @@ export function Paginacion({
         {hasta < totalPaginas ? (
           <>
             {hasta < totalPaginas - 1 ? (
-              <span className="px-1 text-xs text-muted-foreground">…</span>
+              <span className="hidden px-1 text-xs text-muted-foreground sm:inline">…</span>
             ) : null}
-            <Link href={enlace(totalPaginas)} className={enlaceNormal}>
+            <Link href={enlace(totalPaginas)} className={`hidden sm:inline-flex ${enlaceNormal}`}>
               {totalPaginas}
             </Link>
           </>
         ) : null}
 
         {actual < totalPaginas ? (
-          <Link href={enlace(actual + 1)} className={enlaceNormal} rel="next">
+          <Link href={enlace(actual + 1)} className={`inline-flex ${enlaceNormal}`} rel="next">
             Siguiente
           </Link>
         ) : (
