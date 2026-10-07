@@ -15,6 +15,7 @@ export function BusquedaProveedores({ filtros }: { filtros: Filtros }) {
   const tipo = useRef<HTMLSelectElement>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
   const solicitudes = useRef(new Set<string>());
+  const ultimaSolicitud = useRef<string | null>(null);
   const componiendo = useRef(false);
   const consulta = serializarFiltros(filtros);
 
@@ -27,7 +28,10 @@ export function BusquedaProveedores({ filtros }: { filtros: Filtros }) {
     // Una respuesta propia no reemplaza las teclas escritas durante la consulta.
     // En navegación externa (paginación, limpiar o volver), sincroniza el formulario.
     const propia = solicitudes.current.delete(consulta);
+    if (ultimaSolicitud.current === `/proveedores${consulta}`) ultimaSolicitud.current = null;
     if (!propia) {
+      ultimaSolicitud.current = null;
+      solicitudes.current.clear();
       if (temporizador.current !== null) clearTimeout(temporizador.current);
       temporizador.current = null;
       if (texto.current) texto.current.value = filtros.texto ?? '';
@@ -42,7 +46,10 @@ export function BusquedaProveedores({ filtros }: { filtros: Filtros }) {
   function buscar() {
     cancelarEspera();
     const destino = destinoBusquedaProveedores(filtros, texto.current?.value ?? '', tipo.current?.value ?? '');
-    if (!destino || destino === `/proveedores${consulta}`) return;
+    if (!destino || destino === ultimaSolicitud.current || (!ultimaSolicitud.current && destino === `/proveedores${consulta}`)) return;
+    // También navega al listado actual si hay otra consulta en vuelo: limpiar
+    // antes de recibir sus resultados debe cancelar esa navegación anterior.
+    ultimaSolicitud.current = destino;
     solicitudes.current.add(destino.slice('/proveedores'.length));
     iniciarTransicion(() => router.replace(destino, { scroll: false }));
   }
