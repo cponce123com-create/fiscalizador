@@ -1,3 +1,5 @@
+import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor } from '@/services/electoralService';
+import { AntecedentesElectorales } from '@/components/publico/antecedentes-electorales';
 import { prisma } from '@/lib/prisma';
 import { datosPublicosProveedor } from '@/lib/perfil-publico-proveedor';
 import type { Metadata } from 'next';
@@ -59,6 +61,7 @@ export default async function PaginaProveedor({
   const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { birthplace: true, publicDistrict: true, birthDate: true, photoKey: true, updatedAt: true } });
   const datos = datosPublicosProveedor(perfil.ruc, ficha, perfil.id);
   const foto = datos.foto ?? perfil.fotoUrl;
+  const [electoral, evidencia] = await Promise.all([antecedentesElectoralesProveedor(perfil.ruc), informacionDocumentadaProveedor(perfil.id)]);
 
   // El proveedor se fija aquí, no se toma de la URL: así el parámetro `proveedor`
   // no puede usarse para mezclar órdenes de dos proveedores en la misma pantalla.
@@ -140,6 +143,10 @@ export default async function PaginaProveedor({
           </div>
         </div>
       </div>
+
+      {electoral ? <section className="flex flex-col gap-4"><h2 className="text-xl font-semibold">Antecedentes electorales</h2><Link href={`/electoral/${electoral.id}`} className="text-sm text-primary underline">Ver perfil electoral de {electoral.fullName}</Link><AntecedentesElectorales registros={electoral.records} /><p className="text-xs text-muted-foreground">Coincidencia por documento con el RUC 10. Los datos corresponden a las elecciones citadas; no demuestran por sí solos un conflicto de intereses.</p></section> : null}
+      {evidencia?.notas ? <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-xl font-semibold">Notas documentadas de fiscalización</h2><p className="mt-3 whitespace-pre-wrap text-sm">{evidencia.notas}</p><Link href={evidencia.fuente!} target="_blank" rel="noopener noreferrer" className="mt-3 block text-sm text-primary underline">Consultar fuente de las notas</Link></section> : null}
+      {evidencia?.vinculos.length ? <section className="flex flex-col gap-4"><h2 className="text-xl font-semibold">Personas y vínculos documentados</h2><p className="text-xs text-muted-foreground">Relaciones registradas y contrastadas por la administración con las fuentes citadas. No constituyen una conclusión de nepotismo o incompatibilidad.</p><div className="grid gap-3 sm:grid-cols-2">{evidencia.vinculos.map(c => <article key={c.id} className="rounded-lg border border-border bg-card p-4"><h3 className="font-semibold">{c.fullName}</h3><p className="mt-2 text-sm">Vínculo: {c.relationship}</p>{c.publicNote ? <p className="mt-2 whitespace-pre-wrap text-sm">{c.publicNote}</p> : null}<Link href={c.source!} target="_blank" rel="noopener noreferrer" className="mt-3 block text-sm text-primary underline">Consultar fuente del vínculo</Link></article>)}</div></section> : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-primary/30 bg-card p-6 shadow-sm ring-1 ring-primary/15 lg:col-span-2">

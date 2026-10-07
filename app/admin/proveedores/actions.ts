@@ -12,7 +12,7 @@ export async function accionGuardarPerfilProveedor(_estado: EstadoFormulario, fo
     let contacts: unknown;
     try { contacts = JSON.parse(typeof contactos === 'string' ? contactos : '[]'); }
     catch { return { error: 'La lista de personas vinculadas no es válida.', ok: null }; }
-    const input = esquemaPerfilProveedor.parse({ supplierId: form.get('supplierId'), version: form.get('version'), publicDistrict: form.get("publicDistrict"), birthDate: form.get("birthDate"), birthplace: form.get('birthplace'), currentAddress: form.get('currentAddress'), notes: form.get('notes'), contacts });
+    const input = esquemaPerfilProveedor.parse({ supplierId: form.get('supplierId'), version: form.get('version'), publicNotes: form.get("publicNotes"), publicSourceUrl: form.get("publicSourceUrl"), publicDistrict: form.get("publicDistrict"), birthDate: form.get("birthDate"), birthplace: form.get('birthplace'), currentAddress: form.get('currentAddress'), notes: form.get('notes'), contacts });
     await guardarPerfilProveedor(input, usuario.id);
     revalidatePath(`/admin/proveedores/${input.supplierId}`);
     revalidatePath('/admin/proveedores');

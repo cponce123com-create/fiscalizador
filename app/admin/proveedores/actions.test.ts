@@ -18,7 +18,7 @@ describe('edición de perfiles de proveedores', () => {
     const form = new FormData();
     for (const [key, value] of Object.entries({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: '', publicDistrict: 'La Merced', birthDate: '1990-10-08', notes: '', contacts: '[]' })) form.set(key, value);
     expect((await accionGuardarPerfilProveedor(estado, form)).ok).toBe('Perfil guardado. Foto, edad, lugar de nacimiento y distrito se muestran en el portal público.');
-    expect(mocks.guardar).toHaveBeenCalledWith({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: null, publicDistrict: 'La Merced', birthDate: '1990-10-08', notes: null, contacts: [] }, 'admin');
+    expect(mocks.guardar).toHaveBeenCalledWith({ supplierId: 'proveedor', version: '', birthplace: 'San Ramón', currentAddress: null, publicDistrict: 'La Merced', publicNotes: null, publicSourceUrl: null, birthDate: '1990-10-08', notes: null, contacts: [] }, 'admin');
     expect(mocks.refresh).toHaveBeenCalledWith('/admin/proveedores/proveedor');
   });
 });
