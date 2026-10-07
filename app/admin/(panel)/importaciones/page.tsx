@@ -131,7 +131,7 @@ export default async function PaginaImportaciones({
         >
           <Link
             href="/admin/importar"
-            className="mt-1 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="boton-enlace mt-1 inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
           >
             Importar un archivo
           </Link>
@@ -273,7 +273,7 @@ export default async function PaginaImportaciones({
             {pagina > 1 ? (
               <Link
                 href={`/admin/importaciones?page=${pagina - 1}`}
-                className="inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
+                className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
               >
                 Anterior
               </Link>
@@ -282,7 +282,7 @@ export default async function PaginaImportaciones({
             {pagina < totalPaginas ? (
               <Link
                 href={`/admin/importaciones?page=${pagina + 1}`}
-                className="inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
+                className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
               >
                 Siguiente
               </Link>
