@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { contextoDePeticion, registrarAuditoria } from '@/services/auditService';
 
@@ -11,7 +11,7 @@ import { contextoDePeticion, registrarAuditoria } from '@/services/auditService'
  * que su prueba es de integración y se salta sin `DATABASE_URL`.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 /** Petición mínima con las cabeceras dadas. */
 function peticion(cabeceras: Record<string, string>): Request {
@@ -19,12 +19,22 @@ function peticion(cabeceras: Record<string, string>): Request {
 }
 
 describe('contextoDePeticion', () => {
-  it('toma el primer valor de x-forwarded-for', () => {
+  beforeEach(() => vi.stubEnv('TRUSTED_PROXY_HOPS', '1'));
+  afterEach(() => vi.unstubAllEnvs());
+  it('selecciona desde la derecha según la cadena de proxies configurada', () => {
+    vi.stubEnv('TRUSTED_PROXY_HOPS', '2');
     const { ip } = contextoDePeticion(peticion({ 'x-forwarded-for': '203.0.113.7, 10.0.0.1' }));
 
     expect(ip).toBe('203.0.113.7');
   });
 
+  it('no confía en cabeceras sin configuración ni en direcciones inventadas', () => {
+    vi.stubEnv('TRUSTED_PROXY_HOPS', '0');
+    expect(contextoDePeticion(peticion({ 'x-forwarded-for': '203.0.113.7' })).ip).toBeNull();
+    vi.stubEnv('TRUSTED_PROXY_HOPS', '1');
+    expect(contextoDePeticion(peticion({ 'x-forwarded-for': '203.0.113.7, no-es-ip' })).ip).toBeNull();
+    expect(contextoDePeticion(peticion({ 'x-forwarded-for': 'IP-inventada, 203.0.113.8' })).ip).toBe('203.0.113.8');
+  });
   it('recorta los espacios de la IP', () => {
     expect(contextoDePeticion(peticion({ 'x-forwarded-for': '  203.0.113.7  ' })).ip).toBe(
       '203.0.113.7',

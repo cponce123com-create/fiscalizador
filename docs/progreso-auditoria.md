@@ -1,3 +1,5 @@
+> Actualización 07/10/2026: las referencias siguientes al uso de producción son históricas. CI utiliza PostgreSQL temporal. Las pruebas locales requieren TEST_DATABASE_URL separado y no toman automáticamente la conexión de .env. La rotación de credenciales requiere verificación operativa; este documento no acredita su estado actual.
+
 # Auditoría del portal: progreso
 
 Este documento guarda **en qué punto va la auditoría** que se está aplicando al portal,

@@ -1,13 +1,14 @@
+import { peticionPublicaLimitada } from '@/lib/public-request-limit';
 import { prisma } from '@/lib/prisma';
 import { leerFiltros } from '@/lib/filtros';
-import { camposOcultos, celdaCsv } from '@/lib/public-evidence';
+import { camposOcultos, celdaCsv, celdaMontoCsv } from '@/lib/public-evidence';
 import { decimalMonetario } from '@/lib/decimal';
 import { construirWhereOrdenes } from '@/services/statisticsService';
 
 export const runtime = 'nodejs';
 
 /** El mismo universo que el listado, sin paginar, en una instantánea consistente. */
-export async function GET(request: Request): Promise<Response> {
+async function atender(request: Request): Promise<Response> {
   const filtros = leerFiltros(Object.fromEntries(new URL(request.url).searchParams));
   const where = await construirWhereOrdenes(filtros);
   const datos = await prisma.$transaction(
@@ -106,7 +107,7 @@ export async function GET(request: Request): Promise<Response> {
       capturedAt,
       criterio,
     };
-    lineas.push(campos.map((c) => celdaCsv(valores[c])).join(','));
+    lineas.push(campos.map((c) => c === 'amount' ? celdaMontoCsv(valores[c] == null ? null : String(valores[c])) : celdaCsv(valores[c])).join(','));
   }
   const headers: Record<string, string> = {
     'Content-Type': 'text/csv; charset=utf-8',
@@ -122,4 +123,8 @@ export async function GET(request: Request): Promise<Response> {
     headers['X-Total-Considerado'] = decimalMonetario(datos.considerado);
   }
   return new Response('\uFEFF' + lineas.join('\r\n'), { headers });
+}
+
+export async function GET(...args: Parameters<typeof atender>): Promise<Response> {
+  return peticionPublicaLimitada('export', () => atender(...args));
 }

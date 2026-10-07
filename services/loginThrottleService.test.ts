@@ -8,7 +8,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
  * caducada vuelve a empezar de cero. Todo lo que crean lo borran después.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 describe.skipIf(!hayBaseDeDatos)('loginThrottleService contra la base real', () => {
   let svc: typeof import('@/services/loginThrottleService');

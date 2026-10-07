@@ -225,3 +225,13 @@ CLI `--reset-2fa`, que revoca las sesiones antes de permitir una nueva alta.
 El `preDeployCommand` de Render sigue siendo útil, pero el servicio también queda protegido cuando fue creado manualmente y esa configuración del blueprint no se aplicó. `DIRECT_URL` y `DATABASE_URL` deben apuntar a la misma base de datos; la primera es la conexión directa para migraciones y la segunda puede usar pooling.
 
 Para recuperar un despliegue existente con errores `P2022`, columnas `isCurrent`/`requiresReview` ausentes o la vista `CurrentOrder` faltante: ejecutar `npm run db:deploy` en la Shell del servicio y comprobar `npm run db:status`; después reiniciar. Si la Shell no está disponible, configurar temporalmente Start Command como `npm run db:deploy && npm start` y volver a desplegar. Cuando el servicio usa esta versión, basta con `npm start`. Revisar el error de la migración si el arranque se detiene, antes de intentar otra intervención en la base.
+
+
+## Separación de entornos y publicación (07/10/2026)
+
+- Crear ramas Neon separadas para desarrollo y pruebas. Las pruebas locales requieren TEST_DATABASE_URL; nunca se reutiliza automáticamente DATABASE_URL. CI solo acepta su PostgreSQL temporal local. Esta protección no sustituye comprobar a qué rama apunta la configuración de desarrollo y las migraciones manuales.
+- Rotar credenciales expuestas desde los paneles del proveedor. Este PR no cambia contraseñas ni acredita que ya se hayan rotado. No pegar nuevas credenciales en chats, documentos o commits.
+- Comprobar la cadena real de proxies y que no haya acceso directo al origen antes de configurar TRUSTED_PROXY_HOPS. El valor 0 omite la IP para auditoría/bloqueos; el límite por correo sigue funcionando.
+- En Admin → Proveedores, revisar y habilitar cada dato público con su fuente. DNI completo es una opción explícita. Cambiar una foto deshabilita solo su publicación hasta nueva revisión. Los datos y fotos existentes no se borran.
+- Verificar que los libros originales estén en un volumen persistente. Cloudinary atiende fotos; STORAGE_DRIVER=cloudinary aún no atiende libros.
+- Los límites públicos son por proceso: varias instancias necesitan contador distribuido y protección en el proxy. SheetJS sigue síncrono; su aislamiento en workers queda pendiente. CSP con nonces y fijación/revisión de dependencias de scrapers quedan pendientes.

@@ -36,7 +36,8 @@ export async function guardarPerfilProveedor(datos: DatosPerfilProveedor, userId
     if (propioDni && input.contacts.some(c => c.dni === propioDni)) throw new ErrorDeNegocio('No registres al propio proveedor como persona vinculada.');
     const anterior = await tx.supplierProfile.findUnique({ where: { supplierId: input.supplierId }, select: { updatedAt: true } });
     if ((anterior?.updatedAt.toISOString() ?? '') !== input.version) throw new ErrorDeNegocio('La ficha cambió en otra edición. Recarga la página antes de guardar.');
-    const data = { publicNotes: input.publicNotes ?? null, publicSourceUrl: input.publicNotes ? input.publicSourceUrl ?? null : null, publicDistrict: input.publicDistrict ?? null, birthDate: propioDni ? input.birthDate ?? null : null, birthplace: input.birthplace, currentAddress: input.currentAddress, notes: input.notes, updatedById: userId };
+    const publication = Object.fromEntries(Object.entries(input.publication).map(([campo, regla]) => [campo, { enabled: regla.enabled, sourceUrl: regla.sourceUrl, ...(regla.enabled ? { verifiedAt: new Date().toISOString() } : {}) }]));
+    const data = { isPublic: input.isPublic, publication, publicNotes: input.publicNotes ?? null, publicSourceUrl: input.publicNotes ? input.publicSourceUrl ?? null : null, publicDistrict: input.publicDistrict ?? null, birthDate: propioDni ? input.birthDate ?? null : null, birthplace: input.birthplace, currentAddress: input.currentAddress, notes: input.notes, updatedById: userId };
     const perfil = await tx.supplierProfile.upsert({ where: { supplierId: input.supplierId }, create: { supplierId: input.supplierId, createdById: userId, ...data }, update: data });
     await tx.supplierProfileContact.deleteMany({ where: { profileId: perfil.id } });
     if (input.contacts.length) await tx.supplierProfileContact.createMany({ data: input.contacts.map(c => ({ ...c, profileId: perfil.id })) });

@@ -155,9 +155,9 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
       s.ruc,
       s.name,
       s.slug,
-      CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL)
+      CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL AND p."isPublic" = true AND p.publication->'foto'->>'enabled' = 'true' AND p.publication->'foto'->>'verifiedAt' IS NOT NULL)
         THEN '/api/public/proveedores/' || s.id || '/foto'
-        ELSE s."photoUrl" END AS "photoUrl",
+        ELSE NULL END AS "photoUrl",
       COUNT(*)::int AS ordenes,
       COUNT(*) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
       COALESCE(

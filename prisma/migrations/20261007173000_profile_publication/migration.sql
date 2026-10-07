@@ -1,0 +1,1 @@
+ALTER TABLE "SupplierProfile" ADD COLUMN "isPublic" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "publication" JSONB NOT NULL DEFAULT '{}';

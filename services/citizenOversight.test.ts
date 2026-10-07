@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 import { filtrosPorDefecto } from '@/lib/filtros';
 // Fixtures independientes: no dependen del libro de referencia ni de datos reales.
-describe.skipIf(!process.env.DATABASE_URL)('instantáneas y estadísticas ciudadanas', () => {
+describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y estadísticas ciudadanas', () => {
   let prisma: typeof import('@/lib/prisma').prisma;
   let imports: typeof import('@/services/importService');
   let stats: typeof import('@/services/statisticsService');

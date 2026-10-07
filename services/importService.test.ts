@@ -15,7 +15,7 @@ import { periodoEnNombre } from '@/services/importService';
  * ejecutable sin credenciales.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 /** Encabezados reales del Portal de Transparencia. */
 const ENCABEZADOS = [

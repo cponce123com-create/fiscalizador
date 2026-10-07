@@ -18,7 +18,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
  * salto sea real: `lib/prisma.ts` valida el entorno al importarse.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 /**
  * Estas pruebas contrastan las cifras publicadas del libro de referencia (2023-06), y

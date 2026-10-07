@@ -126,6 +126,7 @@ model User {
 
   /// Secreto TOTP **cifrado** (AES-256-GCM con una clave derivada de AUTH_SECRET). Es
   /// null mientras la cuenta no ha empezado el alta.
+  lastTotpStep Int?
   twoFactorSecret String?
   /// Verdadero solo cuando el alta se ha confirmado con un código válido. Mientras sea
   /// falso, las cuentas administrativas no pueden usar el panel.
@@ -724,6 +725,8 @@ model LoginAttempt {
 
 /// Ficha administrativa. La proyección pública excluye notas, dirección completa y contactos.
 model SupplierProfile {
+  isPublic       Boolean @default(false)
+  publication    Json @default("{}")
   id             String @id @default(cuid())
   supplierId     String @unique
   birthplace     String?

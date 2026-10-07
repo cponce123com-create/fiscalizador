@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * busca. Todo lo que crean lo borran después, incluidos los rastros de auditoría.
  */
 
-const hayBaseDeDatos = Boolean(process.env.DATABASE_URL);
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
 
 describe.skipIf(!hayBaseDeDatos)('catalogService contra la base real', () => {
   let svc: typeof import('@/services/catalogService');

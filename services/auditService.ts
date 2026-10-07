@@ -1,3 +1,4 @@
+import { ipClienteConfiable } from '@/lib/client-ip';
 import type { Prisma } from '@/lib/generated/prisma/client';
 
 /**
@@ -68,15 +69,12 @@ export async function registrarAuditoria(
  * Extrae la IP y el user-agent de una petición.
  *
  * La IP es **orientativa**: sale de `X-Forwarded-For`, que el cliente puede
- * falsificar y que varias personas comparten (una oficina tras un NAT). Detrás del
- * proxy de Render el primer valor es el cliente, pero no hay que presentarla como
- * infalsificable: sirve para dejar rastro en la auditoría y para el límite de
+ * falsificar y que varias personas comparten (una oficina tras un NAT). La cadena confiable se configura con TRUSTED_PROXY_HOPS,
+ * después de verificar los proxies y bloquear acceso directo al origen: sirve para dejar rastro en la auditoría y para el límite de
  * intentos de acceso, nunca para decidir permisos.
  */
 export function contextoDePeticion(request: Request): { ip: string | null; userAgent: string | null } {
-  // `x-forwarded-for` puede traer una lista; el primer valor es el cliente.
-  const forwarded = request.headers.get('x-forwarded-for');
-  const ip = forwarded ? (forwarded.split(',')[0] ?? '').trim() || null : null;
+  const ip = ipClienteConfiable(request);
 
   return {
     ip,

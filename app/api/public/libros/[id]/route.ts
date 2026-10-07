@@ -1,9 +1,10 @@
+import { peticionPublicaLimitada } from '@/lib/public-request-limit';
 import { prisma } from '@/lib/prisma';
-import { camposOcultos, celdaCsv } from '@/lib/public-evidence';
+import { camposOcultos, celdaCsv, celdaMontoCsv } from '@/lib/public-evidence';
 import { cabeceraDescarga, extractoExcel, nombreDescargaLibro } from '@/lib/book-download';
 import { leerConfiguracionPortal } from '@/services/portalService';
 export const runtime = 'nodejs';
-export async function GET(
+async function atender(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
@@ -92,7 +93,7 @@ export async function GET(
       isCurrent: batch.isCurrent,
       considerada: !o.isCancelled && o.status?.countsEconomically === true,
     };
-    lineas.push(campos.map((c) => celdaCsv(valores[c])).join(','));
+    lineas.push(campos.map((c) => c === 'amount' ? celdaMontoCsv(valores[c] == null ? null : String(valores[c])) : celdaCsv(valores[c])).join(','));
     registros.push(valores);
   }
   const config = await leerConfiguracionPortal();
@@ -112,4 +113,8 @@ export async function GET(
       'X-Content-Type-Options': 'nosniff',
     },
   });
+}
+
+export async function GET(...args: Parameters<typeof atender>): Promise<Response> {
+  return peticionPublicaLimitada('export', () => atender(...args));
 }

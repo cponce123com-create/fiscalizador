@@ -11,7 +11,7 @@ vi.mock('@/lib/prisma', () => ({
     },
   },
 }));
-import { celdaCsv, camposOcultos } from '@/lib/public-evidence';
+import { celdaCsv, celdaMontoCsv, camposOcultos } from '@/lib/public-evidence';
 describe('extracto público', () => {
   it.each([
     '=HYPERLINK("https://ejemplo.test")',
@@ -30,4 +30,10 @@ describe('extracto público', () => {
     expect(await camposOcultos('libro')).toEqual(
       new Set(['description', 'ruc']),
     ));
+  it('conserva montos negativos y bloquea fórmulas que simulen números', () => {
+    expect(celdaMontoCsv('-123.45')).toBe('"-123.45"');
+    expect(celdaMontoCsv('-1+1')).toBe('"\'-1+1"');
+    expect(celdaCsv('-123.45')).toBe('"\'-123.45"');
+  });
+
 });

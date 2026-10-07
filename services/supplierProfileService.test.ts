@@ -21,4 +21,12 @@ describe('guardado de perfiles privados', () => {
     await expect(guardarPerfilProveedor(datos, 'admin')).rejects.toThrow('otra edición');
     expect(mocks.save).not.toHaveBeenCalled();
   });
+  it('registra revisión de publicación en el servidor y exige fuente por dato', async () => {
+    await guardarPerfilProveedor({ ...datos, isPublic: true, publication: { dni: { enabled: true, sourceUrl: 'https://ejemplo.test/fuente' } } }, 'admin');
+    expect(mocks.save.mock.calls[0][0].update.publication.dni).toEqual({ enabled: true, sourceUrl: 'https://ejemplo.test/fuente', verifiedAt: expect.any(String) });
+    mocks.save.mockClear();
+    await expect(guardarPerfilProveedor({ ...datos, isPublic: true, publication: { foto: { enabled: true, sourceUrl: null } } }, 'admin')).rejects.toThrow('fuente pública');
+    expect(mocks.save).not.toHaveBeenCalled();
+  });
+
 });
