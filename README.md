@@ -620,3 +620,7 @@ El administrador tiene una pestaña Registro electoral: permite crear personas s
 Las notas de fiscalización y los vínculos del proveedor cuentan con campos públicos separados y fuente obligatoria. Los vínculos se publican individualmente después de contrastar la fuente; el DNI y las notas privadas se excluyen. Los vínculos antiguos permanecen en borrador. Una relación registrada o participación electoral no se presenta como conclusión de nepotismo o conflicto de intereses.
 
 La migración agrega tablas electorales y campos de publicación sin eliminar datos. No se cargan nombres ficticios ni se inventan los resultados de 2022: deben registrarse a partir del acta.
+
+### Cargar un acta electoral revisada
+
+En Administrador → Registro electoral → Importar acta preparada se carga un JSON versión 1 con huella SHA-256 del documento y hasta 200 filas. La carga es atómica, audita solo la huella y los conteos y conserva los registros existentes. El DNI solo se almacena para el cruce interno, no en el repositorio. Las candidaturas improcedentes mantienen su estado. No se ejecuta una carga en producción desde las pruebas ni se incluyen identificadores personales en fixtures públicas.

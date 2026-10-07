@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { requierePermiso } from '@/lib/auth/session';
 import { mensajeDeErrorDeAccion } from '@/lib/api/responses';
 import type { EstadoFormulario } from '@/components/admin/formulario-accion';
-import { guardarPersonaElectoral, guardarRegistroElectoral, eliminarRegistroElectoral } from '@/services/electoralService';
+import { guardarPersonaElectoral, guardarRegistroElectoral, eliminarRegistroElectoral, importarAntecedentesElectorales } from '@/services/electoralService';
 import { esquemaPersonaElectoral, esquemaRegistroElectoral } from '@/lib/electoral';
 
 function refrescar() { revalidatePath('/admin/electoral'); revalidatePath('/electoral', 'layout'); revalidatePath('/proveedores', 'layout'); }
@@ -30,5 +30,19 @@ export async function accionEliminarRegistroElectoral(_estado: EstadoFormulario,
     if (typeof id !== 'string' || !id || id.length > 64) return { error: 'Registro no válido.', ok: null };
     await eliminarRegistroElectoral(id, user.id);
     refrescar(); return { error: null, ok: 'Antecedente electoral eliminado.' };
+  } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }
+}
+
+export async function accionImportarElectoral(_estado: EstadoFormulario, form: FormData): Promise<EstadoFormulario> {
+  try {
+    const user = await requierePermiso('persons:write');
+    const archivo = form.get('archivo');
+    if (!(archivo instanceof File) || archivo.size > 512 * 1024) return { error: 'Selecciona un JSON de hasta 512 KB.', ok: null };
+    let datos: unknown;
+    try { datos = JSON.parse(await archivo.text()); }
+    catch { return { error: 'El archivo no contiene un JSON válido.', ok: null }; }
+    const resultado = await importarAntecedentesElectorales(datos, form.has('publicar'), user.id);
+    refrescar();
+    return { error: null, ok: `${resultado.procesados} antecedentes procesados: ${resultado.nuevos} nuevos y ${resultado.existentes} ya registrados. No se duplicaron ni sustituyeron registros.` };
   } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }
 }
