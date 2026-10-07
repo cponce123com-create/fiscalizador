@@ -1,3 +1,4 @@
+import { TextoCoincidente } from '@/components/publico/texto-coincidente';
 import Link from 'next/link';
 
 import { Insignia } from '@/components/ui/data';
@@ -12,6 +13,7 @@ import { formatearFecha, formatearMonto } from '@/lib/utils';
 export function TablaOrdenes({
   ordenes,
   mostrarProveedor = true,
+  consulta,
 }: {
   ordenes: {
     id: string;
@@ -27,6 +29,7 @@ export function TablaOrdenes({
     proveedorSlug: string;
   }[];
   mostrarProveedor?: boolean;
+  consulta?: string;
 }) {
   if (ordenes.length === 0) {
     return (
@@ -38,11 +41,11 @@ export function TablaOrdenes({
 
   return (
     <>
-    <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-5">
-      <div className="flex items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="font-semibold text-primary">{orden.tipo} · Orden {orden.orderNumber}</Link><span className={`tabular text-right font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
+    <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="min-w-0 flex-1 break-words font-semibold text-primary">{orden.tipo} · Orden {orden.orderNumber}</Link><span className={`tabular shrink-0 whitespace-nowrap text-right font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
       <p className="mt-2 text-xs text-muted-foreground">{formatearFecha(orden.issueDate)}</p>
-      {mostrarProveedor ? <Link href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></Link> : null}
-      <p className="my-3 text-sm leading-relaxed">{orden.description || 'Sin descripción en el libro'}</p>
+      {mostrarProveedor ? <Link href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block break-words text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></Link> : null}
+      <p className="my-3 break-words text-sm leading-relaxed"><TextoCoincidente texto={orden.description || 'Sin descripción en el libro'} consulta={consulta} /></p>
       <div className="flex flex-wrap items-center justify-between gap-3"><Insignia tono={orden.isCancelled ? 'error' : 'neutro'}>{orden.estado ?? 'Estado no informado'}{orden.isCancelled ? ' · no suma' : ''}</Insignia><Link href={`/ordenes/${orden.id}`} className="text-sm font-medium text-primary underline underline-offset-4">Ver detalle y fuente</Link></div>
     </article>)}</div>
     <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
@@ -102,7 +105,7 @@ export function TablaOrdenes({
               <td className="max-w-[22rem] px-3 py-2.5 text-muted-foreground">
                 {orden.description ? (
                   <span className="line-clamp-2" title={orden.description}>
-                    {orden.description}
+                    <TextoCoincidente texto={orden.description} consulta={consulta} />
                   </span>
                 ) : (
                   <span className="text-xs italic opacity-70">Sin descripción en el libro</span>

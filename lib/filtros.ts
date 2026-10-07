@@ -68,7 +68,7 @@ export type Filtros = {
   desde: string | null;
   hasta: string | null;
   texto: string | null;
-  orden: 'fecha' | 'monto' | 'proveedor';
+  orden: 'relevancia' | 'fecha' | 'monto' | 'proveedor';
   direccion: 'asc' | 'desc';
   pagina: number;
   porPagina: number;
@@ -111,7 +111,7 @@ export function leerFiltros(parametros: ParametrosCrudos): Filtros {
     desde: rangoInvalido ? null : desde,
     hasta: rangoInvalido ? null : hasta,
     texto: validar(texto, crudo('texto')),
-    orden: validar(z.enum(['fecha', 'monto', 'proveedor']), crudo('orden')) ?? 'fecha',
+    orden: validar(z.enum(['relevancia', 'fecha', 'monto', 'proveedor']), crudo('orden')) ?? (validar(texto, crudo('texto')) ? 'relevancia' : 'fecha'),
     direccion: validar(z.enum(['asc', 'desc']), crudo('direccion')) ?? 'desc',
     pagina: validar(entero(1, 10_000), crudo('pagina')) ?? 1,
     porPagina: validar(entero(1, POR_PAGINA_MAXIMO), crudo('porPagina')) ?? POR_PAGINA,
@@ -198,7 +198,7 @@ export function serializarFiltros(filtros: Filtros, cambios: Partial<Filtros> = 
   if (combinados.hasta) parametros.set('hasta', combinados.hasta);
   if (combinados.texto) parametros.set('texto', combinados.texto);
 
-  if (combinados.orden !== 'fecha') parametros.set('orden', combinados.orden);
+  if (!(combinados.orden === 'relevancia' && !combinados.texto) && combinados.orden !== (combinados.texto ? 'relevancia' : 'fecha')) parametros.set('orden', combinados.orden);
   if (combinados.direccion !== 'desc') parametros.set('direccion', combinados.direccion);
   if (combinados.pagina > 1) parametros.set('pagina', String(combinados.pagina));
   if (combinados.porPagina !== POR_PAGINA) {

@@ -1,3 +1,4 @@
+import { palabrasBusqueda, gruposBusquedaOrdenes, paginasPorGrupo } from '@/lib/busqueda-ordenes';
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { type Filtros, rangoDeFechas } from '@/lib/filtros';
 import { prisma } from '@/lib/prisma';
@@ -707,6 +708,7 @@ export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.Or
       OR: [
         { orderNumber: { contains: t, mode: 'insensitive' } },
         { description: { contains: t, mode: 'insensitive' } },
+        ...(palabrasBusqueda(t).length ? [{ AND: palabrasBusqueda(t).map(p => ({ descriptionSearch: { contains: p } })) }] : []),
         { siafNumber: { contains: t, mode: 'insensitive' } },
         { ruc: { contains: t } },
         { supplier: { name: { contains: t, mode: 'insensitive' } } },
@@ -722,12 +724,12 @@ function ordenDeOrdenes(filtros: Filtros): Prisma.OrderOrderByWithRelationInput[
   const direccion = filtros.direccion;
 
   if (filtros.orden === 'monto') {
-    return [{ amount: direccion }, { orderNumber: 'asc' }];
+    return [{ amount: direccion }, { orderNumber: 'asc' }, { id: 'asc' }];
   }
   if (filtros.orden === 'proveedor') {
-    return [{ supplier: { name: direccion } }, { issueDate: 'desc' }, { sourceRow: 'asc' }];
+    return [{ supplier: { name: direccion } }, { issueDate: 'desc' }, { sourceRow: 'asc' }, { id: 'asc' }];
   }
-  return [{ issueDate: direccion }, { sourceRow: 'asc' }];
+  return [{ issueDate: direccion }, { sourceRow: 'asc' }, { id: 'asc' }];
 }
 
 export type FilaOrdenListado = {
@@ -757,27 +759,13 @@ export async function listarOrdenes(
 ): Promise<ResultadoPaginado<FilaOrdenListado>> {
   const where = await construirWhereOrdenes(filtros);
 
-  const [total, ordenes] = await Promise.all([
-    prisma.order.count({ where }),
-    prisma.order.findMany({
-      where,
-      orderBy: ordenDeOrdenes(filtros),
-      skip: (filtros.pagina - 1) * filtros.porPagina,
-      take: filtros.porPagina,
-      select: {
-        id: true,
-        orderNumber: true,
-        issueDate: true,
-        description: true,
-        amount: true,
-        ruc: true,
-        isCancelled: true,
-        orderType: { select: { code: true } },
-        status: { select: { label: true } },
-        supplier: { select: { name: true, slug: true } },
-      },
-    }),
-  ]);
+  const select = { id: true, orderNumber: true, issueDate: true, description: true, amount: true, ruc: true, isCancelled: true, orderType: { select: { code: true } }, status: { select: { label: true } }, supplier: { select: { name: true, slug: true } } } as const;
+  const grupos = filtros.texto && filtros.orden === 'relevancia' ? gruposBusquedaOrdenes(filtros.texto, where) : [where];
+  const conteos = await Promise.all(grupos.map(where => prisma.order.count({ where })));
+  const total = conteos.reduce((suma, n) => suma + n, 0);
+  const pagina = Math.min(filtros.pagina, Math.max(1, Math.ceil(total / filtros.porPagina)));
+  const partes = paginasPorGrupo(conteos, pagina, filtros.porPagina);
+  const ordenes = (await Promise.all(partes.map(({ grupo, skip, take }) => prisma.order.findMany({ where: grupos[grupo], orderBy: ordenDeOrdenes(filtros), skip, take, select })))).flat();
 
   return {
     filas: ordenes.map((orden) => ({
@@ -794,7 +782,7 @@ export async function listarOrdenes(
       proveedorSlug: orden.supplier.slug,
     })),
     total,
-    pagina: filtros.pagina,
+    pagina,
     porPagina: filtros.porPagina,
     totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
   };

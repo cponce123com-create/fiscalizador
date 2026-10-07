@@ -139,3 +139,11 @@ body {
 .cinta-ventana:hover .cinta-texto, .cinta-ventana:focus-within .cinta-texto { animation-play-state: paused !important; }
 @keyframes titular { 0%, 12% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
 @media (prefers-reduced-motion: reduce) { .cinta-texto { animation: none; white-space: normal; } .cinta-ventana { overflow: visible; } }
+
+/* Evitar zoom al enfocar campos y facilitar navegación táctil sin ocultar desbordes. */
+.portal-publico main, .portal-publico main > * { min-width: 0; }
+@media (max-width: 767px) {
+  .portal-publico :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; min-height: 44px; max-width: 100%; }
+  .portal-publico :is(button, summary) { min-height: 44px; }
+  .portal-publico .panel-portada { padding: 1rem; }
+}

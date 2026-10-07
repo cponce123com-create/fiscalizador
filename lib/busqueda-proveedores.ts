@@ -8,5 +8,5 @@ export function destinoBusquedaProveedores(filtros: Filtros, texto: string, tipo
   if (termino.length > 0 && termino.length < 3) return null;
   const validado = leerFiltros({ texto: termino, tipoRuc });
   if (termino && !validado.texto) return null;
-  return `${ruta}${serializarFiltros(filtros, { texto: validado.texto, tipoRuc: validado.tipoRuc, pagina: 1 })}`;
+  return `${ruta}${serializarFiltros(filtros, { texto: validado.texto, tipoRuc: validado.tipoRuc, orden: filtros.orden === 'fecha' || filtros.orden === 'relevancia' ? (validado.texto ? 'relevancia' : 'fecha') : filtros.orden, pagina: 1 })}`;
 }

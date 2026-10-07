@@ -21,7 +21,8 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <><div className="grid gap-3 md:hidden">{filas.map(f => <article key={f.supplierId} className="min-w-0 rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Puesto {f.posicion} · {f.peso}% del monto considerado</p><Link href={`/proveedores/${f.slug}`} className="mt-2 block break-words font-semibold text-primary">{f.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {f.ruc} · {f.ordenes} órdenes{f.anuladas ? ` · ${f.anuladas} anuladas` : ''}</p><dl className="mt-4 grid gap-2 text-sm">{[['Considerado', f.considerado], ['Registrado', f.registrado], ['Anulado', f.anulado]].map(([etiqueta, monto]) => <div key={etiqueta} className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">{etiqueta}</dt><dd className="tabular font-semibold">{formatearMonto(monto)}</dd></div>)}</dl><Link href={`/proveedores/${f.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Consultar proveedor</Link></article>)}</div>
+    <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
           <tr>
@@ -101,6 +102,6 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </div></>
   );
 }
