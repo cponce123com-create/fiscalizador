@@ -484,6 +484,7 @@ model Order {
   orderNumber    String
   orderTypeId    String?
   contractTypeId String?
+  descriptionSearch String? @default(dbgenerated())
   description    String?
   siafNumber     String?
 

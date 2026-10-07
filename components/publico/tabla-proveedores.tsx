@@ -21,7 +21,8 @@ export function TablaProveedores({ proveedores }: { proveedores: FilaProveedorLi
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-card">
+    <><div className="grid gap-3 md:hidden">{proveedores.map(p => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><Link href={`/proveedores/${p.slug}`} className="block break-words text-base font-semibold text-primary">{p.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {p.ruc} · {p.tipo}</p><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Monto considerado</dt><dd className="tabular break-words font-semibold">{formatearMonto(p.considerado)}</dd></div><div><dt className="text-xs text-muted-foreground">Órdenes</dt><dd>{p.ordenes.toLocaleString('es-PE')}</dd></div><div><dt className="text-xs text-muted-foreground">Primera aparición</dt><dd>{p.primeraAparicion ? formatearFecha(p.primeraAparicion) : '—'}</dd></div><div><dt className="text-xs text-muted-foreground">Última aparición</dt><dd>{p.ultimaAparicion ? formatearFecha(p.ultimaAparicion) : '—'}</dd></div></dl><Link href={`/proveedores/${p.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Ver perfil y órdenes</Link></article>)}</div>
+    <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
           <tr>
@@ -83,6 +84,6 @@ export function TablaProveedores({ proveedores }: { proveedores: FilaProveedorLi
           ))}
         </tbody>
       </table>
-    </div>
+    </div></>
   );
 }

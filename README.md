@@ -52,6 +52,26 @@ mantiene su procedencia y el archivo original para revisar los datos.
 El contexto de portada utiliza **Open-Meteo** para el clima y series **BCRP/SBS** para
 el tipo de cambio. Muestra la fecha del dato disponible; no es una cotización en tiempo real.
 
+### Búsqueda por relevancia y experiencia móvil
+
+Con texto de búsqueda, el orden predeterminado prioriza identificadores exactos
+(orden, RUC o SIAF), frases completas en la descripción, palabras completas,
+fragmentos y otras coincidencias, **antes de paginar**. Buscar `iPad` muestra primero
+las órdenes que contienen `IPAD`, por delante de coincidencias parciales como
+`EQUIPADO`, aunque estas sean más recientes.
+
+La portada y el listado comparten el algoritmo, que normaliza mayúsculas, tildes y
+separadores. Los filtros se conservan y se puede elegir otro orden explícitamente.
+Sin texto de búsqueda se mantiene el orden por fecha. PostgreSQL calcula y actualiza
+la descripción normalizada sin modificar el texto original; no es necesario reimportar
+los libros. La migración de esta columna almacenada puede reescribir o bloquear
+temporalmente la tabla de órdenes durante el despliegue.
+
+En móvil, el portal utiliza navegación desplegable, controles de al menos 44 px,
+campos de 16 px, tarjetas de proveedores y ranking, y paginación abreviada. Las
+coincidencias se resaltan con contexto. En escritorio se mantienen las tablas;
+la navegación administrativa permite desplazamiento horizontal.
+
 ## Tecnología
 
 | Capa | Herramientas |
@@ -281,7 +301,6 @@ La configuración de desarrollo y pruebas debe usar bases separadas de producci�
 
 ## Mejoras en seguimiento
 
-- Relevancia de búsqueda y navegación móvil: [PR #19](https://github.com/cponce123com-create/fiscalizador/pull/19).
 - Procesamiento de libros grandes en workers; SheetJS todavía ejecuta el análisis de forma síncrona.
 - Contadores distribuidos para límites de consultas con varias instancias.
 - Revisión de dependencias y evolución de Auth.js 5, que actualmente utiliza una versión beta.

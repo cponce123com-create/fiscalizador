@@ -63,9 +63,9 @@ export function Filtros({
   return (
     <BusquedaEnVivo ruta={ruta} consulta={serializarFiltros(filtros)} className="rounded-lg border border-border bg-card p-4">
       {activos ? <div aria-label="Filtros activos" className="mb-4 flex flex-wrap gap-2">{etiquetas.filter(e => e.valor !== null).map(e => <Link key={e.clave} href={`${ruta}${serializarFiltros(filtros, { [e.clave]: null, pagina: 1 })}`} aria-label={`Quitar filtro ${e.texto}: ${e.valor}`} className="inline-flex max-w-full items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary"><span className="truncate">{e.texto}: {e.valor}</span><X size={12} aria-hidden="true" /></Link>)}</div> : null}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {hay('texto') ? (
-          <label className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-1">
+          <label className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
             <span className="text-xs font-medium text-muted-foreground">Buscar</span>
             <span className="relative">
               <Search
@@ -165,7 +165,7 @@ export function Filtros({
                 type="date"
                 name="desde"
                 defaultValue={filtros.desde ?? ''}
-                className="rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-w-0 w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
 
@@ -175,7 +175,7 @@ export function Filtros({
                 type="date"
                 name="hasta"
                 defaultValue={filtros.hasta ?? ''}
-                className="rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-w-0 w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
           </>
@@ -184,6 +184,7 @@ export function Filtros({
 
       </details>
 
+      {(ruta === '/ordenes' || ruta === '/admin/ordenes') ? <div className="mt-4 grid grid-cols-2 gap-3"><Selector etiqueta="Ordenar por" nombre="orden" valor={!filtros.texto && filtros.orden === 'fecha' ? '' : filtros.orden} vacio="Automático" opciones={[{ valor: 'relevancia', etiqueta: 'Relevancia' }, { valor: 'fecha', etiqueta: 'Fecha' }, { valor: 'monto', etiqueta: 'Monto' }, { valor: 'proveedor', etiqueta: 'Proveedor' }]} /><Selector etiqueta="Dirección" nombre="direccion" valor={filtros.direccion} vacio="Descendente" opciones={[{ valor: 'desc', etiqueta: 'Descendente' }, { valor: 'asc', etiqueta: 'Ascendente' }]} /></div> : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="submit"
@@ -254,7 +255,7 @@ function Selector({
       <select
         name={nombre}
         defaultValue={valor}
-        className="rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="min-w-0 w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <option value="">{vacio}</option>
         {opciones.map((opcion) => (
