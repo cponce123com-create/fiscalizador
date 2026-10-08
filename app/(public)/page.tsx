@@ -1,3 +1,5 @@
+import { PortadaPrensa } from '@/components/publico/portada-prensa';
+import { contratacionesPrensa } from '@/services/pressService';
 import { BusquedaPortada } from '@/components/publico/busqueda-portada';
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -27,11 +29,12 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const periodosRanking = await periodosDelRanking();
   const gestionRanking = seleccionarPeriodoRanking((await searchParams).gestion, periodosRanking);
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
-  const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config, prensa] = await Promise.all([
     datosPortada(gestionRanking),
     prisma.importBatch.count({ where: { requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
+    contratacionesPrensa(),
   ]);
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
@@ -61,6 +64,8 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
       <div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div>
       <div className="panel-portada"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking}.`} accion={<Link href={`/ranking?gestion=${encodeURIComponent(gestionRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
     </div>
+
+    <PortadaPrensa resumen={prensa} />
 
     <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">
       <div className="flex items-start gap-3"><TriangleAlert className="mt-1 shrink-0 text-amber-700" size={22} aria-hidden="true" /><div><h2 id="titulo-revision" className="titulo-editorial text-2xl font-bold">Órdenes para revisar</h2><p className="mt-1 text-xs text-amber-950/80">Comienza por consultar el detalle y contrastar el documento de origen.</p></div></div>

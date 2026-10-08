@@ -136,6 +136,11 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     const perfil = await stats.perfilProveedor(proveedor.slug);
     expect(perfil?.totalConsiderado).toBe('50.00');
     expect(perfil?.ordenes).toBe(2);
+    const { contratacionesPrensa } = await import('@/services/pressService');
+    const prensa = await contratacionesPrensa([{ ruc, nombre: 'Nombre aportado para consulta' }]);
+    expect(prensa.ordenes).toBe(2);
+    expect(prensa.considerado).toBe('50.00');
+    expect(prensa.filas[0]).toMatchObject({ registrado: '170.00', anulado: '120.00', considerado: '50.00', anuladas: 1, perfilUrl: `/proveedores/${proveedor.slug}` });
     expect((await stats.listarOrdenes({ ...f, anio: 1993, mes: 2, orden: 'monto' })).total).toBe(2);
     expect(
       (

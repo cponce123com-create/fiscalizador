@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 const principales = [{href:'/', etiqueta:'Inicio'}, {href:'/ordenes', etiqueta:'Órdenes'}, {href:'/proveedores', etiqueta:'Proveedores'}, {href:'/fuentes', etiqueta:'Fuentes'}];
-const analisis = [{href:'/estadisticas', etiqueta:'Estadísticas'}, {href:'/ranking', etiqueta:'Ranking de proveedores'}, {href:'/historial', etiqueta:'Historial por gestión'}, {href:'/vinculos', etiqueta:'Vínculos documentados'}, {href:'/electoral', etiqueta:'Antecedentes electorales'}];
+const analisis = [{href:'/prensa', etiqueta:'¿Y la prensa cuánto cobra?'}, {href:'/estadisticas', etiqueta:'Estadísticas'}, {href:'/ranking', etiqueta:'Ranking de proveedores'}, {href:'/historial', etiqueta:'Historial por gestión'}, {href:'/vinculos', etiqueta:'Vínculos documentados'}, {href:'/electoral', etiqueta:'Antecedentes electorales'}];
 export function NavPublica() {
   const ruta = usePathname();
   const estilo = (activo: boolean) => cn('block min-h-11 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors', activo ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground');
