@@ -62,6 +62,27 @@ La lectura admite el JSON válido inicial si el BCRP añade avisos HTML al final
 las cotizaciones y fechas se validan antes de publicar. Los indicadores reintentan
 automáticamente cuando falta una fuente y se actualizan cada 15 minutos si ambas responden.
 
+### Estadísticas para explorar los libros
+
+`/estadisticas` reúne seis indicadores, comparaciones de RUC 10 y RUC 20,
+los primeros 100 días y el último año de cada mandato, evolución mensual y anual,
+concentración de proveedores y trece tarjetas de conceptos de gasto. Incluye
+alimentación, vehículos, maquinaria, consultorías, expedientes, beneficios del personal,
+Vaso de Leche, oficina, Navidad, apoyo social, aniversario y reinado.
+
+Los cortes temporales usan la **fecha de emisión** y las fechas del catálogo de
+gestiones. El día 100 se incluye; el último año corresponde al año calendario en
+que termina el mandato. Las comparaciones de etapas y conceptos toman las últimas
+tres gestiones iniciadas. Los gráficos de evolución y concentración abarcan los
+periodos disponibles del portal. Cada comparación indica su cobertura y permite
+abrir las órdenes que la componen; un periodo futuro o sin libros no se presenta
+como una conclusión de gasto cero. Las categorías pueden superponerse y no deben
+sumarse entre sí. Los montos corresponden a órdenes, **no acreditan pagos**.
+
+Las tarjetas se renderizan en el servidor y los paneles se entregan progresivamente
+con Suspense. Una consulta agregada procesa los cortes y grupos de RUC; no se
+descarga el conjunto de órdenes al navegador. No requiere nuevas migraciones.
+
 ### Búsqueda por relevancia y experiencia móvil
 
 Con texto de búsqueda, el orden predeterminado prioriza identificadores exactos

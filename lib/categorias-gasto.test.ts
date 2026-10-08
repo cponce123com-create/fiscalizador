@@ -16,6 +16,8 @@ describe('clasificación de gastos por descripción', () => {
     ['apoyo-social', 'Ayuda humanitaria', 'Apoyo al programa de mantenimiento'],
     ['apoyo-social', 'Apoyo a los damnificados', 'Compra de combustible'],
     ['apoyo-social', 'Subvenciones sociales', 'Subvención para evento deportivo'],
+    ['aniversario', 'Servicio para aniversario del distrito', 'Compra de papel bond'],
+    ['reinado', 'Organización de certamen de belleza y coronación', 'Mantenimiento de camioneta'],
     ['alquiler-camionetas', 'ALQUILER DE CAMIONETA 4X4', 'Mantenimiento de camioneta'],
     ['alquiler-camionetas', 'Arrendamiento de pick-up', 'Alquiler de local'],
     ['maquinaria-pesada', 'Reparación de retroexcavadora', 'Alquiler de retroexcavadora'],
@@ -38,7 +40,7 @@ describe('clasificación de gastos por descripción', () => {
   });
   it('permite conceptos compartidos sin duplicar categorías', () => {
     expect(categoriasGasto.filter(c => coincideCategoriaGasto(c, 'Consultoría de expediente técnico')).map(c => c.id)).toEqual(['consultorias', 'expedientes-tecnicos']);
-    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(10);
+    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(12);
     expect(categoriaGastoPorId('inexistente')).toBeUndefined();
   });
 });
