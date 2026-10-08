@@ -5,9 +5,12 @@ Docker, tokens, almacenamiento de descargas ni cambiar el plan de Render.
 
 1. Entrar en **Admin → Descargas SEACE**.
 2. Elegir el año, por ejemplo **2020**. Aparecen enero a diciembre automáticamente.
-3. Pulsar **Abrir mes en SEACE**, o **Abrir los 12 meses** para abrir las doce consultas.
-4. En cada pestaña de SEACE, pulsar el botón de descarga de Excel que ofrece la página.
-5. Guardar los originales en la computadora y subirlos después en **Importar** para
+3. **Descargar los 12 Excel** intenta descargar los originales en secuencia. Para comprobar
+   el acceso desde Render, probar primero **Descargar Excel** de un mes conocido.
+   Permitir descargas múltiples si Chrome lo solicita y comprobar los archivos en Descargas.
+4. Como alternativa, pulsar **Abrir mes en SEACE**, o **Abrir los 12 meses** para abrir las doce consultas.
+5. En cada pestaña de SEACE, pulsar el botón de descarga de Excel que ofrece la página.
+6. Guardar los originales en la computadora y subirlos después en **Importar** para
    revisar y confirmar sus datos.
 
 El navegador puede bloquear las pestañas adicionales. Permitir ventanas emergentes
@@ -31,11 +34,30 @@ https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/ongei/buscadorPubli
 
 ## Alcance
 
-Esto automatiza la generación y apertura de los doce meses, evitando escribir año y mes
-para cada consulta. No solicita datos a SEACE desde Render ni requiere una API de SEACE.
-El acceso a SEACE y la descarga ocurren en el navegador del administrador.
-Por las restricciones entre sitios, el portal no puede pulsar los botones dentro de SEACE.
-Abrir los doce meses **no equivale a descargar automáticamente doce Excel**.
+El modo HTTP usa el servicio web existente para hacer GET de cada mes y POST del formulario
+de exportación con una sesión nueva. Los campos son `formBuscador`, `formBuscador:btnExportar`
+(vacío), `formBuscador:hddIniciaBusqueda` y `javax.faces.ViewState` obtenido de ese GET.
+Las cookies proceden de SEACE en ese intento, no del navegador del usuario, y no se guardan,
+registran ni devuelven al cliente. No se reutilizan las cookies ni los tokens aportados en la conversación.
+
+Se comprueba el periodo de la página, el formulario, el tipo de respuesta y que el archivo
+sea un Excel legible. Hasta 2 MB de HTML y 25 MB por libro, 40 s por mes, dos solicitudes
+concurrentes por proceso y una por usuario. Se conservan los bytes originales; el nombre
+incluye año, mes y municipalidad. No hay almacenamiento en servidor ni importación automática.
+Si un mes falla, se detiene la secuencia para no lanzar doce solicitudes bloqueadas.
+El panel permite volver a descargar un mes individual o continuar con los pendientes.
+El progreso es de esta pestaña; recargar lo reinicia. Archivo enviado al navegador no confirma
+que Chrome haya permitido guardarlo: revisar Descargas y permitir descargas múltiples.
+
+**Aún no se verificó una descarga real desde Render.** Con el formulario facilitado por el
+usuario, las pruebas simulan GET, cookies, estado nuevo y POST, y comparan los bytes del Excel.
+La consulta real desde desarrollo sigue respondiendo 403 antes de obtener el formulario.
+Un 403, CAPTCHA, redirección o página HTML se informa como error. El modo directo depende
+de que SEACE acepte la conexión desde Render; no se garantiza su disponibilidad.
+
+Los enlaces manuales siguen funcionando sin consultas a SEACE desde Render. Por las restricciones
+entre sitios, el portal no pulsa botones dentro de las pestañas de SEACE. Abrir los doce meses
+no equivale a descargar automáticamente los Excel: para ello se utiliza el botón de modo HTTP.
 
 El script local de `scrapers/herramientas/descargar_excel_anual.py` sigue disponible como
 alternativa opcional para usar un navegador en la computadora; ver `scrapers/README.md`.
