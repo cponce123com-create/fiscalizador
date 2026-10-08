@@ -482,6 +482,22 @@ describe.skipIf(!conElLibroDeReferencia)('statisticsService contra la base real'
       expect(r.filas[0]?.considerado).toBe('370716.09');
     });
 
+    it('encuentra palabras del nombre en distinto orden y sin exigir tildes', async () => {
+      for (const texto of ['URRÚCHI inversiones', 'inversiones urruchi']) {
+        const r = await svc.listarProveedores(filtros.leerFiltros({ texto }));
+        expect(r.total).toBe(1);
+        expect(r.filas[0]?.ruc).toBe('20610345990');
+      }
+    });
+
+    it('no convierte porcentajes ni guiones bajos en comodines', async () => {
+      for (const texto of ['%%%', '___', 'urruchi inexistente']) {
+        const r = await svc.listarProveedores(filtros.leerFiltros({ texto }));
+        expect(r.total).toBe(0);
+        expect(r.filas).toEqual([]);
+      }
+    });
+
     it('encuentra un proveedor por su RUC', async () => {
       const r = await svc.listarProveedores(filtros.leerFiltros({ texto: '20610345990' }));
 

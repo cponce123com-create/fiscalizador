@@ -33,7 +33,8 @@ export default async function PaginaProveedores({
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold sm:text-3xl">Proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          Quién ha recibido órdenes de compra y de servicio, ordenado alfabéticamente. El monto
+          Quién ha recibido órdenes de compra y de servicio. Al buscar, las coincidencias exactas
+          aparecen primero; sin búsqueda, se ordenan alfabéticamente. El monto
           considerado excluye las órdenes anuladas y las de estados excluidos del análisis.
         </p>
       </header>

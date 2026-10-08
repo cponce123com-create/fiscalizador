@@ -1,5 +1,5 @@
 import { palabrasBusqueda, gruposBusquedaOrdenes, paginasPorGrupo } from '@/lib/busqueda-ordenes';
-import type { Prisma } from '@/lib/generated/prisma/client';
+import { Prisma } from '@/lib/generated/prisma/client';
 import { type Filtros, rangoDeFechas } from '@/lib/filtros';
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
@@ -864,7 +864,7 @@ export type FilaProveedorListado = {
 };
 
 /**
- * Listado de proveedores, alfabético y paginado.
+ * Listado paginado: alfabético sin búsqueda, por coincidencia exacta al buscar.
  *
  * Las agregaciones (número de órdenes, monto, primera y última aparición) se
  * calculan en PostgreSQL con `GROUP BY`, y solo se traen las filas de la página
@@ -876,12 +876,31 @@ export async function listarProveedores(
 ): Promise<ResultadoPaginado<FilaProveedorListado>> {
   const texto = filtros.texto ?? '';
   const tipoRuc = filtros.tipoRuc ?? '';
+  const palabras = palabrasBusqueda(texto);
+  const nombreNormalizado = Prisma.sql`translate(lower(s.name), 'áéíóúüñ', 'aeiouun')`;
+  const frase = palabras.join(' ');
+  // POSITION trata %, _ y otros símbolos como texto, sin comodines implícitos.
+  // Todas las palabras deben aparecer; su orden y las tildes no importan.
+  const coincide = Prisma.sql`(
+    ${texto} = '' OR strpos(lower(s.name), lower(${texto})) > 0
+    OR strpos(s.ruc, ${texto}) > 0
+    OR (${palabras.length} > 0 AND NOT EXISTS (
+      SELECT 1 FROM unnest(${palabras}::text[]) AS buscada(palabra)
+      WHERE strpos(${nombreNormalizado}, buscada.palabra) = 0
+    ))
+  )`;
+  const relevancia = Prisma.sql`CASE
+    WHEN ${nombreNormalizado} = ${frase} OR s.ruc = ${texto} THEN 0
+    WHEN ${palabras.length} > 0 AND NOT EXISTS (
+      SELECT 1 FROM unnest(${palabras}::text[]) AS buscada(palabra)
+      WHERE strpos(' ' || regexp_replace(${nombreNormalizado}, '[^a-z0-9]+', ' ', 'g') || ' ', ' ' || buscada.palabra || ' ') = 0
+    ) THEN 1 ELSE 2 END`;
 
   const [conteo, filas] = await Promise.all([
     prisma.$queryRaw<Array<{ n: number }>>`
       SELECT COUNT(DISTINCT s.id)::int AS n
       FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
-      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+      WHERE ${coincide}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
     `,
     prisma.$queryRaw<
@@ -913,10 +932,10 @@ export async function listarProveedores(
       FROM "Supplier" s
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+      WHERE ${coincide}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
       GROUP BY s.id, s.ruc, s.name, s.slug, s."supplierType"
-      ORDER BY s.name ASC
+      ORDER BY ${filtros.orden === 'relevancia' && texto ? relevancia : Prisma.sql`0 + 0`}, s.name ASC, s.id ASC
       LIMIT ${filtros.porPagina} OFFSET ${(filtros.pagina - 1) * filtros.porPagina}
     `,
   ]);
