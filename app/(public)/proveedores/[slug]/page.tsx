@@ -112,12 +112,12 @@ export default async function PaginaProveedor({
             src={foto}
             alt={`Fotografía de ${perfil.nombre}`}
             width={96}
-            height={96}
-            className="h-24 w-24 shrink-0 rounded-lg object-cover"
+            height={128}
+            className="h-32 w-24 shrink-0 rounded-lg object-cover object-top"
           />
         ) : (
           <span
-            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+            className="flex h-32 w-24 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
             aria-hidden="true"
           >
             <Building2 className="h-10 w-10" />
