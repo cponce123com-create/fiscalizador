@@ -1,3 +1,4 @@
+import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
 import type { Metadata } from 'next';
 
 import { Filtros } from '@/components/publico/filtros';
@@ -46,11 +47,12 @@ export default async function PaginaRanking({
       </header>
 
       <PeriodoRanking periodos={periodos} seleccionado={filtros.gestionId} />
+      <TipoRucRanking filtros={filtros} ruta="/ranking" />
 
       <Filtros
         filtros={filtros}
         ruta="/ranking"
-        campos={['texto', 'tipoRuc']}
+        campos={['texto']}
         opciones={{ gestiones: [...periodos, { id: 'todas', nombre: 'Todos los periodos' }] }}
       />
 

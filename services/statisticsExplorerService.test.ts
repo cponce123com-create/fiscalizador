@@ -55,6 +55,21 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('comparaciones po
     expect(filas.find(f => f.ventana === 'gestion' && f.grupo === '10')?.considerado).toBe('1050.00');
     expect(filas.find(f => f.ventana === 'ultimo-anio')?.meses).toBe(0);
   });
+  it('filtra ambos rankings por RUC y gestión y calcula el peso dentro del subconjunto', async () => {
+    const { rankingProveedores, rankingCompleto, datosPortadaInicial } = await import('./statisticsService');
+    const { leerFiltros } = await import('@/lib/filtros');
+    for (const [tipoRuc, proveedor, monto] of [['10', proveedores[0], '1050.00'], ['20', proveedores[1], '700.00']] as const) {
+      const portada = await rankingProveedores(5, gestionId, tipoRuc);
+      expect(portada).toHaveLength(1);
+      expect(portada[0]).toMatchObject({ supplierId: proveedor, considerado: monto, peso: 100 });
+      const completo = await rankingCompleto(leerFiltros({ gestion: gestionId, tipoRuc }));
+      expect(completo.total).toBe(1);
+      expect(completo.filas[0]).toMatchObject({ supplierId: proveedor, considerado: monto, peso: 100, posicion: 1 });
+      expect((await datosPortadaInicial(gestionId, tipoRuc)).ranking).toEqual(portada);
+      expect(await rankingProveedores(5, 'gestion-sin-datos', tipoRuc)).toEqual([]);
+    }
+    expect(await rankingProveedores(5, gestionId)).toHaveLength(3);
+  });
   it('señala un último año que aún no comienza', async () => {
     await prisma.managementPeriod.update({ where: { id: gestionId }, data: { endDate: new Date('2099-12-31') } });
     try {

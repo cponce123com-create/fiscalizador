@@ -22,6 +22,6 @@ export function PeriodoRanking({ periodos, seleccionado }: { periodos: { id: str
         <option value="todas">Todos los periodos</option>
       </select>
     </label>
-    <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{pendiente ? 'Actualizando ranking…' : 'Los montos y porcentajes corresponden al periodo seleccionado.'}</p>
+    <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{pendiente ? 'Actualizando ranking…' : 'Los montos y porcentajes corresponden a la gestión y al tipo de RUC seleccionados.'}</p>
   </div>;
 }

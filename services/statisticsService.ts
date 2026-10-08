@@ -138,8 +138,9 @@ export type FilaRanking = {
  * Agrupa órdenes vigentes por proveedor dentro de la gestión seleccionada. Sin
  * filtro (o con «todas») combina las gestiones; el peso usa el mismo conjunto.
  */
-export async function rankingProveedores(limite = 15, gestionId: string | null = null): Promise<FilaRanking[]> {
+export async function rankingProveedores(limite = 15, gestionId: string | null = null, tipoRuc: '10' | '20' | null = null): Promise<FilaRanking[]> {
   const gestion = gestionId === 'todas' ? '' : gestionId ?? '';
+  const tipo = tipoRuc ?? '';
   const filas = await prisma.$queryRaw<
     Array<{
       id: string;
@@ -178,6 +179,7 @@ export async function rankingProveedores(limite = 15, gestionId: string | null =
     JOIN "Supplier" s ON s.id = o."supplierId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     WHERE (${gestion} = '' OR o."managementPeriodId" = ${gestion})
+      AND (${tipo} = '' OR left(s.ruc, 2) = ${tipo})
     GROUP BY s.id, s.ruc, s.name, s.slug
     ORDER BY COALESCE(
       SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
@@ -640,9 +642,9 @@ export async function datosPortada(gestionRanking: string | null = null): Promis
 }
 
 /** La portada inicial solo consulta datos visibles; el análisis completo vive en /estadisticas. */
-export async function datosPortadaInicial(gestionRanking: string | null = null) {
+export async function datosPortadaInicial(gestionRanking: string | null = null, tipoRucRanking: '10' | '20' | null = null) {
   const [resumen, ranking, mensual, ultimos] = await Promise.all([
-    resumenGeneral(), rankingProveedores(5, gestionRanking), evolucionMensual(), ultimosRegistros(8),
+    resumenGeneral(), rankingProveedores(5, gestionRanking, tipoRucRanking), evolucionMensual(), ultimosRegistros(8),
   ]);
   return { resumen, ranking, mensual, ultimos };
 }
@@ -1141,7 +1143,7 @@ export async function rankingCompleto(
       SELECT COUNT(DISTINCT s.id)::int AS n
       FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
       WHERE ${coincideProveedor(texto)}
-        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+        AND (${tipoRuc} = '' OR left(s.ruc, 2) = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
     `,
     prisma.$queryRaw<
@@ -1179,7 +1181,7 @@ export async function rankingCompleto(
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE ${coincideProveedor(texto)}
-        AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
+        AND (${tipoRuc} = '' OR left(s.ruc, 2) = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
       GROUP BY s.id, s.ruc, s.name, s.slug
       ORDER BY COALESCE(

@@ -62,6 +62,14 @@ La lectura admite el JSON válido inicial si el BCRP añade avisos HTML al final
 las cotizaciones y fechas se validan antes de publicar. Los indicadores reintentan
 automáticamente cuando falta una fuente y se actualizan cada 15 minutos si ambas responden.
 
+### Ranking por gestión y tipo de proveedor
+
+La portada y el ranking completo permiten alternar **Todos**, **RUC 10** y
+**RUC 20**. El selector de gestión conserva el tipo elegido, y «Ver ranking
+completo» mantiene ambas selecciones. Las posiciones y porcentajes se calculan
+sobre los proveedores del tipo y la gestión elegidos, antes de paginar o limitar
+las tarjetas. Se mantiene el periodo más reciente con datos como valor inicial.
+
 ### Estadísticas para explorar los libros
 
 `/estadisticas` reúne seis indicadores, comparaciones de RUC 10 y RUC 20,
