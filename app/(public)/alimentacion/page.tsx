@@ -8,7 +8,7 @@ import { leerFiltros, serializarFiltros } from '@/lib/filtros';
 import { gastoAlimentacionPorGestion, listarOrdenesAlimentacion } from '@/services/foodService';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = metadataCompartida('Gastos en alimentación por gestión', 'Comparación de alimentación, comidas y refrigerios entre gestiones. Cobertura parcial de libros publicados; las órdenes no acreditan pagos efectivos.', '/alimentacion', imagenCompartida('gasto', 'alimentacion'));
+export const metadata: Metadata = metadataCompartida('Gastos en alimentación por gestión', 'Compara los montos registrados en órdenes de alimentación, comidas y refrigerios de las tres gestiones de San Ramón. Explora el detalle y los documentos de origen.', '/alimentacion', imagenCompartida('gasto', 'alimentacion'));
 export default async function PaginaAlimentacion({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams;
   const filtros = leerFiltros({ gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });

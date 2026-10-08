@@ -13,15 +13,13 @@ export function renderizarTarjeta(dato: TarjetaCompartida) {
       {/* eslint-disable-next-line @next/next/no-img-element -- PNG generado con Satori. */}
       {dato.foto ? <img src={dato.foto} alt="" width={150} height={200} style={{ objectFit: 'cover', objectPosition: 'top', borderRadius: 12 }} /> : null}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}><div style={{ display: 'flex', fontSize: 23 }}>Monto considerado · libros vigentes disponibles</div><div style={{ display: 'flex', fontSize: 49, color: '#67e8cf', fontWeight: 700 }}>{formatearMonto(dato.proveedor.monto)}</div><div style={{ display: 'flex', fontSize: 27 }}>{dato.proveedor.ordenes} órdenes registradas</div></div>
-    </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>{dato.filas.map(f => <div key={f.id} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 23 }}><span>{f.gestion.slice(0, 55)}</span><span>{f.meses ? formatearMonto(f.considerado) : 'Sin libros publicados'}</span></div>
-      <div style={{ display: 'flex', height: 9, background: '#243c51', borderRadius: 5 }}><div style={{ display: 'flex', width: `${maximo ? Math.max(0, Number(f.considerado)) / maximo * 100 : 0}%`, background: '#67e8cf', borderRadius: 5 }} /></div>
-      <div style={{ display: 'flex', fontSize: 17, color: '#bdcbd9' }}>{f.meses} meses disponibles · {f.ordenes} órdenes</div>
+    </div> : <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>{dato.filas.map(f => <div key={f.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 28 }}><span>{f.gestion.slice(0, 55)}</span><span style={{ fontSize: 34, fontWeight: 700 }}>{f.meses ? formatearMonto(f.considerado) : 'Sin libros publicados'}</span></div>
+      <div style={{ display: 'flex', height: 14, background: '#243c51', borderRadius: 5 }}><div style={{ display: 'flex', width: `${maximo ? Math.max(0, Number(f.considerado)) / maximo * 100 : 0}%`, background: '#67e8cf', borderRadius: 5 }} /></div>
+      <div style={{ display: 'flex', fontSize: 21, color: '#bdcbd9' }}>{f.meses} meses disponibles · {f.ordenes} órdenes</div>
     </div>)}</div>}
     <div style={{ display: 'flex', flexDirection: 'column', marginTop: 'auto', gap: 9, borderTop: '1px solid #395268', paddingTop: 17 }}>
-      <div style={{ display: 'flex', fontSize: 18, color: '#bdcbd9' }}>Cobertura parcial. Excluye anuladas y estados no económicos.</div>
-      <div style={{ display: 'flex', fontSize: 18, color: '#bdcbd9' }}>Las órdenes no acreditan pagos efectivos. Consulta los documentos de origen.</div>
-      <div style={{ display: 'flex', fontSize: 15, color: '#67e8cf' }}>{dato.ruta.slice(0, 130)}</div>
+      <div style={{ display: 'flex', fontSize: 21, color: '#67e8cf' }}>{dato.ruta.slice(0, 130)}</div>
     </div>
   </div>, { width: 1200, height: 630, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 }
