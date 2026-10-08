@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { Prisma } from '@/lib/generated/prisma/client';
+import { Compartir } from './compartir';
+import { imagenCompartida, resumenGastos } from '@/lib/compartir';
 import { formatearMonto } from '@/lib/utils';
 import type { EstadisticaEtapa, VentanaEstadistica } from '@/services/statisticsExplorerService';
 
@@ -13,7 +15,7 @@ function agrupar(filas: EstadisticaEtapa[], ventana: VentanaEstadistica, grupo?:
       anuladas: partes.reduce((n, f) => n + f.anuladas, 0), economicas: partes.reduce((n, f) => n + f.economicas, 0) };
   });
 }
-function Comparacion({ titulo, descripcion, filas, grupo }: { titulo: string; descripcion: string; filas: EstadisticaEtapa[]; grupo?: string }) {
+function Comparacion({ titulo, descripcion, filas, grupo, compartirId, rutaCompartir }: { titulo: string; descripcion: string; filas: EstadisticaEtapa[]; grupo?: string; compartirId?: string; rutaCompartir?: string }) {
   const maximo = Math.max(0, ...filas.map(f => Number(f.considerado)));
   return <article className="panel-portada flex min-w-0 flex-col gap-4">
     <div><h3 className="text-lg font-semibold">{titulo}</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{descripcion}</p></div>
@@ -29,6 +31,7 @@ function Comparacion({ titulo, descripcion, filas, grupo }: { titulo: string; de
       </li>;
     })}</ul>
     {!filas.length ? <p className="text-sm text-muted-foreground">Todavía no hay gestiones registradas.</p> : null}
+    {compartirId && rutaCompartir ? <Compartir titulo={titulo} resumen={resumenGastos(filas)} ruta={rutaCompartir} imagen={imagenCompartida('estadistica', compartirId)} /> : null}
   </article>;
 }
 export function EstadisticasExplorables({ filas }: { filas: EstadisticaEtapa[] }) {
@@ -48,10 +51,10 @@ export function EstadisticasExplorables({ filas }: { filas: EstadisticaEtapa[] }
   return <>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{metricas.map(([titulo, dato]) => <div key={titulo} className="panel-portada min-w-0"><p className="text-xs text-muted-foreground">{titulo}</p><p className="tabular mt-2 break-words text-xl font-bold text-primary sm:text-2xl">{dato}</p><p className="mt-2 text-[11px] text-muted-foreground">Últimas tres gestiones iniciadas · libros disponibles</p></div>)}</div>
     <section id="por-ruc" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">¿A quién se contrata?</h2><p className="mt-2 text-sm text-muted-foreground">Comparación de montos por tipo de RUC. Los otros tipos se muestran aparte para que el total cuadre.</p></div>
-      <div className="grid items-stretch gap-4 lg:grid-cols-3">{[['10', 'RUC 10 · personas naturales'], ['20', 'RUC 20 · personas jurídicas'], ['otros', 'Otros tipos de RUC']].map(([grupo, titulo]) => <Comparacion key={grupo} titulo={titulo} descripcion="Monto considerado por gestión, excluyendo anuladas y estados no económicos." grupo={grupo} filas={agrupar(filas, 'gestion', grupo)} />)}</div>
+      <div className="grid items-stretch gap-4 lg:grid-cols-3">{[['10', 'RUC 10 · personas naturales', 'ruc-10'], ['20', 'RUC 20 · personas jurídicas', 'ruc-20'], ['otros', 'Otros tipos de RUC', 'ruc-otros']].map(([grupo, titulo, compartirId]) => <Comparacion key={grupo} titulo={titulo} descripcion="Monto considerado por gestión, excluyendo anuladas y estados no económicos." grupo={grupo} filas={agrupar(filas, 'gestion', grupo)} compartirId={compartirId} rutaCompartir="/estadisticas#por-ruc" />)}</div>
     </section>
     <section id="etapas" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">El inicio y el cierre de cada gestión</h2><p className="mt-2 text-sm text-muted-foreground">Cortes por fecha de emisión. Compara la cobertura antes de interpretar diferencias; el último año de una gestión vigente puede estar incompleto o no haber empezado.</p></div>
-      <div className="grid items-stretch gap-4 lg:grid-cols-2"><Comparacion titulo="Primeros 100 días" descripcion="Desde el primer día de mandato hasta el día 100 inclusive. Incluye todos los tipos de RUC." filas={agrupar(filas, 'primeros-100')} /><Comparacion titulo="Último año de mandato" descripcion="Año calendario en el que termina cada gestión, limitado a sus fechas oficiales. Incluye todos los tipos de RUC." filas={agrupar(filas, 'ultimo-anio')} /></div>
+      <div className="grid items-stretch gap-4 lg:grid-cols-2"><Comparacion titulo="Primeros 100 días" descripcion="Desde el primer día de mandato hasta el día 100 inclusive. Incluye todos los tipos de RUC." filas={agrupar(filas, 'primeros-100')} compartirId="primeros-100" rutaCompartir="/estadisticas#etapas" /><Comparacion titulo="Último año de mandato" descripcion="Año calendario en el que termina cada gestión, limitado a sus fechas oficiales. Incluye todos los tipos de RUC." filas={agrupar(filas, 'ultimo-anio')} compartirId="ultimo-anio" rutaCompartir="/estadisticas#etapas" /></div>
       <p className="text-xs leading-relaxed text-muted-foreground">Los meses con libros indican disponibilidad, no cobertura completa de todas las compras. El corte de 100 días puede utilizar solo una parte del último libro mensual. Las órdenes sin fecha de emisión no entran en estos cortes temporales.</p>
     </section>
   </>;

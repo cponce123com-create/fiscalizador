@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
-const mocks = vi.hoisted(() => ({ perfil: vi.fn(), ficha: vi.fn(), foto: vi.fn(), gastos: vi.fn(), alimentos: vi.fn() }));
+const mocks = vi.hoisted(() => ({ perfil: vi.fn(), ficha: vi.fn(), foto: vi.fn(), gastos: vi.fn(), alimentos: vi.fn(), etapas: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: { supplierProfile: { findUnique: mocks.ficha } } }));
 vi.mock('./statisticsService', () => ({ perfilProveedor: mocks.perfil }));
 vi.mock('./privatePhotoStorage', () => ({ leerFotoPrivada: mocks.foto }));
 vi.mock('./portalService', () => ({ leerConfiguracionPortal: async () => ({ municipio: 'San Ramón' }) }));
 vi.mock('./foodService', () => ({ gastoAlimentacionPorGestion: mocks.alimentos }));
 vi.mock('./categorySpendingService', () => ({ gastosPorCategoriaGestion: mocks.gastos }));
+vi.mock('./statisticsExplorerService', () => ({ estadisticasPorEtapa: mocks.etapas }));
 import { prepararTarjetaPublica } from './shareService';
 import { renderizarTarjeta } from './shareImageService';
 
@@ -45,5 +46,23 @@ describe('imágenes públicas compartibles', () => {
     const png = Buffer.from(await response.arrayBuffer());
     expect(await sharp(png).metadata()).toMatchObject({ format: 'png', width: 1200, height: 630 });
     expect(response.headers.get('cache-control')).toBe('no-store');
+  });
+  it('prepara tarjetas compartibles para estadísticas de RUC y etapas', async () => {
+    mocks.etapas.mockResolvedValue([
+      { id: 'g1', gestion: '2019-2022', ventana: 'gestion', grupo: '10', desde: '2019-01-01', hasta: '2022-12-31', iniciada: true, meses: 47, esperados: 48, ordenes: 3, anuladas: 1, proveedores: 2, economicas: 2, considerado: '120.00', anulado: '5.00' },
+      { id: 'g1', gestion: '2019-2022', ventana: 'gestion', grupo: '20', desde: '2019-01-01', hasta: '2022-12-31', iniciada: true, meses: 47, esperados: 48, ordenes: 7, anuladas: 0, proveedores: 4, economicas: 7, considerado: '300.00', anulado: '0.00' },
+      { id: 'g1', gestion: '2019-2022', ventana: 'primeros-100', grupo: '10', desde: '2019-01-01', hasta: '2019-04-10', iniciada: true, meses: 4, esperados: 4, ordenes: 2, anuladas: 0, proveedores: 2, economicas: 2, considerado: '90.00', anulado: '0.00' },
+      { id: 'g1', gestion: '2019-2022', ventana: 'primeros-100', grupo: '20', desde: '2019-01-01', hasta: '2019-04-10', iniciada: true, meses: 4, esperados: 4, ordenes: 5, anuladas: 1, proveedores: 3, economicas: 4, considerado: '200.00', anulado: '8.00' },
+    ]);
+    const ruc10 = await prepararTarjetaPublica('estadistica', 'ruc-10');
+    expect(ruc10).toMatchObject({ titulo: 'RUC 10 · personas naturales' });
+    expect(ruc10?.ruta).toMatch(/\/estadisticas#por-ruc$/);
+    expect(ruc10?.filas).toHaveLength(1);
+    expect(ruc10?.filas[0]).toMatchObject({ gestion: '2019-2022', considerado: '120.00', ordenes: 3 });
+
+    const primeros100 = await prepararTarjetaPublica('estadistica', 'primeros-100');
+    expect(primeros100).toMatchObject({ titulo: 'Primeros 100 días' });
+    expect(primeros100?.ruta).toMatch(/\/estadisticas#etapas$/);
+    expect(primeros100?.filas[0]).toMatchObject({ considerado: '290.00', ordenes: 7, anuladas: 1 });
   });
 });
