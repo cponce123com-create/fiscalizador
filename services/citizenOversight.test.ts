@@ -28,9 +28,9 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
           'Fecha de Emisión',
           'Descripción',
         ],
-        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS; ALQUILER DE CAMIONETA'],
+        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS; ALQUILER DE CAMIONETA; TALONARIOS'],
         [],
-        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING; CONSULTORÍA DE EXPEDIENTE TÉCNICO'],
+        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING; CONSULTORÍA DE EXPEDIENTE TÉCNICO; CHOCOLATADA NAVIDEÑA; APOYO COYUNTURAL'],
       ]),
       'Evidencia',
     );
@@ -160,11 +160,18 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     await prisma.managementPeriod.update({ where: { id: gestionId }, data: { startDate: new Date('2024-01-01') } });
     try {
       const resumenGastos = (await gastos.gastosPorCategoriaGestion()).filter(g => g.id === gestionId);
-      expect(resumenGastos).toHaveLength(7);
+      expect(resumenGastos).toHaveLength(10);
       expect(resumenGastos.find(g => g.categoria === 'alquiler-camionetas')).toMatchObject({ ordenes: 1, anuladas: 1, considerado: '0.00', meses: 1 });
       expect(resumenGastos.find(g => g.categoria === 'consultorias')).toMatchObject({ ordenes: 1, considerado: '50.00' });
       expect(resumenGastos.find(g => g.categoria === 'expedientes-tecnicos')).toMatchObject({ ordenes: 1, considerado: '50.00' });
       expect(resumenGastos.find(g => g.categoria === 'vaso-de-leche')).toMatchObject({ ordenes: 0, considerado: '0.00', meses: 1 });
+      expect(resumenGastos.find(g => g.categoria === 'utiles-oficina')).toMatchObject({ ordenes: 1, anuladas: 1, considerado: '0.00', meses: 1 });
+      for (const id of ['vacaciones-navidad', 'apoyo-social']) {
+        expect(resumenGastos.find(g => g.categoria === id)).toMatchObject({ ordenes: 1, considerado: '50.00', meses: 1 });
+        const detalle = await gastos.listarOrdenesCategoria(categorias.categoriaGastoPorId(id)!, consulta);
+        expect(detalle.total).toBe(1);
+        expect(detalle.filas[0]?.amount).toBe('50.00');
+      }
     } finally {
       await prisma.managementPeriod.update({ where: { id: gestionId }, data: { startDate: new Date('1993-01-01') } });
     }
