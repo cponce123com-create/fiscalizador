@@ -36,7 +36,7 @@ export async function estadisticasPorEtapa(): Promise<EstadisticaEtapa[]> {
       FROM ventanas v
     ), ordenes AS MATERIALIZED (
       SELECT o.id, o."managementPeriodId", o."issueDate", o."supplierId", o.amount, o."isCancelled",
-        st."countsEconomically", CASE WHEN s."rucPrefix" IN ('10', '20') THEN s."rucPrefix" ELSE 'otros' END AS grupo
+        st."countsEconomically", CASE WHEN left(s.ruc, 2) IN ('10', '20') THEN left(s.ruc, 2) ELSE 'otros' END AS grupo
       FROM "CurrentOrder" o JOIN gestiones g ON g.id = o."managementPeriodId"
       JOIN "Supplier" s ON s.id = o."supplierId" LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     )

@@ -170,7 +170,7 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     await prisma.managementPeriod.update({ where: { id: gestionId }, data: { startDate: new Date('2024-01-01') } });
     try {
       const resumenGastos = (await gastos.gastosPorCategoriaGestion()).filter(g => g.id === gestionId);
-      expect(resumenGastos).toHaveLength(10);
+      expect(resumenGastos).toHaveLength((await import('@/lib/categorias-gasto')).categoriasGasto.length);
       expect(resumenGastos.find(g => g.categoria === 'alquiler-camionetas')).toMatchObject({ ordenes: 1, anuladas: 1, considerado: '0.00', meses: 1 });
       expect(resumenGastos.find(g => g.categoria === 'consultorias')).toMatchObject({ ordenes: 1, considerado: '50.00' });
       expect(resumenGastos.find(g => g.categoria === 'expedientes-tecnicos')).toMatchObject({ ordenes: 1, considerado: '50.00' });
