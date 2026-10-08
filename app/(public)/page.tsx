@@ -11,7 +11,9 @@ import { UltimosRegistros } from '@/components/publico/ultimos-registros';
 import { Seccion } from '@/components/ui/seccion';
 import { prisma } from '@/lib/prisma';
 import { formatearFechaHora } from '@/lib/utils';
-import { datosPortada } from '@/services/statisticsService';
+import { PeriodoRanking } from '@/components/publico/periodo-ranking';
+import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
+import { datosPortada, periodosDelRanking } from '@/services/statisticsService';
 import { leerConfiguracionPortal } from '@/services/portalService';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +23,12 @@ export const metadata: Metadata = {
 };
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
-export default async function PortadaPublica() {
+export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const periodosRanking = await periodosDelRanking();
+  const gestionRanking = seleccionarPeriodoRanking((await searchParams).gestion, periodosRanking);
+  const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
   const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
-    datosPortada(),
+    datosPortada(gestionRanking),
     prisma.importBatch.count({ where: { requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
@@ -54,7 +59,7 @@ export default async function PortadaPublica() {
 
     <div className="grid items-start gap-5 lg:grid-cols-2">
       <div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div>
-      <div className="panel-portada"><Seccion titulo="Ranking de proveedores" descripcion="Por monto considerado · todos los periodos disponibles." accion={<Link href="/ranking" className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><RankingProveedores ranking={datos.ranking.slice(0, 5)} totalProveedores={resumen.proveedores} /></Seccion></div>
+      <div className="panel-portada"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking}.`} accion={<Link href={`/ranking?gestion=${encodeURIComponent(gestionRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
     </div>
 
     <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">

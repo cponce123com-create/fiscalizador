@@ -3,8 +3,10 @@ import type { Metadata } from 'next';
 import { Filtros } from '@/components/publico/filtros';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaRanking } from '@/components/publico/tabla-ranking';
+import { PeriodoRanking } from '@/components/publico/periodo-ranking';
+import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { leerFiltros } from '@/lib/filtros';
-import { opcionesDeFiltros, rankingCompleto } from '@/services/statisticsService';
+import { periodosDelRanking, rankingCompleto } from '@/services/statisticsService';
 
 /**
  * Ranking de proveedores por monto considerado.
@@ -26,12 +28,11 @@ export default async function PaginaRanking({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const filtros = leerFiltros(await searchParams);
-
-  const [resultado, opciones] = await Promise.all([
-    rankingCompleto(filtros),
-    opcionesDeFiltros(),
-  ]);
+  const parametros = await searchParams;
+  const periodos = await periodosDelRanking();
+  const filtros = leerFiltros(parametros);
+  filtros.gestionId = seleccionarPeriodoRanking(parametros.gestion, periodos);
+  const resultado = await rankingCompleto(filtros);
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,11 +45,13 @@ export default async function PaginaRanking({
         </p>
       </header>
 
+      <PeriodoRanking periodos={periodos} seleccionado={filtros.gestionId} />
+
       <Filtros
         filtros={filtros}
         ruta="/ranking"
-        campos={['texto', 'gestion', 'tipoRuc']}
-        opciones={{ gestiones: opciones.gestiones }}
+        campos={['texto', 'tipoRuc']}
+        opciones={{ gestiones: [...periodos, { id: 'todas', nombre: 'Todos los periodos' }] }}
       />
 
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ranking" />

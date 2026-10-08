@@ -20,7 +20,7 @@ export function RankingProveedores({
   totalProveedores,
 }: {
   ranking: FilaRanking[];
-  totalProveedores: number;
+  totalProveedores?: number;
 }) {
   if (ranking.length === 0) {
     return (
@@ -82,7 +82,7 @@ export function RankingProveedores({
       </ul>
 
       <p className="text-xs text-muted-foreground">
-        {ranking.length} de {totalProveedores} proveedores. Entre ellos concentran el{' '}
+        {totalProveedores === undefined ? `${ranking.length} proveedores destacados` : `${ranking.length} de ${totalProveedores} proveedores`}. Entre ellos concentran el{' '}
         <span className="tabular font-medium text-foreground">{Math.round(sumaPeso * 10) / 10}%</span>{' '}
         del monto considerado.
       </p>
