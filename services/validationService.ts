@@ -474,9 +474,11 @@ export function validateRows(input: ValidateInput): ValidationResult {
     });
   });
 
-  // Segunda pasada: compara únicamente órdenes válidas con monto positivo.
+  // Segunda pasada: compara únicamente órdenes válidas, vigentes y con monto positivo.
+  // Las anuladas o no económicas quedan para trazabilidad, pero no deben bloquear
+  // la importación por umbrales que solo afectan al monto considerado.
   // La mediana resiste una cifra enorme aislada mejor que el promedio.
-  const positivos = orders.filter(o => o.amount !== null && Number(o.amount) > 0)
+  const positivos = orders.filter(o => o.amount !== null && !o.isCancelled && o.countsEconomically && Number(o.amount) > 0)
     .map(o => Number(o.amount)).sort((a, b) => a - b);
   const mitad = Math.floor(positivos.length / 2);
   const mediana = positivos.length >= 5
@@ -485,6 +487,7 @@ export function validateRows(input: ValidateInput): ValidationResult {
   const moneda = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   for (const orden of orders) {
     if (orden.amount === null) continue;
+    if (orden.isCancelled || !orden.countsEconomically) continue;
     const monto = Number(orden.amount);
     const hallazgos: ValidationIssue[] = [];
     const advertir = (code: IssueCode, message: string) => hallazgos.push({
