@@ -13,6 +13,8 @@ import * as XLSX from 'xlsx';
 export type RawSheet = {
   /** Hoja de la que se leyeron los datos. */
   sheetName: string;
+  /** Títulos anteriores al encabezado, sin mezclar descripciones de órdenes. */
+  titleRows?: unknown[][];
   /** Todas las hojas del libro (para poder avisar si hay más de una). */
   sheetNames: string[];
   /** Índice (0-based) de la fila que se detectó como encabezado. */
@@ -139,6 +141,7 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
 
   return {
     sheetName: elegida,
+    titleRows: matriz.slice(0, headerRowIndex),
     sheetNames,
     headerRowIndex,
     headers,

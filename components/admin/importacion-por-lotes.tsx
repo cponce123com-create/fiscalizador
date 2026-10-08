@@ -141,6 +141,10 @@ async function enParalelo(tareas: (() => Promise<void>)[], limite: number): Prom
   await Promise.all(trabajadores);
 }
 
+function detectadoDuplicado(archivo: ArchivoEnCola, archivos: ArchivoEnCola[]) {
+  return archivo.deteccion ? archivos.find(otro => otro.id !== archivo.id && otro.deteccion?.checksum === archivo.deteccion?.checksum) : undefined;
+}
+
 export function ImportacionPorLotes() {
   const ahora = new Date();
 
@@ -152,8 +156,7 @@ export function ImportacionPorLotes() {
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
   const [soloConHallazgos, setSoloConHallazgos] = useState(false);
 
-  const anios = Array.from({ length: ahora.getFullYear() - 2009 }, (_, i) => 2010 + i);
-  const periodoPorDefecto = periodoDeAnioMes(ahora.getFullYear(), ahora.getMonth() + 1);
+  const anios = Array.from({ length: ahora.getFullYear() - 1999 }, (_, i) => 2000 + i);
 
   const ocupado = analizando || confirmando;
 
@@ -161,7 +164,7 @@ export function ImportacionPorLotes() {
   const enRevision = archivos.filter((archivo) => archivo.analisis !== null);
 
   const listosParaAnalizar = enCola.filter(
-    (archivo) => archivo.estado === 'listo' && archivo.periodo !== '',
+    (archivo) => archivo.estado === 'listo' && /^20\d{2}-(0[1-9]|1[0-2])$/.test(archivo.periodo),
   );
 
   const incluidos = enRevision.filter(
@@ -235,7 +238,7 @@ export function ImportacionPorLotes() {
         error: null,
         motivoExclusion: null,
         duplicadoDe: duplicado?.name ?? null,
-        periodo: periodoPorDefecto,
+        periodo: '',
         deteccion: null,
         analisis: null,
         mapeo: [],
@@ -271,7 +274,7 @@ export function ImportacionPorLotes() {
         actualizar(archivo.id, {
           estado: 'listo',
           deteccion: datos,
-          periodo: datos.periodoSugerido ?? datos.periodoDelNombre ?? archivo.periodo,
+          periodo: datos.periodoSugerido ?? '',
           error: null,
         });
       } catch (fallo) {
@@ -436,8 +439,8 @@ export function ImportacionPorLotes() {
         <TarjetaEncabezado>
           <TarjetaTitulo>Elige los libros</TarjetaTitulo>
           <TarjetaDescripcion>
-            Suelta todos los libros de una vez. El mes y el año de cada uno se deducen de sus fechas
-            de emisión; revísalos antes de analizar.
+            Suelta todos los libros de una vez. El periodo se comprueba con el título del libro y las
+            fechas de emisión. Si hay dudas, selecciona el año y el mes antes de analizar.
           </TarjetaDescripcion>
         </TarjetaEncabezado>
 
@@ -475,8 +478,8 @@ export function ImportacionPorLotes() {
           <TarjetaEncabezado>
             <TarjetaTitulo>Libros en cola ({enCola.length})</TarjetaTitulo>
             <TarjetaDescripcion>
-              Comprueba el periodo de cada libro. Si la deducción falla, aparece el mes actual y hay
-              que corregirlo.
+              Comprueba el periodo de cada libro. Si no se puede determinar, debes seleccionarlo
+              antes de analizar.
             </TarjetaDescripcion>
           </TarjetaEncabezado>
 
@@ -494,8 +497,9 @@ export function ImportacionPorLotes() {
 
               <TablaCuerpo>
                 {enCola.map((archivo) => {
-                  const anio = anioDePeriodo(archivo.periodo);
-                  const mes = mesDePeriodo(archivo.periodo);
+                  const anio = anioDePeriodo(archivo.periodo) || 0;
+                  const mes = mesDePeriodo(archivo.periodo) || 0;
+                  const repetido = detectadoDuplicado(archivo, archivos);
                   const detectado = archivo.deteccion;
 
                   return (
@@ -510,32 +514,28 @@ export function ImportacionPorLotes() {
                             Posible duplicado de «{archivo.duplicadoDe}» en esta misma tanda.
                           </span>
                         ) : null}
-                        {detectado && detectado.mesesDetectados.length > 1 ? (
-                          <span className="mt-1 block text-xs text-warning">
-                            El libro mezcla {detectado.mesesDetectados.length} meses (
-                            {detectado.mesesDetectados.map((m) => m.periodo).join(', ')}). Se
-                            propone el de más filas.
+                        {detectado ? (
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            {detectado.fuente === 'titulo' ? `Título del libro: ${detectado.periodoDelTitulo}.` : detectado.fuente === 'fechas' ? `Fechas de emisión: ${detectado.periodoSugerido}.` : 'Periodo pendiente de selección.'}
+                            {' '}{detectado.filasLeidas} filas. {detectado.mesesDetectados.map(m => `${m.periodo}: ${m.filas} fechas`).join(' · ')}
                           </span>
                         ) : null}
-                        {detectado && detectado.coincideConElNombre === false ? (
-                          <span className="mt-1 block text-xs text-warning">
-                            El nombre dice {detectado.periodoDelNombre} y el contenido dice{' '}
-                            {detectado.periodoSugerido}.
-                          </span>
-                        ) : null}
+                        {detectado?.aviso ? <span className="mt-1 block text-xs text-warning">{detectado.aviso}</span> : null}
+                        {repetido ? <span className="mt-1 block text-xs text-warning">Contenido idéntico a «{repetido.file.name}». No representa otro mes aunque tenga otro nombre; comprueba las descargas antes de importar.</span> : null}
                       </TablaCelda>
 
                       <TablaCelda>
                         <Selector
                           aria-label={`Año de ${archivo.file.name}`}
-                          value={String(anio)}
-                          disabled={ocupado}
+                          value={anio ? String(anio) : ''}
+                          disabled={ocupado || archivo.estado === 'detectando'}
                           onChange={(evento) =>
                             actualizar(archivo.id, {
-                              periodo: periodoDeAnioMes(Number(evento.target.value), mes),
+                              periodo: mes ? periodoDeAnioMes(Number(evento.target.value), mes) : `${evento.target.value}-`,
                             })
                           }
                         >
+                          <option value="" disabled>Selecciona el año</option>
                           {anios.map((a) => (
                             <option key={a} value={a}>
                               {a}
@@ -547,14 +547,15 @@ export function ImportacionPorLotes() {
                       <TablaCelda>
                         <Selector
                           aria-label={`Mes de ${archivo.file.name}`}
-                          value={String(mes)}
-                          disabled={ocupado}
+                          value={mes ? String(mes) : ''}
+                          disabled={ocupado || archivo.estado === 'detectando' || !anio}
                           onChange={(evento) =>
                             actualizar(archivo.id, {
                               periodo: periodoDeAnioMes(anio, Number(evento.target.value)),
                             })
                           }
                         >
+                          <option value="" disabled>Selecciona el mes</option>
                           {MESES.map((m) => (
                             <option key={m.valor} value={m.valor}>
                               {m.nombre}
@@ -575,6 +576,8 @@ export function ImportacionPorLotes() {
                               {archivo.error}
                             </span>
                           </>
+                        ) : !mes || !anio ? (
+                          <Insignia tono="advertencia">selecciona el periodo</Insignia>
                         ) : (
                           <Insignia tono="exito">listo para analizar</Insignia>
                         )}

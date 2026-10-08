@@ -301,14 +301,18 @@ components:
 
     PeriodoDetectado:
       type: object
-      required: [periodoSugerido, periodoDelNombre, mesesDetectados, filasLeidas, coincideConElNombre]
+      required: [periodoSugerido, periodoDelNombre, periodoDelTitulo, fuente, aviso, checksum, mesesDetectados, filasLeidas, coincideConElNombre]
       properties:
         periodoSugerido:
           type: [string, 'null']
-          description: Mes con más filas con fecha de emisión legible.
+          description: Título explícito del reporte o único mes de emisión; null si el periodo es dudoso.
         periodoDelNombre:
           type: [string, 'null']
           description: Periodo que trae el nombre del archivo, si lo trae.
+        periodoDelTitulo: { type: [string, 'null'] }
+        fuente: { type: [string, 'null'], enum: [titulo, fechas, null] }
+        aviso: { type: [string, 'null'] }
+        checksum: { type: string, description: SHA-256 del archivo para reconocer copias en la tanda. }
         mesesDetectados:
           type: array
           items:
@@ -319,7 +323,7 @@ components:
         filasLeidas: { type: integer }
         coincideConElNombre:
           type: [boolean, 'null']
-          description: null si el nombre no trae periodo o si ninguna fila tiene fecha.
+          description: null si el nombre no trae periodo o no hay una referencia inequívoca de contenido.
 
     AnalizarResult:
       type: object
