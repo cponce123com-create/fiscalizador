@@ -26,10 +26,11 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
           'Monto',
           'Estado',
           'Fecha de Emisión',
+          'Descripción',
         ],
-        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05'],
+        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS'],
         [],
-        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06'],
+        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING'],
       ]),
       'Evidencia',
     );
@@ -141,6 +142,11 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     expect(prensa.ordenes).toBe(2);
     expect(prensa.considerado).toBe('50.00');
     expect(prensa.filas[0]).toMatchObject({ registrado: '170.00', anulado: '120.00', considerado: '50.00', anuladas: 1, perfilUrl: `/proveedores/${proveedor.slug}` });
+    const comida = await import('@/services/foodService');
+    const alimentacion = await comida.listarOrdenesAlimentacion({ ...filtrosPorDefecto(), gestionId });
+    expect(alimentacion.total).toBe(2); // Varias palabras de comida no duplican una orden.
+    expect(alimentacion.filas.filter(o => !o.isCancelled).map(o => o.amount)).toEqual(['50.00']);
+    expect((await comida.gastoAlimentacionPorGestion()).map(g => g.gestion)).toEqual(['2015-2018', '2019-2022', '2023-2026']);
     expect((await stats.listarOrdenes({ ...f, anio: 1993, mes: 2, orden: 'monto' })).total).toBe(2);
     expect(
       (

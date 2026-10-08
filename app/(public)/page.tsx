@@ -1,3 +1,5 @@
+import { GastoAlimentacion } from '@/components/publico/gasto-alimentacion';
+import { gastoAlimentacionPorGestion } from '@/services/foodService';
 import { PortadaPrensa } from '@/components/publico/portada-prensa';
 import { contratacionesPrensa } from '@/services/pressService';
 import { BusquedaPortada } from '@/components/publico/busqueda-portada';
@@ -29,12 +31,13 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const periodosRanking = await periodosDelRanking();
   const gestionRanking = seleccionarPeriodoRanking((await searchParams).gestion, periodosRanking);
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
-  const [datos, pendientes, ultimaActualizacion, config, prensa] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config, prensa, alimentacion] = await Promise.all([
     datosPortada(gestionRanking),
     prisma.importBatch.count({ where: { requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
     contratacionesPrensa(),
+    gastoAlimentacionPorGestion(),
   ]);
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
@@ -61,7 +64,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
     <ResumenPortada resumen={resumen} />
 
     <div className="grid items-start gap-5 lg:grid-cols-2">
-      <div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div>
+      <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><GastoAlimentacion filas={alimentacion} /></div>
       <div className="panel-portada"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking}.`} accion={<Link href={`/ranking?gestion=${encodeURIComponent(gestionRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
     </div>
 
