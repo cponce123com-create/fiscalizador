@@ -4,9 +4,8 @@ import type { FilaComparativa } from '@/services/statisticsService';
 /**
  * Comparación del gasto entre gestiones.
  *
- * Los tres montos van separados —registrado, anulado y considerado— porque es la
- * única forma de que la cifra que suma quede explicada. Las gestiones sin libros
- * importados aparecen en cero y atenuadas: existen, pero todavía no tienen datos.
+ * Se publica solo el monto considerado. Las anuladas se cuentan para trazabilidad,
+ * pero su importe agregado no se muestra al público.
  */
 export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
   if (filas.length === 0) {
@@ -38,12 +37,6 @@ export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Proveedores
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Registrado
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Anulado
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Considerado
@@ -84,20 +77,6 @@ export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
 
               <td className="tabular whitespace-nowrap px-3 py-2.5 text-right">
                 {fila.proveedores.toLocaleString('es-PE')}
-              </td>
-
-              <td className="tabular whitespace-nowrap px-3 py-2.5 text-right">
-                {formatearMonto(fila.registrado)}
-              </td>
-
-              <td
-                className={
-                  fila.anulado === '0.00'
-                    ? 'tabular whitespace-nowrap px-3 py-2.5 text-right'
-                    : 'tabular whitespace-nowrap px-3 py-2.5 text-right text-destructive'
-                }
-              >
-                {formatearMonto(fila.anulado)}
               </td>
 
               <td className="tabular whitespace-nowrap px-3 py-2.5 text-right font-semibold">
