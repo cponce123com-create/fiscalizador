@@ -9,7 +9,7 @@ export function PeriodoRanking({ periodos, seleccionado }: { periodos: { id: str
   const parametros = useSearchParams();
   const [pendiente, transicion] = useTransition();
 
-  return <div className="mb-4 flex flex-col gap-2" aria-busy={pendiente}>
+  return <div className="flex flex-col gap-2" aria-busy={pendiente}>
     <label className="flex flex-col gap-1.5 text-sm font-medium">
       Periodo de gestión municipal
       <select value={seleccionado} disabled={pendiente} className="min-h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" onChange={evento => {

@@ -36,46 +36,19 @@ export function RankingProveedores({
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
         {ranking.map((fila, indice) => (
-          <li key={fila.supplierId} className="flex flex-col gap-3 px-4 py-4 sm:px-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 basis-full items-center sm:flex-1 sm:basis-auto gap-3">
-                <span className={`tabular flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${indice === 0 ? 'bg-amber-100 text-amber-900' : 'bg-muted text-muted-foreground'}`}>
-                  {indice + 1}
-                </span>
-                <FotoProveedor key={fila.fotoUrl} url={fila.fotoUrl} nombre={fila.nombre} />
-                <div className="min-w-0">
-                  <Link
-                    href={`/proveedores/${fila.slug}`}
-                    className="block text-sm font-semibold leading-snug text-foreground hover:underline break-words"
-                    title={fila.nombre}
-                  >
-                    {fila.nombre}
-                  </Link>
-                  <p className="tabular break-words text-xs text-muted-foreground">
-                    RUC {fila.ruc} · {fila.ordenes}{' '}
-                    {fila.ordenes === 1 ? 'orden' : 'órdenes'}
-                    {fila.anuladas > 0 ? ` · ${fila.anuladas} ${fila.anuladas === 1 ? 'anulada' : 'anuladas'}` : ''}
-                  </p>
-                </div>
+          <li key={fila.supplierId} className="flex items-start gap-3 px-3 py-3">
+            <FotoProveedor key={fila.fotoUrl} url={fila.fotoUrl} nombre={fila.nombre} />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+              <div className="flex items-start gap-2">
+                <span className={`tabular flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${indice === 0 ? 'bg-amber-100 text-amber-900' : 'bg-muted text-muted-foreground'}`}>{indice + 1}</span>
+                <Link prefetch={false} href={`/proveedores/${fila.slug}`} className="min-w-0 break-words text-sm font-semibold leading-snug text-foreground hover:underline" title={fila.nombre}>{fila.nombre}</Link>
               </div>
-
-              <div className="ml-auto shrink-0 text-right">
-                <p className="tabular text-sm font-semibold text-foreground">
-                  {formatearMonto(fila.considerado)}
-                </p>
-                <p className="tabular break-words text-xs text-muted-foreground">{fila.peso}% del total</p>
+              <p className="tabular break-words text-[11px] leading-relaxed text-muted-foreground">RUC {fila.ruc} · {fila.ordenes} {fila.ordenes === 1 ? 'orden' : 'órdenes'}{fila.anuladas > 0 ? ` · ${fila.anuladas} ${fila.anuladas === 1 ? 'anulada' : 'anuladas'}` : ''}</p>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                <p className="tabular text-sm font-semibold text-primary">{formatearMonto(fila.considerado)}</p>
+                <p className="tabular text-[11px] text-muted-foreground">{fila.peso}% del total</p>
               </div>
-            </div>
-
-            <div
-              className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-              role="presentation"
-              aria-hidden="true"
-            >
-              <div
-                className="h-full rounded-full bg-primary/70"
-                style={{ width: `${Math.min(100, Math.max(fila.peso, 0))}%` }}
-              />
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" aria-hidden="true"><div className="h-full rounded-full bg-primary/70" style={{ width: `${Math.min(100, Math.max(fila.peso, 0))}%` }} /></div>
             </div>
           </li>
         ))}
