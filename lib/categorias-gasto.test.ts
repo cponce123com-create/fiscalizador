@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { categoriaGastoPorId, categoriasGasto, coincideCategoriaGasto } from './categorias-gasto';
 describe('clasificación de gastos por descripción', () => {
   it.each([
+    ['utiles-oficina', 'ÚTILES DE OFICINA Y ECONOMATO', 'Útiles escolares'],
+    ['utiles-oficina', 'Impresión de talonarios', 'Mantenimiento de impresora'],
+    ['utiles-oficina', 'Tóner y papel bond', 'Alquiler de oficinas'],
+    ['utiles-oficina', 'Fotocopiado de documentos', 'Papeles de trabajo de consultoría'],
+    ['utiles-oficina', 'Adquisición de archivadores y lapiceros', 'Compra de carpetas escolares'],
+    ['vacaciones-navidad', 'Programa de VACACIONES ÚTILES', 'Pago de vacaciones del personal'],
+    ['vacaciones-navidad', 'Canastas navideñas', 'Adquisición de alimentos en diciembre'],
+    ['vacaciones-navidad', 'Chocolatada por Navidad', 'Servicio de almuerzo'],
+    ['vacaciones-navidad', 'Panetones para actividad navideña', 'Compra de pan para comedor'],
+    ['apoyo-social', 'APOYO SOCIAL Y COYUNTURAL', 'Apoyo administrativo'],
+    ['apoyo-social', 'Asistencia social a población vulnerable', 'Asistencia técnica'],
+    ['apoyo-social', 'Ayuda humanitaria', 'Apoyo al programa de mantenimiento'],
+    ['apoyo-social', 'Apoyo a los damnificados', 'Compra de combustible'],
+    ['apoyo-social', 'Subvenciones sociales', 'Subvención para evento deportivo'],
     ['alquiler-camionetas', 'ALQUILER DE CAMIONETA 4X4', 'Mantenimiento de camioneta'],
     ['alquiler-camionetas', 'Arrendamiento de pick-up', 'Alquiler de local'],
     ['maquinaria-pesada', 'Reparación de retroexcavadora', 'Alquiler de retroexcavadora'],
@@ -24,7 +38,7 @@ describe('clasificación de gastos por descripción', () => {
   });
   it('permite conceptos compartidos sin duplicar categorías', () => {
     expect(categoriasGasto.filter(c => coincideCategoriaGasto(c, 'Consultoría de expediente técnico')).map(c => c.id)).toEqual(['consultorias', 'expedientes-tecnicos']);
-    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(7);
+    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(10);
     expect(categoriaGastoPorId('inexistente')).toBeUndefined();
   });
 });
