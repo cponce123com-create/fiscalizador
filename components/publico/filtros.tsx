@@ -108,7 +108,7 @@ export function Filtros({
         ) : null}
 
       </div>
-      <details className="mt-4" open={Boolean(filtros.gestionId || filtros.tipoOrdenId || filtros.estadoId || filtros.tipoRuc || filtros.desde || filtros.hasta)}>
+      {campos.some(c => !['texto', 'anio', 'mes'].includes(c)) ? <details className="mt-4" open={Boolean(filtros.gestionId || filtros.tipoOrdenId || filtros.estadoId || filtros.tipoRuc || filtros.desde || filtros.hasta)}>
         <summary className="cursor-pointer text-sm font-medium text-primary">Más filtros</summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {hay('gestion') ? (
@@ -182,7 +182,7 @@ export function Filtros({
         ) : null}
       </div>
 
-      </details>
+      </details> : null}
 
       {(ruta === '/ordenes' || ruta === '/admin/ordenes') ? <div className="mt-4 grid grid-cols-2 gap-3"><Selector etiqueta="Ordenar por" nombre="orden" valor={!filtros.texto && filtros.orden === 'fecha' ? '' : filtros.orden} vacio="Automático" opciones={[{ valor: 'relevancia', etiqueta: 'Relevancia' }, { valor: 'fecha', etiqueta: 'Fecha' }, { valor: 'monto', etiqueta: 'Monto' }, { valor: 'proveedor', etiqueta: 'Proveedor' }]} /><Selector etiqueta="Dirección" nombre="direccion" valor={filtros.direccion} vacio="Descendente" opciones={[{ valor: 'desc', etiqueta: 'Descendente' }, { valor: 'asc', etiqueta: 'Ascendente' }]} /></div> : null}
       <div className="mt-4 flex flex-wrap items-center gap-2">

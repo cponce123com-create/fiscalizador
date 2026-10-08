@@ -1,3 +1,5 @@
+import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
+import { leerFiltros, filtrosPorDefecto, serializarFiltros } from '@/lib/filtros';
 import { Suspense } from 'react';
 import { categoriasGasto } from '@/lib/categorias-gasto';
 import { gastosPorCategoriaGestion } from '@/services/categorySpendingService';
@@ -31,10 +33,14 @@ const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text
 
 export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const periodosRanking = await periodosDelRanking();
-  const gestionRanking = seleccionarPeriodoRanking((await searchParams).gestion, periodosRanking);
+  const parametros = await searchParams;
+  const gestionRanking = seleccionarPeriodoRanking(parametros.gestion, periodosRanking);
+  const tipoRucRanking = leerFiltros(parametros).tipoRuc;
+  const filtrosRanking = { ...filtrosPorDefecto(), gestionId: gestionRanking, tipoRuc: tipoRucRanking };
+  const etiquetaRuc = tipoRucRanking ? `RUC ${tipoRucRanking}` : 'Todos los tipos de RUC';
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
   const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
-    datosPortadaInicial(gestionRanking),
+    datosPortadaInicial(gestionRanking, tipoRucRanking),
     prisma.importBatch.count({ where: { requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
@@ -65,7 +71,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
 
     <div className="grid items-stretch gap-4 lg:grid-cols-2">
       <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><Suspense fallback={<CargaSeccion titulo="Gastos en alimentación" />}><AlimentacionPortada /></Suspense></div>
-      <div className="panel-portada h-full min-w-0"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking}.`} accion={<Link href={`/ranking?gestion=${encodeURIComponent(gestionRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
+      <div className="panel-portada h-full min-w-0"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking} · ${etiquetaRuc}.`} accion={<Link href={`/ranking${serializarFiltros(filtrosRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><TipoRucRanking filtros={filtrosRanking} ruta="/" /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
     </div>
 
     <Suspense fallback={<CargaSeccion titulo="Comparaciones de gastos por gestión" />}><ComparacionesGastos /></Suspense>

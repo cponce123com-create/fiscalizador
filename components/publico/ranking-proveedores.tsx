@@ -25,7 +25,7 @@ export function RankingProveedores({
   if (ranking.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
-        Todavía no hay proveedores con órdenes importadas.
+        No hay proveedores con órdenes en la selección actual.
       </p>
     );
   }
