@@ -17,7 +17,7 @@ export default async function Apariencia() {
         <ImagenPortalControl tipo="logo" titulo="Logo del portal" descripcion="Encabezado, pie de página y portada cuando no hay fotografía. Sin personalizar, se utiliza el escudo existente." url={config.logo} />
         <ImagenPortalControl tipo="favicon" titulo="Favicon" descripcion="Icono de la pestaña del navegador y acceso en dispositivos móviles. Se prepara como PNG cuadrado de 256 px." url={config.favicon} />
         <ImagenPortalControl tipo="portada" titulo="Fotografía de portada" descripcion="Imagen principal de la página de inicio. Usa una fotografía que tengas permiso para publicar." url={config.fotoPortada} credito={config.creditoFoto} />
-        <ImagenPortalControl tipo="social" titulo="Imagen para compartir enlaces" descripcion="Vista previa de enlaces en redes sociales y mensajería. Se recorta al centro a 1200 × 630 px." url={config.imagenSocial} />
+        <ImagenPortalControl tipo="social" titulo="Imagen para compartir enlaces" descripcion="Respaldo para compartir si no hay foto de portada. La portada tiene prioridad; se recorta esta imagen a 1200 × 630 px." url={config.imagenSocial} />
       </div>
     </section>
     <div className="rounded-xl border border-border bg-card p-6"><FormularioAccion accion={guardarApariencia} etiqueta="Guardar cambios">

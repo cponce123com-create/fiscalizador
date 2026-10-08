@@ -1,3 +1,5 @@
+import { Compartir } from './compartir';
+import { imagenCompartida, resumenGastos } from '@/lib/compartir';
 import Link from 'next/link';
 import { Coins, Utensils } from 'lucide-react';
 import type { GastoAlimentacionGestion } from '@/lib/alimentacion';
@@ -18,5 +20,6 @@ export function GastoAlimentacion({ filas, titulo = 'Gastos en alimentación', d
     {!filas.length ? <p className="mt-4 text-sm text-muted-foreground">Todavía no hay gestiones registradas.</p> : null}
     <p className="mt-auto pt-4 text-[11px] leading-relaxed text-muted-foreground">Monto considerado de órdenes identificadas por su descripción; cada orden suma una sola vez. Excluye anuladas y estados no económicos. Cobertura parcial: los meses disponibles pueden variar entre gestiones.</p>
     <Link prefetch={false} href={ruta} className="boton-enlace mt-3 inline-flex w-full justify-center sm:w-auto min-h-11 items-center rounded-lg border border-border px-3 py-2 text-xs font-semibold text-primary">Consultar desglose y metodología →</Link>
+    <Compartir titulo={titulo} resumen={resumenGastos(filas)} ruta={ruta} imagen={imagenCompartida('gasto', ruta === '/alimentacion' ? 'alimentacion' : ruta.split('/').pop()!)} />
   </section>;
 }

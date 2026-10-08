@@ -1,3 +1,4 @@
+import { imagenCompartida, metadataCompartida } from '@/lib/compartir';
 import type { Metadata } from 'next';
 import { GastoAlimentacion } from '@/components/publico/gasto-alimentacion';
 import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
@@ -7,7 +8,7 @@ import { leerFiltros, serializarFiltros } from '@/lib/filtros';
 import { gastoAlimentacionPorGestion, listarOrdenesAlimentacion } from '@/services/foodService';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Gastos en alimentación por gestión' };
+export const metadata: Metadata = metadataCompartida('Gastos en alimentación por gestión', 'Comparación de alimentación, comidas y refrigerios entre gestiones. Cobertura parcial de libros publicados; las órdenes no acreditan pagos efectivos.', '/alimentacion', imagenCompartida('gasto', 'alimentacion'));
 export default async function PaginaAlimentacion({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams;
   const filtros = leerFiltros({ gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });

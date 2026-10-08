@@ -1,3 +1,4 @@
+import { imagenCompartida, metadataCompartida } from '@/lib/compartir';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { categoriaGastoPorId } from '@/lib/categorias-gasto';
@@ -11,7 +12,7 @@ import { gastosPorCategoriaGestion, listarOrdenesCategoria } from '@/services/ca
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ categoria: string }> }): Promise<Metadata> {
   const categoria = categoriaGastoPorId((await params).categoria);
-  return { title: categoria ? `${categoria.titulo} por gestión` : 'Categoría no encontrada', description: categoria?.descripcion };
+  return categoria ? metadataCompartida(`${categoria.titulo} por gestión`, `${categoria.descripcion} Cobertura parcial de libros publicados; las órdenes no acreditan pagos efectivos.`, `/gastos/${categoria.id}`, imagenCompartida('gasto', categoria.id)) : { title: 'Categoría no encontrada' };
 }
 export default async function PaginaGastos({ params, searchParams }: { params: Promise<{ categoria: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const categoria = categoriaGastoPorId((await params).categoria);
