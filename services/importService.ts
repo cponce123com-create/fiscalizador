@@ -11,7 +11,7 @@ import {
   type ColumnMapping,
   type InternalField,
 } from '@/services/mappingService';
-import { computeChecksum, parseSpreadsheet, type RawSheet } from '@/services/parseService';
+import { computeChecksum, parseSpreadsheetEnWorker, type RawSheet } from '@/services/parseService';
 import { describirFalloDeAlmacenamiento, getStorage } from '@/services/storageService';
 import { recalcularResumenGestion, resolverProveedor } from '@/services/supplierService';
 import {
@@ -351,13 +351,13 @@ function aPreview(orden: ValidatedOrder): PreviewRow {
  * tarde, una fila excluida todavía crearía su proveedor y su resumen por gestión.
  * El resumen de validación NO cambia: describe el archivo, no lo que se importa.
  */
-function procesarBuffer(
+async function procesarBuffer(
   buffer: Buffer,
   catalogos: Catalogos,
   mappingOverride?: { position: number; field: InternalField | null; isPublic: boolean }[],
   filasExcluidas: readonly number[] = [],
 ) {
-  const hoja: RawSheet = parseSpreadsheet(buffer);
+  const hoja: RawSheet = await parseSpreadsheetEnWorker(buffer);
   const mappings = mapColumns(hoja.headers, hoja.rows);
 
   // El administrador puede haber corregido el mapeo en la fase 1; sus
@@ -445,7 +445,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   const checksum = computeChecksum(buffer);
   const periodo = periodoDe(year, month);
 
-  const { hoja, mappings, validacion } = procesarBuffer(buffer, catalogos);
+  const { hoja, mappings, validacion } = await procesarBuffer(buffer, catalogos);
   const camposFaltantes = camposObligatoriosFaltantes(mappings);
 
   const claves = validacion.orders.map((o) => o.dedupeKey ?? '');
@@ -706,7 +706,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         'La huella del archivo no coincide con el original. No se publicó la importación.',
       );
     }
-    const { validacion } = procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
+    const { validacion } = await procesarBuffer(buffer, catalogos, mappingOverride, filasExcluidas);
 
     const montosConfirmados = new Set(input.filasMontosConfirmados ?? []);
     const sinRevisar = validacion.orders.filter(o => requiereRevisionMonto(o.issues) && !montosConfirmados.has(o.sourceRow));

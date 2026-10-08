@@ -15,6 +15,9 @@ export async function register(): Promise<void> {
   // no existen: sin este guard, el arranque fallaría.
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
+  const { validarAlmacenamientoConfigurado } = await import('@/services/storageService');
+  await validarAlmacenamientoConfigurado();
+
   const { despertarBaseDeDatos } = await import('@/lib/prisma');
   void despertarBaseDeDatos();
 }
