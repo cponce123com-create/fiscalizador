@@ -38,8 +38,8 @@ async function cambiarFoto(request: Request, { params }: Contexto, operacion: 's
     if (!borrar && Number(request.headers.get('content-length')) > MAX_FOTO_BYTES + 64 * 1024) throw new ErrorDeNegocio('La foto debe pesar como máximo 2 MB.');
     const form = borrar ? null : await request.formData();
     const publicar = form?.has('publicar') ?? false;
-    const sourceUrl = publicar ? String(form?.get('sourceUrl') ?? '').trim() : null;
-    if (publicar && !fuentePublica.safeParse(sourceUrl).success) throw new ErrorDeNegocio('Indica la fuente pública de la foto para publicarla.');
+    const sourceUrl = publicar ? String(form?.get('sourceUrl') ?? '').trim() || null : null;
+    if (sourceUrl && !fuentePublica.safeParse(sourceUrl).success) throw new ErrorDeNegocio('El enlace opcional de la foto no es válido.');
     if (operacion === 'subir') {
       const foto = form?.get('foto');
       if (!(foto instanceof File) || foto.size > MAX_FOTO_BYTES) throw new ErrorDeNegocio('Selecciona una foto de hasta 2 MB.');

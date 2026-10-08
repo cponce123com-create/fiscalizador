@@ -234,8 +234,9 @@ se muestran separados del resultado oficial y requieren su fuente.
 
 ## Publicación y seguridad
 
-- **Publicación por ficha y por dato.** DNI completo, edad, nacimiento, distrito y
-  foto requieren habilitación y fuente pública revisada. La foto puede publicarse con su fuente al subirla o mediante el botón de
+- **Publicación por ficha y por dato.** DNI completo, edad, nacimiento y distrito
+  requieren habilitación y fuente pública revisada. Para la foto basta habilitar su
+  publicación; su fuente es opcional. Puede publicarse al subirla o mediante el botón de
   publicación, incluso si ya estaba guardada. Reemplazarla conserva la publicación
   previa salvo que se elija guardarla como privada. Su estado se muestra en el panel. Notas y vínculos tienen controles independientes.
 - **Datos de contratación.** El RUC y las órdenes permanecen públicos. Ocultar la
