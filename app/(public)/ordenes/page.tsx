@@ -4,7 +4,7 @@ import { Filtros } from '@/components/publico/filtros';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
 import Link from 'next/link';
-import { leerFiltros, serializarFiltros } from '@/lib/filtros';
+import { leerFiltros } from '@/lib/filtros';
 import { listarOrdenes, opcionesDeFiltros } from '@/services/statisticsService';
 
 /**
@@ -47,8 +47,7 @@ export default async function PaginaOrdenes({
 
       <Filtros filtros={filtros} opciones={opciones} ruta="/ordenes" />
 
-      <Link className="underline" href={`/api/public/orders/export?${serializarFiltros(filtros)}`}>Descargar todo el resultado filtrado (CSV, hasta 20.000 órdenes)</Link>
-      <p className="text-xs text-muted-foreground">Extracto normalizado de versiones vigentes con procedencia y criterio de búsqueda. Las columnas restringidas se omiten; la huella corresponde al original. El monto considerado se reproduce sumando el monto de las filas con considerada=true. Los montos desconocidos quedan vacíos.</p>
+      <Link className="boton-enlace inline-flex w-fit items-center rounded-lg px-4 py-2 text-sm text-primary" href="/fuentes#libros">Descargar libros por mes</Link>
       {filtros.texto && filtros.orden === 'relevancia' ? <p className="text-sm text-muted-foreground">Primero se muestran coincidencias exactas y palabras completas en la descripción; después, coincidencias parciales.</p> : null}
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ordenes" />
 

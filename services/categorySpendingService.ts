@@ -21,6 +21,9 @@ export async function gastosPorCategoriaGestion(): Promise<GastoCategoriaGestion
     WITH categorias(categoria, patron1, patron2, excluir) AS (VALUES ${valores}), gestiones AS (
       SELECT id, name, "startDate" FROM "ManagementPeriod"
       WHERE "startDate" <= CURRENT_DATE ORDER BY "startDate" DESC, id LIMIT 3
+    ), ordenes AS MATERIALIZED (
+      SELECT o.id, o."managementPeriodId", o."statusId", o."isCancelled", o.amount, ${descripcion} AS normalizada FROM "CurrentOrder" o
+      JOIN gestiones g ON g.id = o."managementPeriodId"
     )
     SELECT c.categoria, g.id, g.name AS gestion,
       (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
@@ -30,7 +33,7 @@ export async function gastosPorCategoriaGestion(): Promise<GastoCategoriaGestion
       COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
       COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS considerado
     FROM gestiones g CROSS JOIN categorias c
-    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id AND ${descripcion} ~ c.patron1 AND ${descripcion} ~ c.patron2 AND ${descripcion} !~ c.excluir
+    LEFT JOIN ordenes o ON o."managementPeriodId" = g.id AND o.normalizada ~ c.patron1 AND o.normalizada ~ c.patron2 AND o.normalizada !~ c.excluir
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY c.categoria, g.id, g.name, g."startDate" ORDER BY c.categoria, g."startDate", g.id
   `;
