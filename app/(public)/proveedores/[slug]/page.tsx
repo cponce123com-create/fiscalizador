@@ -1,3 +1,4 @@
+import { catalogoPrensa } from '@/lib/prensa';
 import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor } from '@/services/electoralService';
 import { AntecedentesElectorales } from '@/components/publico/antecedentes-electorales';
 import { prisma } from '@/lib/prisma';
@@ -144,6 +145,8 @@ export default async function PaginaProveedor({
           </div>
         </div>
       </div>
+
+      {catalogoPrensa.some(p => p.ruc === perfil.ruc) ? <Link href="/prensa" className="boton-enlace inline-flex min-h-11 w-fit items-center rounded-lg border border-border px-4 py-2 text-sm font-semibold text-primary">← ¿Y la prensa cuánto cobra? · Ver listado de seguimiento</Link> : null}
 
       {electoral ? <section className="flex flex-col gap-4"><h2 className="text-xl font-semibold">Antecedentes electorales</h2><Link href={`/electoral/${electoral.id}`} className="text-sm text-primary underline">Ver perfil electoral de {electoral.fullName}</Link><AntecedentesElectorales registros={electoral.records} /><p className="text-xs text-muted-foreground">Coincidencia por documento con el RUC 10. Los datos corresponden a las elecciones citadas; no demuestran por sí solos un conflicto de intereses.</p></section> : null}
       {evidencia?.notas ? <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-xl font-semibold">Notas documentadas de fiscalización</h2><p className="mt-3 whitespace-pre-wrap text-sm">{evidencia.notas}</p><Link href={evidencia.fuente!} target="_blank" rel="noopener noreferrer" className="mt-3 block text-sm text-primary underline">Consultar fuente de las notas</Link></section> : null}
