@@ -195,6 +195,11 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     expect(segunda.totalPaginas).toBe(1);
     expect(segunda.filas).toEqual([]);
     const portada = await stats.datosPortada();
+    const inicial = await stats.datosPortadaInicial();
+    expect(inicial.resumen).toEqual(portada.resumen);
+    expect(inicial.mensual).toEqual(portada.mensual);
+    expect(inicial.ranking).toEqual(portada.ranking.slice(0, 5));
+    expect(inicial.ultimos).toEqual(portada.ultimos);
     expect(portada.mensual.find((m) => m.periodo === '1993-02')?.considerado).toBe('50.00');
     expect(portada.anual.find((m) => m.periodo === '1993')?.considerado).toBe('50.00');
     expect(portada.gestiones.find((g) => g.gestion === 'CIUDADANIA-1993')?.considerado).toBe(
@@ -202,14 +207,9 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     );
     expect((await stats.opcionesDeFiltros()).anios).toContain(1993);
     const { GET: exportar } = await import('@/app/api/public/orders/export/route');
-    const csv = await exportar(
-      new Request(`https://ejemplo.test/api/public/orders/export?texto=${ruc}&gestion=${gestionId}&mes=2`),
-    );
-    expect(csv.status).toBe(200);
-    expect(csv.headers.get('X-Total-Ordenes')).toBe('2');
-    expect(csv.headers.get('X-Total-Registrado')).toBe('170.00');
-    expect(csv.headers.get('X-Total-Considerado')).toBe('50.00');
-    expect((await csv.text()).split('\r\n')).toHaveLength(3);
+    const csv = await exportar();
+    expect(csv.status).toBe(410);
+    expect((await csv.json()).fuentes).toBe('/fuentes');
 
     expect(
       (await stats.proveedoresMultiGestion(1)).filas.find((p) => p.ruc === ruc)?.totalConsiderado,

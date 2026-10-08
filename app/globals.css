@@ -199,3 +199,16 @@ body {
   color: var(--primary-foreground);
   box-shadow: none;
 }
+
+/* Texto legible y tarjetas alineadas sin espacios entre palabras en pantallas pequeñas. */
+.portal-publico :is(h1, h2, h3) { text-wrap: balance; overflow-wrap: anywhere; }
+.portal-publico p { text-wrap: pretty; }
+.portal-publico .panel-portada { min-width: 0; }
+@media (min-width: 768px) {
+  .comparaciones-gastos .tarjeta-comparacion h2 { min-height: 3.5rem; }
+  .comparaciones-gastos .descripcion-comparacion { min-height: 3.75rem; }
+}
+@media (max-width: 767px) {
+  .portal-publico main { padding-left: .875rem; padding-right: .875rem; }
+  .portal-publico .tarjeta-comparacion { padding: .875rem; }
+}

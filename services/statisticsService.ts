@@ -637,6 +637,14 @@ export async function datosPortada(gestionRanking: string | null = null): Promis
   return { resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos };
 }
 
+/** La portada inicial solo consulta datos visibles; el análisis completo vive en /estadisticas. */
+export async function datosPortadaInicial(gestionRanking: string | null = null) {
+  const [resumen, ranking, mensual, ultimos] = await Promise.all([
+    resumenGeneral(), rankingProveedores(5, gestionRanking), evolucionMensual(), ultimosRegistros(8),
+  ]);
+  return { resumen, ranking, mensual, ultimos };
+}
+
 // =============================================================================
 // Listados paginados
 // =============================================================================

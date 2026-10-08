@@ -38,7 +38,7 @@ export function RankingProveedores({
         {ranking.map((fila, indice) => (
           <li key={fila.supplierId} className="flex flex-col gap-3 px-4 py-4 sm:px-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex min-w-0 basis-full items-center sm:flex-1 sm:basis-auto gap-3">
                 <span className={`tabular flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${indice === 0 ? 'bg-amber-100 text-amber-900' : 'bg-muted text-muted-foreground'}`}>
                   {indice + 1}
                 </span>
@@ -51,7 +51,7 @@ export function RankingProveedores({
                   >
                     {fila.nombre}
                   </Link>
-                  <p className="tabular text-xs text-muted-foreground">
+                  <p className="tabular break-words text-xs text-muted-foreground">
                     RUC {fila.ruc} · {fila.ordenes}{' '}
                     {fila.ordenes === 1 ? 'orden' : 'órdenes'}
                     {fila.anuladas > 0 ? ` · ${fila.anuladas} ${fila.anuladas === 1 ? 'anulada' : 'anuladas'}` : ''}
@@ -63,7 +63,7 @@ export function RankingProveedores({
                 <p className="tabular text-sm font-semibold text-foreground">
                   {formatearMonto(fila.considerado)}
                 </p>
-                <p className="tabular text-xs text-muted-foreground">{fila.peso}% del total</p>
+                <p className="tabular break-words text-xs text-muted-foreground">{fila.peso}% del total</p>
               </div>
             </div>
 
