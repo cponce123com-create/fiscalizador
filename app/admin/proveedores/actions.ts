@@ -17,6 +17,8 @@ export async function accionGuardarPerfilProveedor(_estado: EstadoFormulario, fo
     revalidatePath(`/admin/proveedores/${input.supplierId}`);
     revalidatePath('/admin/proveedores');
     revalidatePath('/proveedores', 'layout');
+    revalidatePath('/prensa', 'layout');
+    revalidatePath('/ranking');
     revalidatePath('/');
     return { error: null, ok: 'Perfil guardado. Solo se publican los datos habilitados con su fuente revisada.' };
   } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }

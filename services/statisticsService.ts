@@ -157,7 +157,7 @@ export async function rankingProveedores(limite = 15, gestionId: string | null =
       s.name,
       s.slug,
       CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL AND p."isPublic" = true AND p.publication->'foto'->>'enabled' = 'true' AND p.publication->'foto'->>'verifiedAt' IS NOT NULL)
-        THEN '/api/public/proveedores/' || s.id || '/foto'
+        THEN '/api/public/proveedores/' || s.id || '/foto?v=' || (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id)
         ELSE NULL END AS "photoUrl",
       COUNT(*)::int AS ordenes,
       COUNT(*) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,

@@ -142,6 +142,16 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     expect(prensa.ordenes).toBe(2);
     expect(prensa.considerado).toBe('50.00');
     expect(prensa.filas[0]).toMatchObject({ registrado: '170.00', anulado: '120.00', considerado: '50.00', anuladas: 1, perfilUrl: `/proveedores/${proveedor.slug}` });
+    const perfilFoto = await prisma.supplierProfile.create({ data: { supplierId: proveedor.id, isPublic: true, photoKey: 'fixture-no-se-descarga', publication: { foto: { enabled: true, sourceUrl: 'https://ejemplo.test/foto', verifiedAt: new Date().toISOString() } } } });
+    const vigentesFoto = await prisma.importBatch.findMany({ where: { id: { in: ids }, isCurrent: true }, select: { id: true } });
+    try {
+      await prisma.importBatch.updateMany({ where: { id: { in: vigentesFoto.map(b => b.id) } }, data: { isCurrent: false } });
+      const sinOrdenes = await contratacionesPrensa([{ ruc, nombre: 'Seguimiento sin órdenes vigentes' }]);
+      expect(sinOrdenes.filas[0]).toMatchObject({ ordenes: 0, considerado: '0.00', perfilUrl: `/proveedores/${proveedor.slug}`, fotoUrl: `/api/public/proveedores/${proveedor.id}/foto?v=${perfilFoto.updatedAt.getTime()}` });
+    } finally {
+      await prisma.importBatch.updateMany({ where: { id: { in: vigentesFoto.map(b => b.id) } }, data: { isCurrent: true } });
+      await prisma.supplierProfile.delete({ where: { id: perfilFoto.id } });
+    }
     const comida = await import('@/services/foodService');
     const alimentacion = await comida.listarOrdenesAlimentacion({ ...filtrosPorDefecto(), gestionId });
     expect(alimentacion.total).toBe(2); // Varias palabras de comida no duplican una orden.

@@ -18,7 +18,7 @@ export default async function PaginaFichaPrensa({ params }: { params: Promise<{ 
   const resumen = await contratacionesPrensa([persona]);
   const ficha = resumen.filas[0];
   // Una sola ficha contractual: en cuanto hay órdenes, reutiliza el perfil existente.
-  if (ficha.ordenes > 0) redirect(ficha.perfilUrl);
+  if (ficha.perfilUrl.startsWith('/proveedores/')) redirect(ficha.perfilUrl);
   return <div className="flex flex-col gap-5">
     <Link href="/prensa" className="boton-enlace inline-flex min-h-11 w-fit items-center rounded-lg border border-border px-3 py-2 text-sm">← Volver al listado de prensa</Link>
     <header className="rounded-xl border border-border bg-card p-6"><h1 className="text-2xl font-semibold">{persona.nombre}</h1><p className="mt-2 text-sm text-muted-foreground">{ficha.tipo} · RUC {persona.ruc}</p></header>
