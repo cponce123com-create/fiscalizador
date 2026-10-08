@@ -28,9 +28,9 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
           'Fecha de Emisión',
           'Descripción',
         ],
-        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS'],
+        ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS; ALQUILER DE CAMIONETA'],
         [],
-        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING'],
+        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING; CONSULTORÍA DE EXPEDIENTE TÉCNICO'],
       ]),
       'Evidencia',
     );
@@ -147,6 +147,27 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     expect(alimentacion.total).toBe(2); // Varias palabras de comida no duplican una orden.
     expect(alimentacion.filas.filter(o => !o.isCancelled).map(o => o.amount)).toEqual(['50.00']);
     expect((await comida.gastoAlimentacionPorGestion()).map(g => g.gestion)).toEqual(['2015-2018', '2019-2022', '2023-2026']);
+    const categorias = await import('@/lib/categorias-gasto');
+    const gastos = await import('@/services/categorySpendingService');
+    const consulta = { ...filtrosPorDefecto(), gestionId };
+    const alquileres = await gastos.listarOrdenesCategoria(categorias.categoriaGastoPorId('alquiler-camionetas')!, consulta);
+    expect(alquileres.total).toBe(1);
+    expect(alquileres.filas[0]?.isCancelled).toBe(true);
+    const expedientes = await gastos.listarOrdenesCategoria(categorias.categoriaGastoPorId('expedientes-tecnicos')!, consulta);
+    expect(expedientes.total).toBe(1);
+    expect(expedientes.filas[0]?.amount).toBe('50.00');
+    // Temporalmente coloca la gestión aislada entre las últimas tres para auditar los totales.
+    await prisma.managementPeriod.update({ where: { id: gestionId }, data: { startDate: new Date('2024-01-01') } });
+    try {
+      const resumenGastos = (await gastos.gastosPorCategoriaGestion()).filter(g => g.id === gestionId);
+      expect(resumenGastos).toHaveLength(7);
+      expect(resumenGastos.find(g => g.categoria === 'alquiler-camionetas')).toMatchObject({ ordenes: 1, anuladas: 1, considerado: '0.00', meses: 1 });
+      expect(resumenGastos.find(g => g.categoria === 'consultorias')).toMatchObject({ ordenes: 1, considerado: '50.00' });
+      expect(resumenGastos.find(g => g.categoria === 'expedientes-tecnicos')).toMatchObject({ ordenes: 1, considerado: '50.00' });
+      expect(resumenGastos.find(g => g.categoria === 'vaso-de-leche')).toMatchObject({ ordenes: 0, considerado: '0.00', meses: 1 });
+    } finally {
+      await prisma.managementPeriod.update({ where: { id: gestionId }, data: { startDate: new Date('1993-01-01') } });
+    }
     expect((await stats.listarOrdenes({ ...f, anio: 1993, mes: 2, orden: 'monto' })).total).toBe(2);
     expect(
       (
