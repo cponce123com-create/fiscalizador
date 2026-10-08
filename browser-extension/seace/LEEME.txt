@@ -1,0 +1,27 @@
+FISCALIZADOR: DESCARGA ANUAL SEACE
+
+Instalación única (Chrome de escritorio):
+1. Extrae TODOS los archivos de este ZIP en una carpeta permanente.
+2. Escribe chrome://extensions en la barra de direcciones de Chrome.
+3. Activa Modo de desarrollador y pulsa Cargar descomprimida.
+4. Selecciona la carpeta que contiene manifest.json. No borres esa carpeta.
+
+Puedes usarlo AHORA, sin esperar cambios en el portal:
+Pulsa el icono de la extensión Fiscalizador · Descarga anual SEACE en Chrome.
+Elige año y municipalidad. Cierra otras pestañas SEACE. Pulsa Descargar los 12 Excel.
+Mantén abierta la pestaña del descargador hasta que termine o indique un error.
+
+Cuando esté publicado el panel nuevo, también puedes recargar
+https://fiscalizador.onrender.com/admin/descargas y usar su botón Descargar los 12 Excel.
+
+El siguiente mes empieza cuando Chrome confirma que el Excel anterior terminó
+de guardarse. Se comprueban las fechas y archivos repetidos. Los bytes originales
+se guardan en Descargas, con nombre por año, mes y municipalidad.
+Un error de SEACE, periodo incorrecto o descarga interrumpida detiene el proceso.
+Reintenta desde la misma pestaña para continuar con los pendientes.
+Si cierras esa pestaña, el progreso en memoria se pierde.
+
+Gratis: no hay servicios de pago ni nuevas variables para Render.
+No envía Excel ni cookies al portal y no importa datos automáticamente.
+No evade CAPTCHA ni desactiva protecciones. Verifica los archivos antes de importar.
+Probado con simulaciones de Chrome/SEACE; la sesión real debe verificarse en tu Chrome.

@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Fiscalizador · Descarga anual SEACE",
+  "version": "1.0.0",
+  "minimum_chrome_version": "116",
+  "description": "Descarga los doce Excel mensuales en tu computadora, uno por vez.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvbTV87TEYsphtQQfZGyL70Jg6+cbt+67j2bMGHwUZ1WH/Mryu/1E4WOYWVCUEfW0rZAeVxcAFB+immDUJO0+L1tjCXDZj/SY5H1FpebmcVGuniVKm7iRwmZeNEdtxDf/B5F4dGaLFoVhYvb00e59dnLLm1UqoeQp7SWzuVkuNT0YZIxDObg+zpmS0MUDxLlD2Qsg8qjon2TgsP6lQ2lGqYd37NArg0qxksf2UckhibuG0MjzfUGpGlMc6qMN6zTSO1hUs1F6Z0Nf+R/vmz6vD16FilwJTX9xuiVLhIT+LJUvPKQEPgH1vrmNTnfP0cb4gnW7ZZ0nK8/TD6PzxnUZSQIDAQAB",
+  "permissions": [
+    "scripting",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://prod2.seace.gob.pe/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "https://fiscalizador.onrender.com/*",
+      "http://localhost/*"
+    ]
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Descargar Excel anual SEACE"
+  }
+}

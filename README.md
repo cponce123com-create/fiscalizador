@@ -322,7 +322,7 @@ La configuración de desarrollo y pruebas debe usar bases separadas de producci�
 | :--- | :--- |
 | [Metodología ciudadana](docs/vigilancia-ciudadana.md) | Criterios y contexto de fiscalización. |
 | [Operación](docs/operacion.md) | Credenciales, 2FA, copias de seguridad y restauración. |
-| [Libros SEACE en el administrador](docs/descargas-seace-admin.md) | Enlaces mensuales y marcador de descarga en el navegador, sin servicios adicionales. |
+| [Libros SEACE en el administrador](docs/descargas-seace-admin.md) | Descarga automática de los doce Excel mediante extensión local gratuita de Chrome. |
 | [Diagramas](docs/diagramas.md) | Modelo de datos y flujo de importación. |
 | [API](docs/openapi.yaml) | Especificación OpenAPI de referencia. |
 | [Formatos de origen](docs/reference/FORMATOS.md) | Estructura de los libros y archivo de referencia. |
