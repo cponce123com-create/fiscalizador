@@ -133,11 +133,11 @@ export type FilaRanking = {
 /**
  * Proveedores ordenados por monto considerado, con su peso sobre el total.
  *
- * Se agrupa sobre `Order` en lugar de leer `SupplierManagementSummary` para que el
- * ranking siga siendo correcto cuando haya varias gestiones cargadas: agrupa por
- * proveedor a través de todas ellas, no gestión a gestión.
+ * Agrupa órdenes vigentes por proveedor dentro de la gestión seleccionada. Sin
+ * filtro (o con «todas») combina las gestiones; el peso usa el mismo conjunto.
  */
-export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
+export async function rankingProveedores(limite = 15, gestionId: string | null = null): Promise<FilaRanking[]> {
+  const gestion = gestionId === 'todas' ? '' : gestionId ?? '';
   const filas = await prisma.$queryRaw<
     Array<{
       id: string;
@@ -175,11 +175,12 @@ export async function rankingProveedores(limite = 15): Promise<FilaRanking[]> {
     FROM "CurrentOrder" o
     JOIN "Supplier" s ON s.id = o."supplierId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE (${gestion} = '' OR o."managementPeriodId" = ${gestion})
     GROUP BY s.id, s.ruc, s.name, s.slug
     ORDER BY COALESCE(
       SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true),
       0
-    ) DESC
+    ) DESC, s.name ASC
     LIMIT ${limite}
   `;
 
@@ -620,11 +621,11 @@ export type DatosPortada = {
  * Las consultas se lanzan en paralelo: son independientes entre sí y en serie
  * sumarían latencia sin motivo.
  */
-export async function datosPortada(): Promise<DatosPortada> {
+export async function datosPortada(gestionRanking: string | null = null): Promise<DatosPortada> {
   const [resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos] =
     await Promise.all([
       resumenGeneral(),
-      rankingProveedores(10),
+      rankingProveedores(10, gestionRanking),
       evolucionMensual(),
       evolucionAnual(),
       gastoPorGestion(),
@@ -786,6 +787,16 @@ export async function listarOrdenes(
     porPagina: filtros.porPagina,
     totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
   };
+}
+
+/** Solo gestiones con órdenes vigentes y publicadas; nunca un periodo vacío futuro. */
+export async function periodosDelRanking(): Promise<{ id: string; nombre: string }[]> {
+  const filas = await prisma.$queryRaw<Array<{ id: string; nombre: string }>>`
+    SELECT g.id, g.name AS nombre FROM "ManagementPeriod" g
+    WHERE EXISTS (SELECT 1 FROM "CurrentOrder" o WHERE o."managementPeriodId" = g.id)
+    ORDER BY g."startDate" DESC, g."endDate" DESC, g.id ASC
+  `;
+  return filas;
 }
 
 /** Opciones de los desplegables de filtro. */
@@ -1103,7 +1114,7 @@ export async function rankingCompleto(
   const texto = filtros.texto ?? '';
   const tipoRuc = filtros.tipoRuc ?? '';
   // Mismo patrón que los demás filtros: cadena vacía significa «sin filtrar».
-  const gestion = filtros.gestionId ?? '';
+  const gestion = filtros.gestionId === 'todas' ? '' : filtros.gestionId ?? '';
 
   const [conteo, filas] = await Promise.all([
     prisma.$queryRaw<Array<{ n: number }>>`

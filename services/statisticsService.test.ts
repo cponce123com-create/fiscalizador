@@ -570,6 +570,32 @@ describe.skipIf(!conElLibroDeReferencia)('statisticsService contra la base real'
   });
 
   describe('ranking completo', () => {
+    it('ofrece solo gestiones publicadas y filtra igual la portada y el ranking completo', async () => {
+      const periodos = await svc.periodosDelRanking();
+      expect(periodos.map(p => p.nombre)).toEqual(['2023-2026']);
+      const gestionId = periodos[0]!.id;
+      const [portada, completo, vacio] = await Promise.all([
+        svc.rankingProveedores(10, gestionId),
+        svc.rankingCompleto(filtros.leerFiltros({ gestion: gestionId })),
+        svc.rankingProveedores(10, 'gestion-sin-ordenes'),
+      ]);
+      expect(completo.total).toBe(72);
+      expect(portada[0]?.supplierId).toBe(completo.filas[0]?.supplierId);
+      expect(portada[0]?.considerado).toBe(completo.filas[0]?.considerado);
+      expect(portada[0]?.peso).toBe(completo.filas[0]?.peso);
+      expect(vacio).toEqual([]);
+    });
+
+    it('todos los periodos mantiene el conjunto global en ambas consultas', async () => {
+      const [portada, global, completo] = await Promise.all([
+        svc.rankingProveedores(10, 'todas'),
+        svc.rankingProveedores(10),
+        svc.rankingCompleto(filtros.leerFiltros({ gestion: 'todas' })),
+      ]);
+      expect(portada).toEqual(global);
+      expect(completo.total).toBe(72);
+    });
+
     it('sitúa a URRUCHI primero con su peso', async () => {
       const r = await svc.rankingCompleto(filtros.filtrosPorDefecto());
 
