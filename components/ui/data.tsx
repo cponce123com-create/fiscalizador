@@ -154,3 +154,14 @@ export function Cargando({ etiqueta = 'Cargando…' }: { etiqueta?: string }) {
     </div>
   );
 }
+
+/** Bloque de carga visual que respeta lectores de pantalla y reducción de movimiento. */
+export function Skeleton({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('rounded-md bg-muted motion-safe:animate-pulse', className)}
+      aria-hidden="true"
+      {...props}
+    />
+  );
+}
