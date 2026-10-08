@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { datosPublicosProveedor, fuentesPublicasProveedor } from '@/lib/perfil-publico-proveedor';
 import type { Metadata } from 'next';
 import { ArrowLeft, Building2 } from 'lucide-react';
+import { Info } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -152,8 +153,8 @@ export default async function PaginaProveedor({
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-primary/30 bg-card p-6 shadow-sm ring-1 ring-primary/15 lg:col-span-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Monto considerado
+          <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" title="Suma de órdenes vigentes según el catálogo de estados. No incluye anuladas ni estados no económicos.">
+            Monto considerado <Info className="h-3.5 w-3.5" aria-hidden="true" />
           </p>
           <p className="tabular mt-2 text-4xl font-semibold text-primary sm:text-5xl">
             {formatearMonto(perfil.totalConsiderado)}
@@ -169,8 +170,8 @@ export default async function PaginaProveedor({
 
         <div className="flex flex-col justify-between rounded-lg border border-border bg-card p-6 shadow-sm">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Monto anulado
+            <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" title="Órdenes anuladas o que no cuentan económicamente. Se conservan para trazabilidad, pero no suman al monto considerado.">
+              Monto anulado <Info className="h-3.5 w-3.5" aria-hidden="true" />
             </p>
             <p className="tabular mt-2 text-2xl font-semibold text-destructive">
               {formatearMonto(perfil.totalAnulado)}
@@ -185,7 +186,7 @@ export default async function PaginaProveedor({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Dato etiqueta="Órdenes" valor={perfil.ordenes.toLocaleString('es-PE')} />
+        <Dato etiqueta="Órdenes" valor={perfil.ordenes.toLocaleString('es-PE')} detalle="Registros encontrados en los libros vigentes disponibles." />
         <Dato
           etiqueta="Primera aparición"
           valor={perfil.primeraAparicion ? formatearFecha(perfil.primeraAparicion) : '—'}

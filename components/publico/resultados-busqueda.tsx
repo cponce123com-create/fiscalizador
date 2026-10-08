@@ -5,7 +5,8 @@ import { TextoCoincidente } from './texto-coincidente';
 
 export function ResultadosBusqueda({ resultado, texto }: { resultado: ResultadoBusquedaPublica; texto: string }) {
   const consulta = encodeURIComponent(texto.trim());
-  return <div className="mt-3 flex flex-col gap-5 rounded-xl border border-border bg-card p-3 sm:p-4">
+  return <div className="mt-3 flex flex-col gap-5 rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
+    <p className="rounded-lg bg-primary/10 px-3 py-2 text-xs text-primary">Mostramos primero proveedores porque el vecino suele buscar nombres conocidos; debajo aparecen órdenes y conceptos.</p>
     {resultado.totalProveedores > 0 ? <section aria-label="Proveedores coincidentes">
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Users size={17} aria-hidden="true" />Proveedores ({resultado.totalProveedores.toLocaleString('es-PE')})</h2>
       <ul className="divide-y divide-border">{resultado.proveedores.map(p => <li key={p.id}><Link href={`/proveedores/${p.slug}`} className="block rounded-lg p-3 hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary"><span className="block break-words text-sm font-semibold"><TextoCoincidente texto={p.nombre} consulta={texto} /></span><span className="mt-1 block text-xs text-muted-foreground">RUC {p.ruc} · {p.ordenes} {p.ordenes === 1 ? 'orden' : 'órdenes'} · Ver ficha del proveedor</span></Link></li>)}</ul>

@@ -89,17 +89,15 @@ export function GraficoBarras({
               />
               <Tooltip
                 cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                contentStyle={{
-                  backgroundColor: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.8rem',
-                  color: 'var(--card-foreground)',
-                }}
-                formatter={(_valor, _nombre, item) => {
-                  const barra = item?.payload as BarraGrafico | undefined;
-                  if (!barra) return ['', ''];
-                  return [`${formatearMonto(barra.exacto)} · ${barra.detalle}`, etiquetaSerie];
+                content={({ active, payload }) => {
+                  const barra = payload?.[0]?.payload as BarraGrafico | undefined;
+                  if (!active || !barra) return null;
+                  return <div className="max-w-72 rounded-lg border border-border bg-card p-3 text-xs shadow-lg">
+                    <p className="font-semibold text-foreground">{barra.etiqueta}</p>
+                    <p className="mt-2 text-muted-foreground">{etiquetaSerie}</p>
+                    <p className="tabular text-base font-semibold text-primary">{formatearMonto(barra.exacto)}</p>
+                    <p className="mt-1 text-muted-foreground">{barra.detalle}</p>
+                  </div>;
                 }}
               />
               <Bar dataKey="valor" radius={[0, 4, 4, 0]}>

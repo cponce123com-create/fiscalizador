@@ -87,17 +87,15 @@ export function GraficoEvolucion({
               />
               <Tooltip
                 cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
-                contentStyle={{
-                  backgroundColor: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.8rem',
-                  color: 'var(--card-foreground)',
-                }}
-                formatter={(_valor, _nombre, item) => {
-                  const punto = item?.payload as PuntoGrafico | undefined;
-                  if (!punto) return ['', ''];
-                  return [`${formatearMonto(punto.exacto)} · ${punto.ordenes} órdenes`, etiquetaSerie];
+                content={({ active, payload }) => {
+                  const punto = payload?.[0]?.payload as PuntoGrafico | undefined;
+                  if (!active || !punto) return null;
+                  return <div className="max-w-64 rounded-lg border border-border bg-card p-3 text-xs shadow-lg">
+                    <p className="font-semibold text-foreground">{nombrePeriodo}: {punto.periodo}</p>
+                    <p className="mt-2 text-muted-foreground">{etiquetaSerie}</p>
+                    <p className="tabular text-base font-semibold text-primary">{formatearMonto(punto.exacto)}</p>
+                    <p className="mt-1 text-muted-foreground">{punto.ordenes} {punto.ordenes === 1 ? 'orden registrada' : 'órdenes registradas'}</p>
+                  </div>;
                 }}
               />
               <Bar dataKey="valor" radius={[4, 4, 0, 0]}>

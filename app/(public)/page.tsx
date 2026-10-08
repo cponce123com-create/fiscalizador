@@ -17,6 +17,7 @@ import { RankingProveedores } from '@/components/publico/ranking-proveedores';
 import { ResumenPortada } from '@/components/publico/resumen-portada';
 import { UltimosRegistros } from '@/components/publico/ultimos-registros';
 import { Seccion } from '@/components/ui/seccion';
+import { Skeleton } from '@/components/ui/data';
 import { prisma } from '@/lib/prisma';
 import { formatearFechaHora } from '@/lib/utils';
 import { PeriodoRanking } from '@/components/publico/periodo-ranking';
@@ -92,7 +93,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
 }
 
 function CargaSeccion({ titulo }: { titulo: string }) {
-  return <div role="status" className="panel-portada min-h-40"><p className="font-semibold">{titulo}</p><p className="mt-2 text-sm text-muted-foreground">Cargando datos de los libros…</p><div aria-hidden="true" className="mt-5 h-2 w-2/3 rounded-full bg-muted" /></div>;
+  return <div role="status" aria-live="polite" className="panel-portada min-h-40"><p className="font-semibold">{titulo}</p><p className="mt-2 text-sm text-muted-foreground">Cargando datos de los libros…</p><div className="mt-5 space-y-3"><Skeleton className="h-3 w-2/3" /><Skeleton className="h-8 w-full" /><Skeleton className="h-3 w-5/6" /></div></div>;
 }
 async function AlimentacionPortada() {
   return <GastoAlimentacion filas={await gastoAlimentacionPorGestion()} />;
