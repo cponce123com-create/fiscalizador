@@ -12,7 +12,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
  * Todo lo que crea lo borra después, incluidos los rastros de auditoría.
  */
 
-const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
+// Esta suite requiere un libro de referencia cargado antes de ejecutar Vitest.
+// Las fixtures temporales de otras suites no son datos de referencia: aparecen y
+// desaparecen en paralelo. Activación explícita evita depender de su orden de ejecución.
+const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1' && process.env.REFERENCE_DATA_TESTS === '1';
 
 /**
  * El escenario no inventa proveedores: los elige del portal, así que sin órdenes
@@ -132,7 +135,8 @@ describe.skipIf(!conDatosDelPortal)('personsService contra la base real', () => 
   });
 
   afterAll(async () => {
-    await prisma.person.deleteMany({ where: { dni: { in: [dniReal, DNI_SIN_VINCULO] } } });
+    if (!prisma) return;
+    await prisma.person.deleteMany({ where: { dni: { in: [dniReal, DNI_SIN_VINCULO].filter((dni): dni is string => Boolean(dni)) } } });
     await prisma.personTag.deleteMany({ where: { code: CODIGO_ETIQUETA } });
     await prisma.auditLog.deleteMany({ where: { entityId: { in: auditados } } });
   });
