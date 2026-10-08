@@ -9,10 +9,8 @@ import { periodoEnNombre } from '@/services/importService';
 /**
  * Pruebas de la deducción del periodo de un libro.
  *
- * `periodoEnNombre` es pura y se prueba siempre. `detectarPeriodo` consulta los
- * catálogos de la base de datos (igual que `analizar`), así que sus pruebas son de
- * integración y se saltan si no hay `DATABASE_URL`, para que la suite siga siendo
- * ejecutable sin credenciales.
+ * La detección de periodo no consulta la base. Los casos de detección se ejecutan
+ * siempre; los análisis y confirmaciones requieren la base aislada de pruebas.
  */
 
 const hayBaseDeDatos = process.env.INTEGRATION_TESTS_ENABLED === '1';
@@ -103,7 +101,7 @@ describe('periodoEnNombre', () => {
   });
 });
 
-describe.skipIf(!hayBaseDeDatos)('detectarPeriodo contra la base real', () => {
+describe('detectarPeriodo con libros de prueba', () => {
   let svc: typeof import('@/services/importService');
 
   beforeAll(async () => {
@@ -137,7 +135,7 @@ describe.skipIf(!hayBaseDeDatos)('detectarPeriodo contra la base real', () => {
     expect(r.coincideConElNombre).toBeNull();
   });
 
-  it('con dos meses, sugiere el dominante y los lista todos', async () => {
+  it('con dos meses, pide selección y los lista todos', async () => {
     const buffer = libro([
       fila(1, '2025-03-10 00:00:00.0', '1'),
       fila(2, '2025-03-20 00:00:00.0', '2'),
@@ -146,7 +144,7 @@ describe.skipIf(!hayBaseDeDatos)('detectarPeriodo contra la base real', () => {
 
     const r = await svc.detectarPeriodo(buffer, 'libro.xlsx');
 
-    expect(r.periodoSugerido).toBe('2025-03');
+    expect(r.periodoSugerido).toBeNull();
     expect(r.mesesDetectados).toEqual([
       { periodo: '2025-03', filas: 2 },
       { periodo: '2025-04', filas: 1 },
@@ -168,7 +166,7 @@ describe.skipIf(!hayBaseDeDatos)('detectarPeriodo contra la base real', () => {
 
     const r = await svc.detectarPeriodo(buffer, 'Lista-OCOS-2022-01.xlsx');
 
-    expect(r.periodoSugerido).toBe('2025-03');
+    expect(r.periodoSugerido).toBeNull();
     expect(r.periodoDelNombre).toBe('2022-01');
     expect(r.coincideConElNombre).toBe(false);
   });

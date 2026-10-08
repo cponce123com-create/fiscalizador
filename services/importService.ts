@@ -224,82 +224,8 @@ export function periodoDe(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
 }
 
-/**
- * Periodo `YYYY-MM` que aparece en el nombre del archivo, si lo trae.
- *
- * El portal no siempre nombra los libros con su mes (`Lista-OCOS (5).xls`), así
- * que esto es solo una pista para contrastar con el contenido, nunca la fuente de
- * verdad.
- */
-export function periodoEnNombre(nombreArchivo: string): string | null {
-  const coincidencia = nombreArchivo.match(/(?<!\d)(20\d{2})[-_. ]?(0?[1-9]|1[0-2])(?!\d)/);
-  if (!coincidencia) return null;
-
-  const anio = coincidencia[1] as string;
-  const mes = (coincidencia[2] as string).padStart(2, '0');
-  return `${anio}-${mes}`;
-}
-
-export type PeriodoDetectado = {
-  /** Mes con más filas con fecha de emisión legible. */
-  periodoSugerido: string | null;
-  /** Periodo que trae el nombre del archivo, si lo trae. */
-  periodoDelNombre: string | null;
-  /** Todos los meses presentes, de más a menos filas. */
-  mesesDetectados: { periodo: string; filas: number }[];
-  filasLeidas: number;
-  /** `null` si el nombre no trae periodo o si ninguna fila tiene fecha. */
-  coincideConElNombre: boolean | null;
-};
-
-/** `YYYY-MM` en UTC: las fechas son `@db.Date` y se guardan a medianoche UTC. */
-function mesDe(fecha: Date): string {
-  return `${fecha.getUTCFullYear()}-${String(fecha.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-/**
- * Deduce a qué mes corresponde un libro a partir de las fechas de emisión de sus
- * filas.
- *
- * Existe porque importar un año entero son doce libros, y elegir doce meses a mano
- * es donde más se equivoca uno. Reutiliza `procesarBuffer`, el mismo pipeline que
- * analizar y confirmar, para que el mes deducido sea exactamente el que se va a
- * importar.
- *
- * NO escribe nada: ni base de datos, ni archivo original.
- */
-export async function detectarPeriodo(
-  buffer: Buffer,
-  nombreArchivo: string,
-): Promise<PeriodoDetectado> {
-  const catalogos = await cargarCatalogos();
-  const { validacion } = procesarBuffer(buffer, catalogos);
-
-  const conteo = new Map<string, number>();
-  for (const orden of validacion.orders) {
-    if (!orden.issueDate) continue;
-    const periodo = mesDe(orden.issueDate);
-    conteo.set(periodo, (conteo.get(periodo) ?? 0) + 1);
-  }
-
-  const mesesDetectados = [...conteo.entries()]
-    .map(([periodo, filas]) => ({ periodo, filas }))
-    .sort((a, b) => b.filas - a.filas || a.periodo.localeCompare(b.periodo));
-
-  const periodoSugerido = mesesDetectados[0]?.periodo ?? null;
-  const periodoDelNombre = periodoEnNombre(nombreArchivo);
-
-  return {
-    periodoSugerido,
-    periodoDelNombre,
-    mesesDetectados,
-    filasLeidas: validacion.summary.totalRows,
-    coincideConElNombre:
-      periodoDelNombre === null || periodoSugerido === null
-        ? null
-        : periodoDelNombre === periodoSugerido,
-  };
-}
+// La detección solo lee el libro; no depende de catálogos ni de la base.
+export { detectarPeriodo, periodoEnNombre, type PeriodoDetectado } from '@/services/periodoService';
 
 export type DuplicadoContenido = {
   /** Filas del libro que todavía no están en el portal. */

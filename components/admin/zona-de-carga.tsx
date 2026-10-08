@@ -94,8 +94,8 @@ export function ZonaDeCarga({
       />
 
       <p className="text-xs text-muted-foreground">
-        Hasta {maxArchivos} archivos de 25 MB cada uno. El periodo de cada libro se deduce de sus
-        fechas de emisión y puedes corregirlo antes de analizar.
+        Hasta {maxArchivos} archivos de 25 MB cada uno. El periodo se comprueba con el título
+        y las fechas del libro; los casos dudosos requieren selección antes de analizar.
       </p>
     </div>
   );

@@ -93,6 +93,10 @@ export const analizarRespuestaSchema = z.object({
 
 /** Respuesta del endpoint que deduce el periodo de un libro sin escribir nada. */
 export const periodoRespuestaSchema = z.object({
+  periodoDelTitulo: z.string().nullable(),
+  fuente: z.enum(['titulo', 'fechas']).nullable(),
+  aviso: z.string().nullable(),
+  checksum: z.string(),
   periodoSugerido: z.string().nullable(),
   periodoDelNombre: z.string().nullable(),
   mesesDetectados: z.array(z.object({ periodo: z.string(), filas: z.number() })),
