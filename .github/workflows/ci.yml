@@ -61,8 +61,10 @@ jobs:
       - name: Preparar la base de datos
         run: npm run db:deploy && npm run db:seed
 
+      # Los archivos de integración comparten PostgreSQL y consultan estadísticas
+      # globales: ejecutar sus fixtures en paralelo altera las lecturas de otros.
       - name: Ejecutar las pruebas
-        run: npm run test:coverage
+        run: npm run test:coverage -- --no-file-parallelism
 
       - name: Probar herramientas Python sin conexiones externas
         run: python3 -m unittest discover -s tests -t .

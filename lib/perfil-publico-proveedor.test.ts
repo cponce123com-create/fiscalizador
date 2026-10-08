@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { datosPublicosProveedor } from './perfil-publico-proveedor';
+import { datosPublicosProveedor, fuentesPublicasProveedor } from './perfil-publico-proveedor';
 
 describe('perfil público de proveedor', () => {
   const ficha = { isPublic: true, publication: Object.fromEntries(['dni', 'edad', 'nacimiento', 'distrito', 'foto'].map(c => [c, { enabled: true, sourceUrl: 'https://ejemplo.test/fuente', verifiedAt: '2026-10-07T00:00:00.000Z' }])), birthplace: 'San Ramón', publicDistrict: 'La Merced', birthDate: '1990-10-08', photoKey: 'clave-privada', updatedAt: new Date('2026-10-07'), currentAddress: 'Calle privada 123', notes: 'nota privada', contacts: [{ dni: '12345678' }] };
@@ -8,6 +8,11 @@ describe('perfil público de proveedor', () => {
     expect(datos).toEqual({ dni: '12345678', edad: 35, nacimiento: 'San Ramón', distrito: 'La Merced', foto: '/api/public/proveedores/abc/foto?v=1791331200000' });
     expect(datosPublicosProveedor('10123456789', ficha, 'abc', new Date('2026-10-08')).edad).toBe(36);
     expect(JSON.stringify(datos)).not.toMatch(/Calle privada|nota privada|clave-privada|1990-10-08/);
+  });
+  it('muestra fotos autorizadas sin fuente y no genera enlaces vacíos', () => {
+    const sinFuente = { ...ficha, publication: { foto: { enabled: true, sourceUrl: null, verifiedAt: '2026-10-07T00:00:00.000Z' } } };
+    expect(datosPublicosProveedor('10123456789', sinFuente, 'abc').foto).toBe('/api/public/proveedores/abc/foto?v=1791331200000');
+    expect(fuentesPublicasProveedor(sinFuente)).toEqual([]);
   });
   it('no atribuye DNI ni edad a empresas y no copia direcciones antiguas', () => {
     expect(datosPublicosProveedor('20123456789', ficha, 'abc').dni).toBeNull();

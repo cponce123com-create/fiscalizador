@@ -4,7 +4,7 @@ Revisión del código: 8 de octubre de 2026. No verifica el estado de las fotos 
 
 | Elemento | Conexión y actualización |
 | --- | --- |
-| Foto del proveedor / prensa | SupplierProfile y Cloudinary. Publicación explícita con fuente, reutilización de fotos ya guardadas, URL versionada y revalidación del portal. Las personas del listado con proveedor registrado pueden mostrar foto aunque no tengan órdenes vigentes. |
+| Foto del proveedor / prensa | SupplierProfile y Cloudinary. Publicación explícita con fuente opcional, reutilización de fotos ya guardadas, URL versionada y revalidación del portal. Las personas del listado con proveedor registrado pueden mostrar foto aunque no tengan órdenes vigentes. |
 | Datos de proveedor | Nacimiento, edad, DNI, distrito, notas y vínculos leen la ficha administrativa y sus controles de publicación. Guardar refresca también ranking y prensa. |
 | Personas y vínculos | Datos de la base. Sus acciones administrativas revalidan el portal. |
 | Apariencia e imágenes | Logo, favicon, portada, imagen social y titulares leen AppSetting; guardar revalida el layout público. |
@@ -12,7 +12,7 @@ Revisión del código: 8 de octubre de 2026. No verifica el estado de las fotos 
 
 ## Fotos que se subieron antes de la corrección
 
-El código anterior desactivaba la publicación de la foto al subirla y borraba su fuente. Esta corrección no publica automáticamente registros privados ni inventa una fuente para ellos. En Administrador → Proveedores → ficha, la sección Foto muestra su estado. Marca «Publicar ficha y foto en el portal», indica la fuente y pulsa «Guardar foto / publicación». Puedes dejar el archivo vacío para publicar la imagen existente. Al cambiar de foto, revisa la fuente en ese mismo formulario.
+El código anterior desactivaba la publicación de la foto al subirla y borraba su fuente. Esta corrección no publica automáticamente registros privados ni inventa una fuente para ellos. En Administrador → Proveedores → ficha, la sección Foto muestra su estado. Marca «Mostrar foto en el portal» y pulsa «Guardar foto / publicación». Puedes dejar el archivo vacío para publicar la imagen existente. No se exige fuente para subir o publicar fotos; puedes añadirla si dispones de ella.
 
 ## Configuración que sigue en archivos del proyecto
 

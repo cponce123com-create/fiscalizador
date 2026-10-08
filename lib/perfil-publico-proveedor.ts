@@ -21,5 +21,5 @@ export function datosPublicosProveedor(ruc: string, perfil: { isPublic?: boolean
 export function fuentesPublicasProveedor(perfil: { isPublic?: boolean; publication?: unknown } | null) {
   const parsed = esquemaPublicacionProveedor.safeParse(perfil?.publication);
   if (!parsed.success) return [];
-  return camposPublicacionProveedor.filter(c => datoProveedorPublicado(perfil, c)).map(c => ({ campo: c, url: parsed.data[c]!.sourceUrl!, revisado: parsed.data[c]!.verifiedAt! }));
+  return camposPublicacionProveedor.filter(c => datoProveedorPublicado(perfil, c) && parsed.data[c]?.sourceUrl).map(c => ({ campo: c, url: parsed.data[c]!.sourceUrl!, revisado: parsed.data[c]!.verifiedAt! }));
 }

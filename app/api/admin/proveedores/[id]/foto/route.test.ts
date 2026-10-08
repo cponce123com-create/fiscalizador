@@ -39,8 +39,14 @@ describe('privacidad de fotos de perfiles', () => {
     expect(mocks.upsert.mock.calls[0][0].update).not.toHaveProperty('photoKey');
     expect(mocks.save).not.toHaveBeenCalled(); expect(mocks.remove).not.toHaveBeenCalled();
   });
+  it('sube y publica una foto sin pedir fuente', async () => {
+    preparar(); const form = new FormData(); form.set('publicacionExplicita', '1'); form.set('publicar', 'on'); form.set('foto', new File(['imagen'], 'foto.png'));
+    const r = await POST(request(form), contexto());
+    expect(r.status).toBe(200); expect((await r.json()).publicada).toBe(true);
+    expect(mocks.upsert.mock.calls[0][0].update.publication.foto).toMatchObject({ enabled: true, sourceUrl: null, verifiedAt: expect.any(String) });
+  });
   it('rechaza una fuente inválida o una edición desfasada y permite retirar la foto', async () => {
-    preparar(); const form = new FormData(); form.set('publicacionExplicita', '1'); form.set('publicar', 'on');
+    preparar(); const form = new FormData(); form.set('publicacionExplicita', '1'); form.set('publicar', 'on'); form.set('sourceUrl', 'no-es-url');
     expect((await PATCH(request(form, 'PATCH'), contexto())).status).toBe(409);
     form.set('sourceUrl', 'https://ejemplo.test/foto'); form.set('version', 'antigua');
     expect((await PATCH(request(form, 'PATCH'), contexto())).status).toBe(409);

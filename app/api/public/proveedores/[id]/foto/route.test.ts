@@ -8,7 +8,7 @@ describe('foto pública del proveedor', () => {
   beforeEach(() => { mocks.perfil.mockReset(); mocks.leer.mockReset(); });
   const contexto = { params: Promise.resolve({ id: 'abc' }) };
   it('sirve bytes sin revelar la clave ni requerir sesión administrativa', async () => {
-    mocks.perfil.mockResolvedValue({ isPublic: true, publication: { foto: { enabled: true, sourceUrl: 'https://ejemplo.test/fuente', verifiedAt: '2026-10-07T00:00:00.000Z' } }, photoKey: 'clave-secreta', photoMime: 'image/webp' });
+    mocks.perfil.mockResolvedValue({ isPublic: true, publication: { foto: { enabled: true, sourceUrl: null, verifiedAt: '2026-10-07T00:00:00.000Z' } }, photoKey: 'clave-secreta', photoMime: 'image/webp' });
     mocks.leer.mockResolvedValue(Buffer.from('foto'));
     const response = await GET(new Request('https://portal.test'), contexto);
     expect(response.status).toBe(200);

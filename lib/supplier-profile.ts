@@ -7,7 +7,8 @@ export const fuentePublica = z.string().url().max(500).refine(v => { try { const
 const textoOpcional = (max: number) => z.string().trim().max(max).nullable().transform(v => v || null);
 export const camposPublicacionProveedor = ['dni', 'edad', 'nacimiento', 'distrito', 'foto'] as const;
 const reglaPublicacion = z.object({ enabled: z.boolean(), sourceUrl: z.string().nullable(), verifiedAt: z.string().datetime().optional() }).refine(r => !r.enabled || fuentePublica.safeParse(r.sourceUrl).success, 'Cada dato publicado necesita una fuente pública.');
-export const esquemaPublicacionProveedor = z.object({ dni: reglaPublicacion.optional(), edad: reglaPublicacion.optional(), nacimiento: reglaPublicacion.optional(), distrito: reglaPublicacion.optional(), foto: reglaPublicacion.optional() });
+const reglaFoto = z.object({ enabled: z.boolean(), sourceUrl: z.string().nullable().optional().transform(v => v?.trim() || null), verifiedAt: z.string().datetime().optional() }).refine(r => !r.sourceUrl || fuentePublica.safeParse(r.sourceUrl).success, 'La fuente opcional de la foto debe ser un enlace público válido.');
+export const esquemaPublicacionProveedor = z.object({ dni: reglaPublicacion.optional(), edad: reglaPublicacion.optional(), nacimiento: reglaPublicacion.optional(), distrito: reglaPublicacion.optional(), foto: reglaFoto.optional() });
 export function datoProveedorPublicado(perfil: { isPublic?: boolean; publication?: unknown } | null, campo: typeof camposPublicacionProveedor[number]) {
   const parsed = esquemaPublicacionProveedor.safeParse(perfil?.publication);
   const regla = parsed.success ? parsed.data[campo] : null;
