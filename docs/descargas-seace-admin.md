@@ -1,70 +1,65 @@
-# Libros mensuales de SEACE desde el administrador
+# Libros SEACE: descarga desde el navegador
 
-El generador funciona dentro de la web existente. No requiere un servicio adicional,
-Docker, tokens, almacenamiento de descargas ni cambiar el plan de Render.
+La captura de producción confirmó un HTTP 403 cuando Render intentó abrir SEACE.
+El navegador del administrador sí pudo exportar el Excel con un POST 200.
+La automatización se ejecuta ahora en esa computadora, dentro de la página oficial.
+No requiere otro servicio, Docker, tokens, extensiones ni modificar el plan de Render.
 
-1. Entrar en **Admin → Descargas SEACE**.
-2. Elegir el año, por ejemplo **2020**. Aparecen enero a diciembre automáticamente.
-3. **Descargar los 12 Excel** intenta descargar los originales en secuencia. Para comprobar
-   el acceso desde Render, probar primero **Descargar Excel** de un mes conocido.
-   Permitir descargas múltiples si Chrome lo solicita y comprobar los archivos en Descargas.
-4. Como alternativa, pulsar **Abrir mes en SEACE**, o **Abrir los 12 meses** para abrir las doce consultas.
-5. En cada pestaña de SEACE, pulsar el botón de descarga de Excel que ofrece la página.
-6. Guardar los originales en la computadora y subirlos después en **Importar** para
-   revisar y confirmar sus datos.
+## Uso
 
-El navegador puede bloquear las pestañas adicionales. Permitir ventanas emergentes
-para el dominio de fiscalizador y repetir la acción, o usar los doce enlaces individuales.
-El panel indica cuántas pestañas consiguió abrir; no las presenta como Excel descargados.
-**Copiar los 12 enlaces** copia las consultas por mes para guardarlas o compartirlas.
-Si no está disponible el portapapeles, aparece un cuadro para copiar el texto manualmente.
+1. Entrar en **Admin → Descargas SEACE** y elegir el año.
+2. Pulsar **Descarga automática en mi navegador**.
+3. Mostrar la barra de marcadores con **Ctrl + Shift + B** y arrastrar el enlace
+   **Descargar SEACE [año]** a esa barra.
+4. Abrir enero con el enlace del panel. Ya dentro de SEACE, pulsar el marcador guardado.
+5. Permitir las descargas múltiples si Chrome lo solicita y mantener la pestaña abierta.
 
-## Municipalidad
+Si no se puede arrastrar, crear un marcador manualmente y pegar en su campo URL el
+código que muestra el panel. El código empieza por `javascript:`. No se pega en DevTools.
+Si cambia el año o RUC, hay que crear o actualizar el marcador con el nuevo enlace.
+Solo funciona en la página oficial de consulta; pulsarlo en otra web muestra instrucciones.
 
-Por defecto: Municipalidad Distrital de San Ramón, RUC **20146657142**.
-La opción **Consultar otra municipalidad** permite cambiar nombre y RUC para la consulta.
-No cambia el municipio publicado, las importaciones ni las cifras del portal.
-Al recargar la página vuelve San Ramón. La URL siempre apunta al mismo buscador oficial.
+## Progreso y archivos
 
-Ejemplo de diciembre de 2015:
+El panel flotante de SEACE muestra cuántos archivos se enviaron al navegador.
+Se consultan los doce meses en orden: GET con un estado JSF nuevo y POST de exportación
+con los campos del formulario observado. Las solicitudes son del mismo origen;
+el navegador maneja sus propias cookies, sin copiarlas ni enviarlas a fiscalizador.
+Los originales no se transforman: se conserva su contenido y se asigna un nombre con
+municipalidad, año y mes. Hasta 2 MB de HTML y 25 MB por libro, con 45 s por mes.
+Se comprueba el periodo, el formulario, respuesta adjunta y firma de Excel; no se extraen
+las quince filas de la tabla paginada para fabricar un Excel incompleto.
 
-```text
-https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/ongei/buscadorPublicoOCOS.xhtml?ruc_entidad=20146657142&anio=2015&mes=12&theme=ongei
-```
+**Pausar** espera a terminar el mes actual. Cerrar el panel y volver a pulsar el marcador
+continúa desde los pendientes. Los meses enviados se guardan en localStorage de SEACE,
+por RUC/año. **Reiniciar progreso** permite repetirlos si Chrome bloqueó los archivos.
+Archivo enviado no garantiza que se guardó: comprobar la carpeta Descargas.
+Evitar otras consultas SEACE mientras trabaja el marcador y mantener la pestaña abierta.
 
-## Alcance
+Un 403, respuesta HTML, archivo inválido o periodo diferente detiene la secuencia y
+no marca ese mes como enviado. No se evaden CAPTCHA ni se desactivan protecciones.
+El script no lee cookies mediante JavaScript, no usa credenciales del admin y solo
+hace solicitudes a la URL oficial de SEACE. No hay tráfico ni almacenamiento de libros
+nuevo en Render, ni importaciones automáticas.
 
-El modo HTTP usa el servicio web existente para hacer GET de cada mes y POST del formulario
-de exportación con una sesión nueva. Los campos son `formBuscador`, `formBuscador:btnExportar`
-(vacío), `formBuscador:hddIniciaBusqueda` y `javax.faces.ViewState` obtenido de ese GET.
-Las cookies proceden de SEACE en ese intento, no del navegador del usuario, y no se guardan,
-registran ni devuelven al cliente. No se reutilizan las cookies ni los tokens aportados en la conversación.
+## Alternativa manual y otras municipalidades
 
-Se comprueba el periodo de la página, el formulario, el tipo de respuesta y que el archivo
-sea un Excel legible. Hasta 2 MB de HTML y 25 MB por libro, 40 s por mes, dos solicitudes
-concurrentes por proceso y una por usuario. Se conservan los bytes originales; el nombre
-incluye año, mes y municipalidad. No hay almacenamiento en servidor ni importación automática.
-Si un mes falla, se detiene la secuencia para no lanzar doce solicitudes bloqueadas.
-El panel permite volver a descargar un mes individual o continuar con los pendientes.
-El progreso es de esta pestaña; recargar lo reinicia. Archivo enviado al navegador no confirma
-que Chrome haya permitido guardarlo: revisar Descargas y permitir descargas múltiples.
+Siguen disponibles **Abrir mes en SEACE**, **Abrir los 12 meses** y **Copiar los 12 enlaces**.
+Abrir pestañas no pulsa el botón Excel: en modo manual se descarga desde cada página.
+El navegador puede bloquear pestañas adicionales; permitirlas o usar los enlaces individuales.
 
-**Aún no se verificó una descarga real desde Render.** Con el formulario facilitado por el
-usuario, las pruebas simulan GET, cookies, estado nuevo y POST, y comparan los bytes del Excel.
-La consulta real desde desarrollo sigue respondiendo 403 antes de obtener el formulario.
-Un 403, CAPTCHA, redirección o página HTML se informa como error. El modo directo depende
-de que SEACE acepte la conexión desde Render; no se garantiza su disponibilidad.
+Por defecto se consulta San Ramón, RUC **20146657142**. La sección **Consultar otra municipalidad**
+permite cambiar nombre y RUC para estos enlaces y el marcador. No modifica el municipio
+publicado ni las importaciones; al recargar vuelve San Ramón.
 
-Los enlaces manuales siguen funcionando sin consultas a SEACE desde Render. Por las restricciones
-entre sitios, el portal no pulsa botones dentro de las pestañas de SEACE. Abrir los doce meses
-no equivale a descargar automáticamente los Excel: para ello se utiliza el botón de modo HTTP.
+## Verificación pendiente
 
-El script local de `scrapers/herramientas/descargar_excel_anual.py` sigue disponible como
-alternativa opcional para usar un navegador en la computadora; ver `scrapers/README.md`.
-El acceso y el botón real dependen de SEACE. No se evade CAPTCHA ni se marca un error
-como un mes sin gastos. El generador utiliza el formato del enlace proporcionado;
-el sitio no pudo comprobarse desde desarrollo porque respondió 403.
+Las pruebas ejecutan el código serializado del marcador en un navegador simulado y
+comprueban doce GET/POST, estados nuevos, contenido intacto, progreso y error 403.
+No se ha comprobado una descarga completa con el marcador en el navegador real del usuario.
+SEACE o el navegador pueden bloquear su ejecución con CSP o sus políticas de descarga.
+Si no inicia o devuelve error, conservar los enlaces manuales; no desactivar esas protecciones.
+El script local opcional sigue en `scrapers/herramientas/descargar_excel_anual.py`.
 
-Se retiró la implementación anterior del worker y del ZIP en el servidor.
-Ya no se usan `SEACE_WORKER_URL` ni `SEACE_WORKER_TOKEN`.
-Los originales y datos de importaciones existentes no se eliminan.
+Se retiró el endpoint que descargaba desde Render, porque en producción recibió 403.
+Los libros e importaciones ya existentes no se eliminan.
