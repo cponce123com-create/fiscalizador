@@ -70,6 +70,12 @@ fragmentos y otras coincidencias, **antes de paginar**. Buscar `iPad` muestra pr
 las órdenes que contienen `IPAD`, por delante de coincidencias parciales como
 `EQUIPADO`, aunque estas sean más recientes.
 
+Los buscadores de proveedores, ranking, órdenes, personas y antecedentes electorales
+aceptan las palabras en cualquier orden: `Genaro Poma` y `Poma Genaro` encuentran
+el mismo nombre, incluso si tiene otros nombres o apellidos intermedios. Todas
+las palabras deben coincidir; los filtros, la paginación y la prioridad de proveedores
+en la búsqueda principal se mantienen. También se aplica al panel del administrador.
+
 La portada y el listado comparten el algoritmo, que normaliza mayúsculas, tildes y
 separadores. Los filtros se conservan y se puede elegir otro orden explícitamente.
 Sin texto de búsqueda se mantiene el orden por fecha. PostgreSQL calcula y actualiza

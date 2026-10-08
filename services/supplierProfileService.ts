@@ -1,3 +1,4 @@
+import { buscarNombreProveedor } from '@/lib/busqueda-nombres';
 import type { Prisma } from '@/lib/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
@@ -9,7 +10,7 @@ export async function listarPerfilesProveedores(q = '', tipo = '', page = '1') {
   const where: Prisma.SupplierWhereInput = {
     ...(tipo === '10' || tipo === '20' ? { ruc: { startsWith: tipo } } : {}),
     ...(texto ? { OR: [
-      { name: { contains: texto, mode: 'insensitive' } },
+      buscarNombreProveedor(texto),
       { ruc: { contains: texto } },
       ...(/^\d{8}$/.test(texto) ? [{ ruc: { startsWith: `10${texto}` } }] : []),
     ] } : {}),

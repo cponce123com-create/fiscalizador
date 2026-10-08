@@ -1,3 +1,4 @@
+import { buscarNombre } from '@/lib/busqueda-nombres';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { contextoDePeticion, registrarAuditoria, type ClienteDb } from '@/services/auditService';
@@ -209,9 +210,9 @@ export async function listarPersonas({ texto = '' }: { texto?: string } = {}): P
         ? {}
         : {
             OR: [
-              { fullName: { contains: busqueda, mode: 'insensitive' } },
+              buscarNombre(busqueda),
               { dni: { contains: busqueda } },
-              { description: { contains: busqueda, mode: 'insensitive' } },
+              { AND: busqueda.split(/\s+/).map(p => ({ description: { contains: p, mode: 'insensitive' } })) },
             ],
           },
     orderBy: { fullName: 'asc' },

@@ -1,3 +1,5 @@
+import { buscarNombreProveedor } from '@/lib/busqueda-nombres';
+import { coincideProveedor } from '@/lib/busqueda-nombres-sql';
 import { palabrasBusqueda, gruposBusquedaOrdenes, paginasPorGrupo } from '@/lib/busqueda-ordenes';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { type Filtros, rangoDeFechas } from '@/lib/filtros';
@@ -720,7 +722,7 @@ export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.Or
         ...(palabrasBusqueda(t).length ? [{ AND: palabrasBusqueda(t).map(p => ({ descriptionSearch: { contains: p } })) }] : []),
         { siafNumber: { contains: t, mode: 'insensitive' } },
         { ruc: { contains: t } },
-        { supplier: { name: { contains: t, mode: 'insensitive' } } },
+        { supplier: buscarNombreProveedor(t) },
       ],
     });
   }
@@ -887,16 +889,7 @@ export async function listarProveedores(
   const palabras = palabrasBusqueda(texto);
   const nombreNormalizado = Prisma.sql`translate(lower(s.name), 'áéíóúüñ', 'aeiouun')`;
   const frase = palabras.join(' ');
-  // POSITION trata %, _ y otros símbolos como texto, sin comodines implícitos.
-  // Todas las palabras deben aparecer; su orden y las tildes no importan.
-  const coincide = Prisma.sql`(
-    ${texto} = '' OR strpos(lower(s.name), lower(${texto})) > 0
-    OR strpos(s.ruc, ${texto}) > 0
-    OR (${palabras.length} > 0 AND NOT EXISTS (
-      SELECT 1 FROM unnest(${palabras}::text[]) AS buscada(palabra)
-      WHERE strpos(${nombreNormalizado}, buscada.palabra) = 0
-    ))
-  )`;
+  const coincide = coincideProveedor(texto);
   const relevancia = Prisma.sql`CASE
     WHEN ${nombreNormalizado} = ${frase} OR s.ruc = ${texto} THEN 0
     WHEN ${palabras.length} > 0 AND NOT EXISTS (
@@ -1147,7 +1140,7 @@ export async function rankingCompleto(
     prisma.$queryRaw<Array<{ n: number }>>`
       SELECT COUNT(DISTINCT s.id)::int AS n
       FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
-      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+      WHERE ${coincideProveedor(texto)}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
     `,
@@ -1185,7 +1178,7 @@ export async function rankingCompleto(
       FROM "Supplier" s
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE (${texto} = '' OR s.name ILIKE '%' || ${texto} || '%' OR s.ruc LIKE '%' || ${texto} || '%')
+      WHERE ${coincideProveedor(texto)}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
       GROUP BY s.id, s.ruc, s.name, s.slug

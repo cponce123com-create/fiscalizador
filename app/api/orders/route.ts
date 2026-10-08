@@ -1,3 +1,5 @@
+import { buscarNombreProveedor } from '@/lib/busqueda-nombres';
+import { palabrasBusqueda } from '@/lib/busqueda-ordenes';
 import { z } from 'zod';
 
 import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
@@ -57,7 +59,8 @@ export async function GET(request: Request): Promise<Response> {
       where.OR = [
         { orderNumber: { contains: q, mode: 'insensitive' } },
         { ruc: { contains: q } },
-        { supplier: { name: { contains: q, mode: 'insensitive' } } },
+        ...(palabrasBusqueda(q).length ? [{ AND: palabrasBusqueda(q).map(p => ({ descriptionSearch: { contains: p } })) }] : []),
+        { supplier: buscarNombreProveedor(q) },
       ];
     }
 
