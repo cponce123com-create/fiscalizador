@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { GastoAlimentacionGestion } from './alimentacion';
 import { formatearMonto } from './utils';
 
-export function imagenCompartida(tipo: 'gasto' | 'proveedor', id: string) {
+export function imagenCompartida(tipo: 'gasto' | 'proveedor' | 'estadistica', id: string) {
   return `/api/public/compartir/${tipo}/${encodeURIComponent(id)}?v=2`;
 }
 export function textoCompartido(titulo: string, resumen: string, url: string) {

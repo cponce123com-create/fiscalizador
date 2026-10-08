@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Enlace de portada | Solo usaba la imagen social; ignoraba la fotografía de portada | Prioridad: foto de portada, imagen social de respaldo, logo. Configuración tomada del admin y Cloudinary |
 | Perfil de proveedor | Título de página específico, pero Open Graph heredaba el genérico del portal | Título, resumen, canónico e imagen PNG propios, con monto considerado y órdenes de todos los libros vigentes disponibles |
-| Tarjetas de gastos | Sin exportación ni botones de redes | Todas las tarjetas del componente de comparación: alimentación y categorías, PNG 1200 × 630, comparación de tres gestiones y cobertura por gestión |
+| Tarjetas de gastos y estadísticas | Sin exportación ni botones de redes | Tarjetas de alimentación, categorías, RUC 10/RUC 20/otros, primeros 100 días y último año: PNG 1200 × 630, comparación de tres gestiones y cobertura por gestión |
 | Fotografías de perfiles | Imagen privada almacenada en Cloudinary | Se lee únicamente si la ficha y el campo foto están publicados y verificados. La imagen final nunca revela claves ni URL autenticada |
 | Recursos del servidor | Generación de imágenes consume CPU y conexiones | Hasta 2 generaciones simultáneas y 40 solicitudes por minuto por proceso; PNG materializado antes de liberar el cupo, sin caché persistente |
 
@@ -42,7 +42,7 @@ Pruebas automatizadas: metadatos propios, textos y cobertura, rechazo de tipos/r
 
 ## Alcance restante
 
-Las tarjetas temporales y de composición RUC de Estadísticas usan otro componente y todavía no tienen exportación individual. El enlace a Estadísticas se puede compartir normalmente. El flujo nuevo cubre perfiles y todas las comparaciones de categorías de gastos.
+El flujo nuevo cubre perfiles, comparaciones de categorías de gastos y las tarjetas principales de Estadísticas. Las métricas pequeñas de resumen de Estadísticas se comparten mediante el enlace de la página completa, no como PNG individual.
 
 ## Referencias técnicas
 
