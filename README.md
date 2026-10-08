@@ -65,7 +65,8 @@ automáticamente cuando falta una fuente y se actualizan cada 15 minutos si amba
 ### Ranking por gestión y tipo de proveedor
 
 La portada y el ranking completo permiten alternar **Todos**, **RUC 10** y
-**RUC 20**. El selector de gestión conserva el tipo elegido, y «Ver ranking
+**RUC 20**. La portada muestra hasta seis proveedores en una tarjeta compacta, con fotografías verticales.
+El selector de gestión conserva el tipo elegido, y «Ver ranking
 completo» mantiene ambas selecciones. Las posiciones y porcentajes se calculan
 sobre los proveedores del tipo y la gestión elegidos, antes de paginar o limitar
 las tarjetas. Se mantiene el periodo más reciente con datos como valor inicial.
@@ -74,9 +75,9 @@ las tarjetas. Se mantiene el periodo más reciente con datos como valor inicial.
 
 `/estadisticas` reúne seis indicadores, comparaciones de RUC 10 y RUC 20,
 los primeros 100 días y el último año de cada mandato, evolución mensual y anual,
-concentración de proveedores y quince tarjetas de conceptos de gasto. Incluye
+concentración de proveedores y dieciséis tarjetas de conceptos de gasto. Incluye
 alimentación, vehículos, maquinaria, consultorías, expedientes, beneficios del personal,
-Vaso de Leche, oficina, Navidad, apoyo social, aniversario, reinado, prensa y equipos de cómputo.
+Vaso de Leche, oficina, Navidad, apoyo social, aniversario, reinado, prensa, equipos de cómputo y combustible.
 Las tarjetas de maquinaria y vehículos incluyen reparaciones, implementaciones, mejoras,
 seguros y consumibles relacionados, siempre que la descripción identifique el activo.
 Prensa se identifica por el concepto de la orden, no solo por el nombre del proveedor.

@@ -1,6 +1,6 @@
 import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
 import { leerFiltros, filtrosPorDefecto, serializarFiltros } from '@/lib/filtros';
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import { categoriasGasto } from '@/lib/categorias-gasto';
 import { gastosPorCategoriaGestion } from '@/services/categorySpendingService';
 import { GastoAlimentacion } from '@/components/publico/gasto-alimentacion';
@@ -29,6 +29,7 @@ export const metadata: Metadata = {
   title: 'Inicio',
   description: 'Vigilancia ciudadana de San Ramón: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
 };
+const cargarGastosPortada = cache(gastosPorCategoriaGestion);
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
 export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -70,8 +71,8 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
     <ResumenPortada resumen={resumen} />
 
     <div className="grid items-stretch gap-4 lg:grid-cols-2">
-      <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><Suspense fallback={<CargaSeccion titulo="Gastos en alimentación" />}><AlimentacionPortada /></Suspense></div>
-      <div className="panel-portada h-full min-w-0"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking} · ${etiquetaRuc}.`} accion={<Link href={`/ranking${serializarFiltros(filtrosRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><TipoRucRanking filtros={filtrosRanking} ruta="/" /><RankingProveedores ranking={datos.ranking.slice(0, 5)} /></Seccion></div>
+      <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><Suspense fallback={<CargaSeccion titulo="Gastos en alimentación" />}><AlimentacionPortada /></Suspense><Suspense fallback={<CargaSeccion titulo="Gastos en combustible" />}><CombustiblePortada /></Suspense></div>
+      <div className="panel-portada min-w-0 self-start"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking} · ${etiquetaRuc}.`} accion={<Link href={`/ranking${serializarFiltros(filtrosRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><TipoRucRanking filtros={filtrosRanking} ruta="/" /><RankingProveedores ranking={datos.ranking} /></Seccion></div>
     </div>
 
     <Suspense fallback={<CargaSeccion titulo="Comparaciones de gastos por gestión" />}><ComparacionesGastos /></Suspense>
@@ -96,11 +97,16 @@ function CargaSeccion({ titulo }: { titulo: string }) {
 async function AlimentacionPortada() {
   return <GastoAlimentacion filas={await gastoAlimentacionPorGestion()} />;
 }
+async function CombustiblePortada() {
+  const categoria = categoriasGasto.find(c => c.id === 'combustible')!;
+  const gastos = await cargarGastosPortada();
+  return <GastoAlimentacion titulo={categoria.titulo} descripcion={categoria.descripcion} ruta="/gastos/combustible" filas={gastos.filter(f => f.categoria === categoria.id)} />;
+}
 async function ComparacionesGastos() {
-  const gastos = await gastosPorCategoriaGestion();
+  const gastos = await cargarGastosPortada();
   return <section aria-labelledby="titulo-gastos-categorias" className="flex flex-col gap-4">
     <header><h2 id="titulo-gastos-categorias" className="titulo-editorial text-2xl font-bold">¿En qué se gasta? Compara las gestiones</h2><p className="mt-2 text-sm text-muted-foreground">Las últimas tres gestiones iniciadas, según los libros disponibles. Una orden puede pertenecer a más de una categoría: estos montos no se suman entre sí.</p></header>
-    <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2">{categoriasGasto.map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={gastos.filter(f => f.categoria === c.id)} />)}</div>
+    <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2">{categoriasGasto.filter(c => c.id !== 'combustible').map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={gastos.filter(f => f.categoria === c.id)} />)}</div>
   </section>;
 }
 async function SeguimientoPrensa() { return <PortadaPrensa resumen={await contratacionesPrensa()} />; }

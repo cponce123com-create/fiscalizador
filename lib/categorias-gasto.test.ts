@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { categoriaGastoPorId, categoriasGasto, coincideCategoriaGasto } from './categorias-gasto';
 describe('clasificación de gastos por descripción', () => {
   it.each([
+    ['combustible', 'Adquisición de GASOHOL y gasolina de 90 octanos', 'Compra de lubricantes'],
+    ['combustible', 'Suministro de DIÉSEL B5 S50', 'Compra de papel bond'],
+    ['combustible', 'Compra de combustible y petróleo', 'Servicio de alimentación'],
+    ['combustible', 'Suministro de biodiésel DB5', 'Adquisición de combustible nuclear'],
     ['prensa', 'Servicio de difusión y spots radiales', 'Compra de prensa hidráulica'],
     ['prensa', 'PUBLICIDAD EN MEDIOS DE COMUNICACIÓN', 'Adquisición de radios portátiles'],
     ['prensa', 'Servicio periodístico y cobertura de prensa', 'Impresión de talonarios'],
@@ -59,7 +63,7 @@ describe('clasificación de gastos por descripción', () => {
   });
   it('permite conceptos compartidos sin duplicar categorías', () => {
     expect(categoriasGasto.filter(c => coincideCategoriaGasto(c, 'Consultoría de expediente técnico')).map(c => c.id)).toEqual(['consultorias', 'expedientes-tecnicos']);
-    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(14);
+    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(15);
     expect(categoriaGastoPorId('inexistente')).toBeUndefined();
   });
 });
