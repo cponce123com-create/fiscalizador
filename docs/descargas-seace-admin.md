@@ -11,7 +11,7 @@ No requiere otro servicio, Docker, tokens, extensiones ni modificar el plan de R
 2. Pulsar **Descarga automática en mi navegador**.
 3. Mostrar la barra de marcadores con **Ctrl + Shift + B** y arrastrar el enlace
    **Descargar SEACE [año]** a esa barra.
-4. Abrir enero con el enlace del panel. Ya dentro de SEACE, pulsar el marcador guardado.
+4. Cerrar las otras pestañas de SEACE y abrir enero con el botón del panel. Ya dentro de SEACE, pulsar el marcador guardado.
 5. Permitir las descargas múltiples si Chrome lo solicita y mantener la pestaña abierta.
 
 Si no se puede arrastrar, crear un marcador manualmente y pegar en su campo URL el
@@ -44,9 +44,23 @@ nuevo en Render, ni importaciones automáticas.
 
 ## Alternativa manual y otras municipalidades
 
-Siguen disponibles **Abrir mes en SEACE**, **Abrir los 12 meses** y **Copiar los 12 enlaces**.
-Abrir pestañas no pulsa el botón Excel: en modo manual se descarga desde cada página.
-El navegador puede bloquear pestañas adicionales; permitirlas o usar los enlaces individuales.
+Se retiró **Abrir los 12 meses** después de comprobar que varios archivos descargados
+contenían exactamente las 386 órdenes de diciembre de 2018, pese a mostrar otros
+meses en las pestañas. La prueba del administrador funciona al consultar y exportar
+un mes por vez; el comportamiento apunta a estado compartido de SEACE entre pestañas.
+Los enlaces conservan correctamente sus parámetros distintos de año y mes.
+
+El recorrido **Empezar por enero** abre una consulta. Tras descargar su Excel en SEACE,
+el administrador pulsa **Ya descargué [mes] · abrir [siguiente]**. El portal reutiliza
+la misma pestaña; si está cerrada, abre una nueva. También cada botón mensual utiliza
+esa pestaña. Un popup bloqueado deja el mes pendiente, sin avanzar automáticamente.
+Cerrar las otras pestañas de SEACE antes de empezar y no ejecutar el marcador
+simultáneamente. El progreso cuenta las confirmaciones del usuario; no verifica que
+el navegador haya guardado un Excel. **Copiar los 12 enlaces** sigue disponible,
+con instrucciones para usarlos uno por vez, sin abrir consultas en paralelo.
+
+Las comprobaciones locales no reproducen una sesión real de SEACE; queda pendiente
+verificar la reutilización de la pestaña y la descarga en el Chrome del administrador.
 
 Por defecto se consulta San Ramón, RUC **20146657142**. La sección **Consultar otra municipalidad**
 permite cambiar nombre y RUC para estos enlaces y el marcador. No modifica el municipio
