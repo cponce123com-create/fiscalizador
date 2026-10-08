@@ -65,7 +65,7 @@ automáticamente cuando falta una fuente y se actualizan cada 15 minutos si amba
 ### Ranking por gestión y tipo de proveedor
 
 La portada y el ranking completo permiten alternar **Todos**, **RUC 10** y
-**RUC 20**. La portada muestra hasta seis proveedores en una tarjeta compacta, con fotografías verticales.
+**RUC 20**. La portada muestra hasta diez proveedores en una tarjeta compacta, con fotografías verticales.
 El selector de gestión conserva el tipo elegido, y «Ver ranking
 completo» mantiene ambas selecciones. Las posiciones y porcentajes se calculan
 sobre los proveedores del tipo y la gestión elegidos, antes de paginar o limitar
