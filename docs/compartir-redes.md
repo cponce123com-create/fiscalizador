@@ -12,6 +12,8 @@
 
 Las imágenes se generan a partir de los mismos servicios de datos que las tarjetas. No hay captura del navegador, dependencia nueva, cuenta de pago ni extracción masiva CSV. El PNG se prepara solo cuando el vecino lo solicita o cuando una red consulta la vista previa. La foto del proveedor conserva proporción vertical 3:4.
 
+El diseño social destaca las cifras y mantiene los meses disponibles, sin avisos de advertencia en el PNG. Las aclaraciones metodológicas permanecen en las páginas de detalle. El mensaje de WhatsApp usa título y montos en negrita, emojis y una sección por gestión; los metadatos eliminan las marcas de negrita y saltos de línea. La URL de imagen lleva versión para distinguir el nuevo diseño, aunque las redes pueden conservar vistas previas anteriores.
+
 ## Uso
 
 1. Abre **Compartir en redes** debajo de una comparación o en el perfil público del proveedor. Los perfiles se alcanzan también desde el ranking y «¿Y la prensa cuánto cobra?».

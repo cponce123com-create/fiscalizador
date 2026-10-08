@@ -12,7 +12,7 @@ import { gastosPorCategoriaGestion, listarOrdenesCategoria } from '@/services/ca
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ categoria: string }> }): Promise<Metadata> {
   const categoria = categoriaGastoPorId((await params).categoria);
-  return categoria ? metadataCompartida(`${categoria.titulo} por gestión`, `${categoria.descripcion} Cobertura parcial de libros publicados; las órdenes no acreditan pagos efectivos.`, `/gastos/${categoria.id}`, imagenCompartida('gasto', categoria.id)) : { title: 'Categoría no encontrada' };
+  return categoria ? metadataCompartida(`${categoria.titulo} por gestión`, `${categoria.descripcion} Compara los montos registrados en órdenes por gestión y explora sus documentos de origen.`, `/gastos/${categoria.id}`, imagenCompartida('gasto', categoria.id)) : { title: 'Categoría no encontrada' };
 }
 export default async function PaginaGastos({ params, searchParams }: { params: Promise<{ categoria: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const categoria = categoriaGastoPorId((await params).categoria);
