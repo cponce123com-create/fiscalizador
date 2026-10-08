@@ -160,27 +160,23 @@ export default async function PaginaProveedor({
             {formatearMonto(perfil.totalConsiderado)}
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
-            Es el monto de órdenes considerado, no pagos acreditados. Sobre un total registrado de{' '}
-            <span className="tabular font-medium text-foreground">
-              {formatearMonto(perfil.totalRegistrado)}
-            </span>
-            .
+            Es el monto de órdenes considerado, no pagos acreditados. Excluye anuladas y estados no económicos.
           </p>
         </div>
 
         <div className="flex flex-col justify-between rounded-lg border border-border bg-card p-6 shadow-sm">
           <div>
             <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" title="Órdenes anuladas o que no cuentan económicamente. Se conservan para trazabilidad, pero no suman al monto considerado.">
-              Monto anulado <Info className="h-3.5 w-3.5" aria-hidden="true" />
+              Órdenes anuladas <Info className="h-3.5 w-3.5" aria-hidden="true" />
             </p>
-            <p className="tabular mt-2 text-2xl font-semibold text-destructive">
-              {formatearMonto(perfil.totalAnulado)}
+            <p className="tabular mt-2 text-2xl font-semibold text-foreground">
+              {perfil.anuladas.toLocaleString('es-PE')}
             </p>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             {perfil.anuladas === 1
-              ? '1 orden anulada. Existe y se muestra en el listado, pero no suma.'
-              : `${perfil.anuladas} órdenes anuladas. Existen y se muestran, pero no suman.`}
+              ? '1 orden anulada. Se conserva como trazabilidad, pero su importe agregado no se publica.'
+              : `${perfil.anuladas} órdenes anuladas. Se conservan como trazabilidad, pero su importe agregado no se publica.`}
           </p>
         </div>
       </div>

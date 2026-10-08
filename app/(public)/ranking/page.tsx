@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Ranking de proveedores',
   description:
-    'Proveedores ordenados por monto considerado, con su peso sobre el total y los montos registrado y anulado.',
+    'Proveedores ordenados por monto considerado y su peso sobre el total público.',
 };
 
 export default async function PaginaRanking({
@@ -41,8 +41,8 @@ export default async function PaginaRanking({
         <h1 className="text-2xl font-semibold sm:text-3xl">Ranking de proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
           Ordenados por monto considerado, según el catálogo de estados: excluye las órdenes
-          anuladas. El peso es la participación de cada proveedor sobre el total del conjunto
-          filtrado.
+          anuladas. El importe agregado de anuladas no se publica. El peso es la participación
+          de cada proveedor sobre el total del conjunto filtrado.
         </p>
       </header>
 

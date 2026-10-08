@@ -45,7 +45,7 @@ export function EstadisticasExplorables({ filas }: { filas: EstadisticaEtapa[] }
     ['Órdenes registradas', totales.reduce((n, f) => n + f.ordenes, 0).toLocaleString('es-PE')],
     ['RUC 10 · personas naturales', formatearMonto(ruc10)],
     ['RUC 20 · personas jurídicas', formatearMonto(ruc20)],
-    ['Monto anulado', formatearMonto(suma(totales, 'anulado'))],
+    ['Órdenes anuladas', totales.reduce((n, f) => n + f.anuladas, 0).toLocaleString('es-PE')],
     ['Promedio por orden económica', economicas ? formatearMonto(new Prisma.Decimal(total).div(economicas).toFixed(2)) : 'Sin órdenes económicas'],
   ];
   return <>

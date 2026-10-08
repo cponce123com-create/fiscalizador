@@ -30,30 +30,26 @@ export function TarjetasResumen({ resumen }: { resumen: ResumenGeneral }) {
           </p>
           <p className="mt-3 max-w-xl text-sm text-muted-foreground">
             Es el monto de órdenes incluido en el análisis: excluye las órdenes anuladas y las que están en
-            estados excluidos del análisis. Sobre un total registrado de{' '}
-            <span className="tabular font-medium text-foreground">
-              {formatearMonto(resumen.totalRegistrado)}
-            </span>
-            .
+            estados excluidos. El importe agregado de anuladas no se publica.
           </p>
         </div>
 
-        {/* Lo anulado, explicado */}
+        {/* Lo anulado, explicado sin publicar su importe agregado. */}
         <div className="flex flex-col justify-between rounded-lg border border-border bg-card p-6 shadow-sm">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Monto anulado
+              Órdenes anuladas
             </p>
-            <p className="tabular mt-2 text-2xl font-semibold text-destructive">
-              {formatearMonto(resumen.totalAnulado)}
+            <p className="tabular mt-2 text-2xl font-semibold text-foreground">
+              {resumen.ordenesAnuladas.toLocaleString('es-PE')}
             </p>
           </div>
           <p className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden="true" />
             <span>
               {resumen.ordenesAnuladas === 1
-                ? '1 orden anulada. Existe y se muestra en el listado, pero no suma.'
-                : `${resumen.ordenesAnuladas} órdenes anuladas. Existen y se muestran, pero no suman.`}
+                ? '1 orden anulada. Existe como trazabilidad, pero su importe agregado no se publica.'
+                : `${resumen.ordenesAnuladas} órdenes anuladas. Existen como trazabilidad, pero su importe agregado no se publica.`}
             </span>
           </p>
         </div>

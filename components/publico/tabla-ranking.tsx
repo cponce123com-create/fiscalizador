@@ -6,10 +6,8 @@ import type { FilaRankingCompleto } from '@/services/statisticsService';
 /**
  * Tabla del ranking de proveedores.
  *
- * Los tres montos van separados —registrado, anulado y considerado— porque es la
- * única forma de que el ciudadano entienda por qué la cifra que suma no coincide
- * con la que aparece en el libro. La posición es la del conjunto filtrado, así que
- * al filtrar por RUC 20 la numeración vuelve a empezar en 1.
+ * Se muestra solo el monto considerado. Las anuladas se cuentan para trazabilidad,
+ * pero su importe agregado no se publica.
  */
 export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
   if (filas.length === 0) {
@@ -21,7 +19,7 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
   }
 
   return (
-    <><div className="grid gap-3 md:hidden">{filas.map(f => <article key={f.supplierId} className="min-w-0 rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Puesto {f.posicion} · {f.peso}% del monto considerado</p><Link href={`/proveedores/${f.slug}`} className="mt-2 block break-words font-semibold text-primary">{f.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {f.ruc} · {f.ordenes} órdenes{f.anuladas ? ` · ${f.anuladas} anuladas` : ''}</p><dl className="mt-4 grid gap-2 text-sm">{[['Considerado', f.considerado], ['Registrado', f.registrado], ['Anulado', f.anulado]].map(([etiqueta, monto]) => <div key={etiqueta} className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">{etiqueta}</dt><dd className="tabular font-semibold">{formatearMonto(monto)}</dd></div>)}</dl><Link href={`/proveedores/${f.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Consultar proveedor</Link></article>)}</div>
+    <><div className="grid gap-3 md:hidden">{filas.map(f => <article key={f.supplierId} className="min-w-0 rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">Puesto {f.posicion} · {f.peso}% del monto considerado</p><Link href={`/proveedores/${f.slug}`} className="mt-2 block break-words font-semibold text-primary">{f.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {f.ruc} · {f.ordenes} órdenes{f.anuladas ? ` · ${f.anuladas} anuladas` : ''}</p><dl className="mt-4 grid gap-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Considerado</dt><dd className="tabular font-semibold">{formatearMonto(f.considerado)}</dd></div></dl><Link href={`/proveedores/${f.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Consultar proveedor</Link></article>)}</div>
     <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
@@ -34,12 +32,6 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Órdenes
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Registrado
-            </th>
-            <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Anulado
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Considerado
@@ -75,20 +67,6 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
                     {fila.anuladas} anulada{fila.anuladas === 1 ? '' : 's'}
                   </span>
                 ) : null}
-              </td>
-
-              <td className="tabular whitespace-nowrap px-3 py-2.5 text-right text-muted-foreground">
-                {formatearMonto(fila.registrado)}
-              </td>
-
-              <td
-                className={
-                  fila.anulado === '0.00'
-                    ? 'tabular whitespace-nowrap px-3 py-2.5 text-right text-muted-foreground'
-                    : 'tabular whitespace-nowrap px-3 py-2.5 text-right text-destructive'
-                }
-              >
-                {formatearMonto(fila.anulado)}
               </td>
 
               <td className="tabular whitespace-nowrap px-3 py-2.5 text-right font-semibold">
