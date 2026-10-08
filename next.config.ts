@@ -58,6 +58,9 @@ const PERMISSIONS_POLICY = [
 ].join(", ");
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    "/api/admin/descargas-seace/extension": ["./browser-extension/seace/**/*", "./node_modules/xlsx/dist/xlsx.full.min.js", "./node_modules/xlsx/LICENSE"],
+  },
   images: {
     /**
      * Las fotografías de proveedores se alojan en Cloudinary (fase prevista en el

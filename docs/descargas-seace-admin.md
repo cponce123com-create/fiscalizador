@@ -1,79 +1,82 @@
-# Libros SEACE: descarga desde el navegador
+# Descarga automática de los doce Excel de SEACE
 
-La captura de producción confirmó un HTTP 403 cuando Render intentó abrir SEACE.
-El navegador del administrador sí pudo exportar el Excel con un POST 200.
-La automatización se ejecuta ahora en esa computadora, dentro de la página oficial.
-No requiere otro servicio, Docker, tokens, extensiones ni modificar el plan de Render.
+El panel tiene un botón **Descargar los 12 Excel**. La automatización usa una
+extensión local de Chrome y trabaja en la computadora del administrador. No
+requiere servicios de pago, nuevas variables ni un cambio del plan de Render.
 
-## Uso
+## Instalación única
 
-1. Entrar en **Admin → Descargas SEACE** y elegir el año.
-2. Pulsar **Descarga automática en mi navegador**.
-3. Mostrar la barra de marcadores con **Ctrl + Shift + B** y arrastrar el enlace
-   **Descargar SEACE [año]** a esa barra.
-4. Cerrar las otras pestañas de SEACE y abrir enero con el botón del panel. Ya dentro de SEACE, pulsar el marcador guardado.
-5. Permitir las descargas múltiples si Chrome lo solicita y mantener la pestaña abierta.
+1. En **Admin → Descargas SEACE**, pulsar **Instalar descargador gratuito**.
+2. Descargar el ZIP y extraer todos los archivos en una carpeta permanente.
+3. Abrir `chrome://extensions`, activar **Modo de desarrollador** y pulsar
+   **Cargar descomprimida**. Seleccionar la carpeta que contiene `manifest.json`.
+4. Recargar el panel. Seleccionar el año y pulsar **Descargar los 12 Excel**.
 
-Si no se puede arrastrar, crear un marcador manualmente y pegar en su campo URL el
-código que muestra el panel. El código empieza por `javascript:`. No se pega en DevTools.
-Si cambia el año o RUC, hay que crear o actualizar el marcador con el nuevo enlace.
-Solo funciona en la página oficial de consulta; pulsarlo en otra web muestra instrucciones.
+También funciona antes de publicar el panel nuevo: pulsar el icono de la extensión
+en Chrome, seleccionar el año y pulsar su botón de descarga. Chrome de escritorio
+116 o posterior. No cerrar la pestaña del descargador durante el trabajo.
 
-## Progreso y archivos
+## Descarga y comprobaciones
 
-El panel flotante de SEACE muestra cuántos archivos se enviaron al navegador.
-Se consultan los doce meses en orden: GET con un estado JSF nuevo y POST de exportación
-con los campos del formulario observado. Las solicitudes son del mismo origen;
-el navegador maneja sus propias cookies, sin copiarlas ni enviarlas a fiscalizador.
-Los originales no se transforman: se conserva su contenido y se asigna un nombre con
-municipalidad, año y mes. Hasta 2 MB de HTML y 25 MB por libro, con 45 s por mes.
-Se comprueba el periodo, el formulario, respuesta adjunta y firma de Excel; no se extraen
-las quince filas de la tabla paginada para fabricar un Excel incompleto.
+Cerrar otras pestañas de SEACE antes de empezar. La extensión abre una sola consulta
+auxiliar y la reutiliza. Por cada mes:
 
-**Pausar** espera a terminar el mes actual. Cerrar el panel y volver a pulsar el marcador
-continúa desde los pendientes. Los meses enviados se guardan en localStorage de SEACE,
-por RUC/año. **Reiniciar progreso** permite repetirlos si Chrome bloqueó los archivos.
-Archivo enviado no garantiza que se guardó: comprobar la carpeta Descargas.
-Evitar otras consultas SEACE mientras trabaja el marcador y mantener la pestaña abierta.
+1. Navegar al enlace oficial con RUC, año y mes, y esperar a que la página cargue.
+2. Comprobar periodo, URL y formulario JSF. Exportar con un `ViewState` fresco y
+   los cuatro campos reales del botón Excel. Las cookies permanecen en Chrome.
+3. Leer el Excel original, hasta 25 MB y 60 segundos, rechazando errores HTTP,
+   páginas HTML, CAPTCHA y contenido sin firma de Excel.
+4. Comprobar que las fechas de emisión incluyen el mes solicitado. Si enero
+   devuelve diciembre, detenerse antes de guardar un archivo mal etiquetado.
+   Los reportes con fechas mezcladas se guardan con un aviso para la importación.
+   Un libro vacío se conserva si tiene los encabezados esperados.
+5. Detectar una repetición SHA-256 de un libro no vacío ya descargado.
+6. Guardar los bytes originales con nombre por año, mes y municipalidad; esperar
+   a que la API de descargas de Chrome confirme `complete` antes del mes siguiente.
 
-Un 403, respuesta HTML, archivo inválido o periodo diferente detiene la secuencia y
-no marca ese mes como enviado. No se evaden CAPTCHA ni se desactivan protecciones.
-El script no lee cookies mediante JavaScript, no usa credenciales del admin y solo
-hace solicitudes a la URL oficial de SEACE. No hay tráfico ni almacenamiento de libros
-nuevo en Render, ni importaciones automáticas.
+No se marca el mes por un clic, un temporizador ni una petición iniciada.
+El panel del descargador muestra archivos guardados, filas y errores. Si Chrome
+interrumpe una descarga o no la confirma en cinco minutos, se detiene la secuencia.
+**Detener después de este mes** espera al archivo actual. Reintentar en la misma
+pestaña descarga solo los meses pendientes del mismo RUC/año. Al cerrar la pestaña,
+este progreso en memoria se pierde; las descargas ya realizadas permanecen en el disco.
+La pestaña auxiliar creada por la extensión se cierra al terminar o fallar.
 
-## Alternativa manual y otras municipalidades
+El botón del panel abre el descargador automáticamente con el año elegido.
+También se puede utilizar su icono en Chrome, sin el panel. Si ya hay un descargador
+abierto, se evita iniciar otro. Los enlaces manuales quedan en una sección secundaria.
+La extensión exige cerrar otras consultas SEACE y detiene el proceso si detecta
+una nueva, para evitar el estado compartido observado entre pestañas.
 
-Se retiró **Abrir los 12 meses** después de comprobar que varios archivos descargados
-contenían exactamente las 386 órdenes de diciembre de 2018, pese a mostrar otros
-meses en las pestañas. La prueba del administrador funciona al consultar y exportar
-un mes por vez; el comportamiento apunta a estado compartido de SEACE entre pestañas.
-Los enlaces conservan correctamente sus parámetros distintos de año y mes.
+## Permisos, paquete y despliegue
 
-El recorrido **Empezar por enero** abre una consulta. Tras descargar su Excel en SEACE,
-el administrador pulsa **Ya descargué [mes] · abrir [siguiente]**. El portal reutiliza
-la misma pestaña; si está cerrada, abre una nueva. También cada botón mensual utiliza
-esa pestaña. Un popup bloqueado deja el mes pendiente, sin avanzar automáticamente.
-Cerrar las otras pestañas de SEACE antes de empezar y no ejecutar el marcador
-simultáneamente. El progreso cuenta las confirmaciones del usuario; no verifica que
-el navegador haya guardado un Excel. **Copiar los 12 enlaces** sigue disponible,
-con instrucciones para usarlos uno por vez, sin abrir consultas en paralelo.
+La extensión MV3 requiere `scripting` y `downloads`, y acceso únicamente a
+`https://prod2.seace.gob.pe/*`. No pide `cookies`, acceso a todos los sitios ni
+permisos para leer el historial de pestañas de otros dominios. Solo recibe órdenes
+externas de `/admin/descargas` en el portal configurado (o localhost:3000 en desarrollo).
+La clave pública del manifest fija su ID; no es una credencial. Otro dominio del
+portal requiere ajustar la lista de orígenes permitidos y reinstalar el paquete.
 
-Las comprobaciones locales no reproducen una sesión real de SEACE; queda pendiente
-verificar la reutilización de la pestaña y la descarga en el Chrome del administrador.
+El endpoint `/api/admin/descargas-seace/extension` exige `imports:write`, sirve un
+ZIP sin caché compartida e incluye el código local, SheetJS ya fijado por el proyecto
+y su licencia. No descarga código de un CDN durante la ejecución. El tracing de Next
+incluye esos archivos en el despliegue. No cambia las variables de entorno.
 
-Por defecto se consulta San Ramón, RUC **20146657142**. La sección **Consultar otra municipalidad**
-permite cambiar nombre y RUC para estos enlaces y el marcador. No modifica el municipio
-publicado ni las importaciones; al recargar vuelve San Ramón.
+Los libros no se envían a Render, no se importan automáticamente y no se alteran
+sus montos ni filas. Subirlos después al importador para revisar y confirmar.
 
-## Verificación pendiente
+## Evidencia y límites de la verificación
 
-Las pruebas ejecutan el código serializado del marcador en un navegador simulado y
-comprueban doce GET/POST, estados nuevos, contenido intacto, progreso y error 403.
-No se ha comprobado una descarga completa con el marcador en el navegador real del usuario.
-SEACE o el navegador pueden bloquear su ejecución con CSP o sus políticas de descarga.
-Si no inicia o devuelve error, conservar los enlaces manuales; no desactivar esas protecciones.
-El script local opcional sigue en `scrapers/herramientas/descargar_excel_anual.py`.
+Render recibió HTTP 403 al abrir SEACE, mientras que el navegador del usuario
+exportó con HTTP 200. Tres Excel entregados por el administrador eran idénticos
+byte por byte y contenían las 386 órdenes de diciembre de 2018. Abrir doce pestañas
+mostraba meses diferentes pero exportaba diciembre; consultar uno por vez sí
+funcionaba. Se retiraron la apertura paralela y el recorrido manual de confirmaciones.
 
-Se retiró el endpoint que descargaba desde Render, porque en producción recibió 403.
-Los libros e importaciones ya existentes no se eliminan.
+Las pruebas ejecutan el código de la extensión y la función inyectada en un entorno
+simulado: doce Excel BIFF8, navegación serial, `ViewState` nuevo, hashes originales,
+espera de descarga completa, error HTTP, interrupción y rechazo de diciembre al
+solicitar enero. Verifican también el ZIP, el ID y los permisos, y la autorización
+para obtener el paquete. No se ha probado una descarga completa en una sesión real
+de SEACE; necesita comprobarse en el Chrome del administrador. Si SEACE exige una
+verificación, el proceso se detiene; no evade CAPTCHA ni desactiva protecciones.

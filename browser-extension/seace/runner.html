@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Descarga anual SEACE · Fiscalizador</title><link rel="stylesheet" href="runner.css"></head>
+<body><main>
+<h1>Descargar los 12 Excel de SEACE</h1>
+<p>Se consulta y exporta un mes por vez. El siguiente comienza cuando Chrome confirma que el archivo anterior terminó de descargarse.</p>
+<form id="configuracion"><label>Año<input id="anio" type="number" min="2000" required></label><label>RUC de la municipalidad<input id="ruc" value="20146657142" pattern="[0-9]{11}" maxlength="11" required></label><label>Municipalidad<input id="municipio" value="Municipalidad Distrital de San Ramón" maxlength="120" required></label><button id="iniciar" type="submit">Descargar los 12 Excel</button></form>
+<p>Cierra las otras pestañas de SEACE antes de empezar. Mantén este descargador abierto y no hagas otras consultas SEACE durante la descarga.</p>
+<p id="estado" role="status">Listo para empezar.</p><progress id="progreso" max="12" value="0"></progress>
+<button id="cancelar" type="button" disabled>Detener después de este mes</button>
+<ol id="archivos"></ol>
+<p>Los originales se guardan en Descargas con año, mes y municipalidad. No se importan automáticamente al portal.</p>
+</main><script src="xlsx.full.min.js"></script><script src="runner.js"></script></body></html>
