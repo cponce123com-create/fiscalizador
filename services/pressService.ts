@@ -1,7 +1,7 @@
 import { Prisma } from '@/lib/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
-import { catalogoPrensa, type ResumenPrensa } from '@/lib/prensa';
+import { catalogoPrensa, posicionPrensa, type ResumenPrensa } from '@/lib/prensa';
 
 /** Un cruce por RUC exacto; no fusiona homónimos ni atribuye órdenes de empresas a personas. */
 export async function contratacionesPrensa(catalogo: readonly { ruc: string; nombre: string }[] = catalogoPrensa): Promise<ResumenPrensa> {
@@ -46,7 +46,8 @@ export async function contratacionesPrensa(catalogo: readonly { ruc: string; nom
       fotoUrl: fila?.fotoUrl ?? null,
       perfilUrl: fila ? `/proveedores/${fila.slug}` : `/prensa/${persona.ruc}`,
     };
-  }).sort((a, b) => Number(b.ordenes > 0) - Number(a.ordenes > 0)
+  }).sort((a, b) => posicionPrensa(a.ruc) - posicionPrensa(b.ruc)
+    || Number(b.ordenes > 0) - Number(a.ordenes > 0)
     || new Prisma.Decimal(b.considerado).comparedTo(a.considerado)
     || a.nombre.localeCompare(b.nombre, 'es'));
   return {

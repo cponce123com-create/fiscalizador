@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const query = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/prisma', () => ({ prisma: { $queryRaw: query } }));
+import { catalogoPrensa, prioridadPrensa } from '@/lib/prensa';
 import { contratacionesPrensa } from './pressService';
 
 const uno = { ruc: '10454761923', nombre: 'Galarza Villar Mariella' };
@@ -11,6 +12,15 @@ function agregado(ruc: string, monto: string, ordenes = 2) {
 
 describe('cruce de prensa con libros publicados', () => {
   beforeEach(() => { query.mockReset(); });
+  it('prioriza las siete identidades incluso sin órdenes y conserva los totales', async () => {
+    query.mockResolvedValue([agregado(dos.ruc, '900.00'), agregado(uno.ruc, '10.00')]);
+    const r = await contratacionesPrensa(catalogoPrensa);
+    expect(r.filas.slice(0, 7).map(f => f.ruc)).toEqual([...prioridadPrensa]);
+    expect(r.considerado).toBe('910.00');
+    expect(r.conOrdenes).toBe(2);
+    expect(r.filas[0]?.ordenes).toBe(0);
+    expect(r.filas.findIndex(f => f.ruc === dos.ruc)).toBeGreaterThan(6);
+  });
   it('cruza por RUC exacto y usa cifras de los libros en todos los periodos', async () => {
     query.mockResolvedValue([agregado(uno.ruc, '100.00')]);
     const r = await contratacionesPrensa([uno, dos]);
