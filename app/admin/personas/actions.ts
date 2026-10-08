@@ -78,6 +78,7 @@ export async function accionCrearPersona(
 
     await crearPersona(datos, { userId: usuario.id });
     revalidatePath('/admin/personas');
+    revalidatePath('/', 'layout');
 
     return { error: null, ok: `Ficha de ${datos.fullName.trim()} guardada.` };
   } catch (error) {
@@ -96,6 +97,7 @@ export async function accionActualizarPersona(
 
     await actualizarPersona(id, datos, { userId: usuario.id });
     revalidatePath('/admin/personas');
+    revalidatePath('/', 'layout');
 
     return { error: null, ok: `Ficha de ${datos.fullName.trim()} actualizada.` };
   } catch (error) {
@@ -113,6 +115,7 @@ export async function accionEliminarPersona(
 
     await eliminarPersona(id, { userId: usuario.id });
     revalidatePath('/admin/personas');
+    revalidatePath('/', 'layout');
 
     return { error: null, ok: 'Ficha eliminada.' };
   } catch (error) {
@@ -140,6 +143,7 @@ export async function accionVincularProveedor(
       { userId: usuario.id },
     );
     revalidatePath('/admin/personas');
+    revalidatePath('/', 'layout');
 
     return { error: null, ok: 'Proveedor vinculado.' };
   } catch (error) {
@@ -157,6 +161,7 @@ export async function accionDesvincularProveedor(
 
     await desvincularProveedor(id, { userId: usuario.id });
     revalidatePath('/admin/personas');
+    revalidatePath('/', 'layout');
 
     return { error: null, ok: 'Vínculo quitado.' };
   } catch (error) {

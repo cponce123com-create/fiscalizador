@@ -21,8 +21,8 @@ export async function contratacionesPrensa(catalogo: readonly { ruc: string; nom
       to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
       to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima,
       CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL AND p."isPublic" = true AND p.publication->'foto'->>'enabled' = 'true' AND p.publication->'foto'->>'verifiedAt' IS NOT NULL)
-        THEN '/api/public/proveedores/' || s.id || '/foto' ELSE NULL END AS "fotoUrl"
-    FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
+        THEN '/api/public/proveedores/' || s.id || '/foto?v=' || (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id) ELSE NULL END AS "fotoUrl"
+    FROM "Supplier" s LEFT JOIN "CurrentOrder" o ON o."supplierId" = s.id
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     WHERE s.ruc IN (${Prisma.join(rucs)})
     GROUP BY s.id, s.ruc, s.name, s.slug

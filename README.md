@@ -235,8 +235,9 @@ se muestran separados del resultado oficial y requieren su fuente.
 ## Publicación y seguridad
 
 - **Publicación por ficha y por dato.** DNI completo, edad, nacimiento, distrito y
-  foto requieren habilitación y fuente pública revisada. Cambiar la foto retira su
-  publicación hasta revisar la nueva. Notas y vínculos tienen controles independientes.
+  foto requieren habilitación y fuente pública revisada. La foto puede publicarse con su fuente al subirla o mediante el botón de
+  publicación, incluso si ya estaba guardada. Reemplazarla conserva la publicación
+  previa salvo que se elija guardarla como privada. Su estado se muestra en el panel. Notas y vínculos tienen controles independientes.
 - **Datos de contratación.** El RUC y las órdenes permanecen públicos. Ocultar la
   etiqueta DNI no anonimiza un RUC 10; su publicación se gestiona deliberadamente.
 - **Acceso administrativo.** Contraseñas Argon2id, permisos comprobados contra la

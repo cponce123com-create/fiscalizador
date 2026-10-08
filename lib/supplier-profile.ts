@@ -3,7 +3,7 @@ export const MAX_CONTACTOS_PROVEEDOR = 10;
 export function dniDesdeRuc(ruc: string): string | null {
   return /^10\d{9}$/.test(ruc) ? ruc.slice(2, 10) : null;
 }
-export const fuentePublica = z.string().url().max(500).refine(v => { const u = new URL(v); return ["http:", "https:"].includes(u.protocol) && !u.username && !u.password; }, "Usa un enlace público HTTP o HTTPS.");
+export const fuentePublica = z.string().url().max(500).refine(v => { try { const u = new URL(v); return ["http:", "https:"].includes(u.protocol) && !u.username && !u.password; } catch { return false; } }, "Usa un enlace público HTTP o HTTPS.");
 const textoOpcional = (max: number) => z.string().trim().max(max).nullable().transform(v => v || null);
 export const camposPublicacionProveedor = ['dni', 'edad', 'nacimiento', 'distrito', 'foto'] as const;
 const reglaPublicacion = z.object({ enabled: z.boolean(), sourceUrl: z.string().nullable(), verifiedAt: z.string().datetime().optional() }).refine(r => !r.enabled || fuentePublica.safeParse(r.sourceUrl).success, 'Cada dato publicado necesita una fuente pública.');
