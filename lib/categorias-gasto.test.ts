@@ -2,6 +2,25 @@ import { describe, expect, it } from 'vitest';
 import { categoriaGastoPorId, categoriasGasto, coincideCategoriaGasto } from './categorias-gasto';
 describe('clasificación de gastos por descripción', () => {
   it.each([
+    ['prensa', 'Servicio de difusión y spots radiales', 'Compra de prensa hidráulica'],
+    ['prensa', 'PUBLICIDAD EN MEDIOS DE COMUNICACIÓN', 'Adquisición de radios portátiles'],
+    ['prensa', 'Servicio periodístico y cobertura de prensa', 'Impresión de talonarios'],
+    ['equipos-computo', 'Adquisición de TÓNER y computadoras', 'Compra de equipos de sonido'],
+    ['equipos-computo', 'Reparación de laptop e impresora', 'Implementación de maquinaria pesada'],
+    ['equipos-computo', 'Compra de monitor LED y teclado', 'Contratación de monitores de vacaciones útiles'],
+    ['equipos-computo', 'Cartuchos de tinta para impresoras', 'Compra de cartuchos de escopeta'],
+    ['equipos-computo', 'Adquisición de discos SSD y memoria RAM', 'Útiles escolares'],
+    ['equipos-computo', 'Implementación de redes informáticas y routers', 'Compra de redes de pesca'],
+    ['maquinaria-pesada', 'Implementación de maquinaria pesada', 'Implementación de equipo de cómputo'],
+    ['maquinaria-pesada', 'Seguro de volquete y póliza de excavadora', 'Seguro del personal'],
+    ['maquinaria-pesada', 'Revisión técnica de motoniveladora', 'Revisión de expediente técnico'],
+    ['maquinaria-pesada', 'Neumáticos y aceite para retroexcavadora', 'Compra de aceite para almuerzos'],
+    ['maquinaria-pesada', 'Repotenciación de cargador frontal', 'Alquiler de volquete'],
+    ['mantenimiento-vehiculos', 'SOAT de camioneta y motocicleta', 'Seguro de oficina'],
+    ['mantenimiento-vehiculos', 'Pólizas de seguros para pick-up', 'Alquiler de moto'],
+    ['mantenimiento-vehiculos', 'Implementación y equipamiento de motos', 'Implementación de excavadora'],
+    ['mantenimiento-vehiculos', 'Llantas y baterías para camionetas', 'Baterías para impresora'],
+    ['mantenimiento-vehiculos', 'Reparaciones y lubricación de motocicleta', 'Compra de camioneta nueva'],
     ['utiles-oficina', 'ÚTILES DE OFICINA Y ECONOMATO', 'Útiles escolares'],
     ['utiles-oficina', 'Impresión de talonarios', 'Mantenimiento de impresora'],
     ['utiles-oficina', 'Tóner y papel bond', 'Alquiler de oficinas'],
@@ -40,7 +59,7 @@ describe('clasificación de gastos por descripción', () => {
   });
   it('permite conceptos compartidos sin duplicar categorías', () => {
     expect(categoriasGasto.filter(c => coincideCategoriaGasto(c, 'Consultoría de expediente técnico')).map(c => c.id)).toEqual(['consultorias', 'expedientes-tecnicos']);
-    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(12);
+    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(14);
     expect(categoriaGastoPorId('inexistente')).toBeUndefined();
   });
 });
