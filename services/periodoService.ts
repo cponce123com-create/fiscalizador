@@ -1,4 +1,4 @@
-import { computeChecksum, parseSpreadsheet } from '@/services/parseService';
+import { computeChecksum, parseSpreadsheetEnWorker } from '@/services/parseService';
 import { indicesPorCampo, mapColumns } from '@/services/mappingService';
 import { parseDate, stripDiacritics } from '@/services/normalization';
 
@@ -21,7 +21,7 @@ export type PeriodoDetectado = {
 
 /** Lee todas las fechas de emisión, incluso de filas con RUC o monto inválido. */
 export async function detectarPeriodo(buffer: Buffer, nombre: string): Promise<PeriodoDetectado> {
-  const hoja = parseSpreadsheet(buffer);
+  const hoja = await parseSpreadsheetEnWorker(buffer);
   const indices = indicesPorCampo(mapColumns(hoja.headers, hoja.rows));
   const conteo = new Map<string, number>();
   let sinFecha = 0;

@@ -9,6 +9,7 @@ import {
   crearAlmacenamientoLocal,
   describirFalloDeAlmacenamiento,
   extensionSegura,
+  validarAlmacenamientoConfigurado,
 } from '@/services/storageService';
 
 /**
@@ -111,5 +112,10 @@ describe('driver de disco local', () => {
     await expect(
       roto.save({ buffer: Buffer.from('x'), filename: 'libro.xls', checksum: CHECKSUM }),
     ).rejects.toThrow();
+  });
+
+  it('valida que el directorio configurado se pueda escribir al arrancar', async () => {
+    process.env.STORAGE_LOCAL_DIR = path.join(raiz, 'arranque');
+    await expect(validarAlmacenamientoConfigurado()).resolves.toBeUndefined();
   });
 });

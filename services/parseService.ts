@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import path from 'node:path';
+import { Worker } from 'node:worker_threads';
 
 import * as XLSX from 'xlsx';
 
@@ -149,6 +151,34 @@ export function parseSpreadsheet(buffer: Buffer, options: ParseOptions = {}): Ra
     sourceRows,
     blankRowsSkipped,
   };
+}
+
+/**
+ * Lee el libro fuera del hilo principal de Node.
+ *
+ * SheetJS soporta los `.xls` legacy del portal, pero su lectura es síncrona. En
+ * una ruta HTTP eso congela el proceso completo mientras se interpreta el libro.
+ * Este worker local evita pagar Redis/BullMQ y mantiene el portal respondiendo.
+ */
+export function parseSpreadsheetEnWorker(buffer: Buffer, options: ParseOptions = {}): Promise<RawSheet> {
+  const workerPath = path.join(process.cwd(), 'workers', 'parseSpreadsheetWorker.mjs');
+  const bytes = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(workerPath, {
+      workerData: { buffer: bytes, options },
+      resourceLimits: { maxOldGenerationSizeMb: 256 },
+    });
+
+    worker.once('message', (mensaje: { ok: true; hoja: RawSheet } | { ok: false; error: string }) => {
+      if (mensaje.ok) resolve(mensaje.hoja);
+      else reject(new Error(mensaje.error));
+    });
+    worker.once('error', reject);
+    worker.once('exit', (code) => {
+      if (code !== 0) reject(new Error(`El worker de lectura terminó con código ${code}.`));
+    });
+  });
 }
 
 /** Valor de celda garantizado como JSON seguro. */

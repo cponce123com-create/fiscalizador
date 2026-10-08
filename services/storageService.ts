@@ -135,6 +135,31 @@ export function crearAlmacenamientoLocal(raiz: string): StorageDriver {
   return new LocalStorageDriver(raiz);
 }
 
+/** Comprueba al arrancar que el almacenamiento local sea escribible y persistente. */
+export async function validarAlmacenamientoConfigurado(): Promise<void> {
+  if (env.STORAGE_DRIVER !== 'local') return;
+
+  const raiz = path.resolve(env.STORAGE_LOCAL_DIR);
+  const prueba = path.join(raiz, '.fiscalizador-write-test');
+
+  try {
+    await mkdir(raiz, { recursive: true });
+    await writeFile(prueba, 'ok');
+    await unlink(prueba);
+  } catch (error) {
+    throw new Error(
+      `No se puede escribir en STORAGE_LOCAL_DIR (${describirFalloDeAlmacenamiento(error)}). ` +
+        'Configura un directorio persistente y escribible para conservar los libros originales.',
+    );
+  }
+
+  if (env.NODE_ENV === 'production' && !raiz.startsWith('/var/data/')) {
+    console.warn(
+      `STORAGE_LOCAL_DIR apunta a ${raiz}. En Render debe estar bajo /var/data para conservar los libros originales entre despliegues.`,
+    );
+  }
+}
+
 let driver: StorageDriver | null = null;
 
 /** Devuelve el driver configurado por `STORAGE_DRIVER`. */

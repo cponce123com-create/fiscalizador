@@ -288,7 +288,9 @@ se muestran separados del resultado oficial y requieren su fuente.
   minuto; búsqueda: 3 activas y 180 por minuto, por proceso. El exceso devuelve
   `429` con `Retry-After`. Varias instancias requieren un contador distribuido.
 - **Importaciones acotadas.** Se limitan los bytes reales del formulario antes del
-  análisis multipart: 25 MB por archivo más 64 KB de sobrecarga.
+  análisis multipart: 25 MB por archivo más 64 KB de sobrecarga. La lectura de
+  Excel se ejecuta en un worker local de Node para no bloquear el hilo principal;
+  no requiere Redis ni servicios de pago.
 - **Operación verificable.** La rotación de credenciales, recuperación de 2FA y
   restauración de datos se describen en la [guía de operación](docs/operacion.md).
   El repositorio no confirma que se hayan rotado credenciales previamente expuestas.
