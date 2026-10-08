@@ -1,3 +1,4 @@
+import { buscarNombre } from '@/lib/busqueda-nombres';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { requierePermiso } from '@/lib/auth/session';
@@ -35,7 +36,7 @@ export default async function RegistroElectoral({ searchParams }: { searchParams
   const editable = puede(user.role, 'persons:write');
   const params = await searchParams;
   const q = (params.q ?? '').trim().slice(0, 120);
-  const where = q ? { OR: [{ fullName: { contains: q, mode: 'insensitive' as const } }, { dni: { contains: q } }] } : {};
+  const where = q ? { OR: [buscarNombre(q), { dni: { contains: q } }] } : {};
   const total = await prisma.electoralPerson.count({ where });
   const paginas = Math.max(1, Math.ceil(total / 20));
   const page = Math.min(paginas, Math.max(1, Number.parseInt(params.page ?? '1') || 1));

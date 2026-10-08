@@ -1,3 +1,5 @@
+import { buscarNombreProveedor } from '@/lib/busqueda-nombres';
+import { palabrasBusqueda } from '@/lib/busqueda-ordenes';
 import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
 import type { Metadata } from 'next';
 import { ListOrdered, Search } from 'lucide-react';
@@ -94,7 +96,8 @@ export default async function PaginaOrdenes({
     where.OR = [
       { orderNumber: { contains: filtros.q, mode: 'insensitive' } },
       { ruc: { contains: filtros.q } },
-      { supplier: { name: { contains: filtros.q, mode: 'insensitive' } } },
+      ...(palabrasBusqueda(filtros.q).length ? [{ AND: palabrasBusqueda(filtros.q).map(p => ({ descriptionSearch: { contains: p } })) }] : []),
+      { supplier: buscarNombreProveedor(filtros.q) },
     ];
   }
 

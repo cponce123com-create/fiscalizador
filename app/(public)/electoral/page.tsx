@@ -1,3 +1,4 @@
+import { buscarNombre } from '@/lib/busqueda-nombres';
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
 import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
@@ -6,7 +7,7 @@ export const metadata = { title: 'Antecedentes electorales' };
 export default async function DirectorioElectoral({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const params = await searchParams;
   const q = (params.q ?? '').trim().slice(0, 120);
-  const where = { isPublic: true, records: { some: { isPublic: true } }, ...(q ? { fullName: { contains: q, mode: 'insensitive' as const } } : {}) };
+  const where = { isPublic: true, records: { some: { isPublic: true } }, ...(q ? buscarNombre(q) : {}) };
   const total = await prisma.electoralPerson.count({ where });
   const paginas = Math.max(1, Math.ceil(total / 20));
   const page = Math.min(paginas, Math.max(1, Number.parseInt(params.page ?? '1') || 1));
