@@ -66,9 +66,13 @@ automáticamente cuando falta una fuente y se actualizan cada 15 minutos si amba
 
 `/estadisticas` reúne seis indicadores, comparaciones de RUC 10 y RUC 20,
 los primeros 100 días y el último año de cada mandato, evolución mensual y anual,
-concentración de proveedores y trece tarjetas de conceptos de gasto. Incluye
+concentración de proveedores y quince tarjetas de conceptos de gasto. Incluye
 alimentación, vehículos, maquinaria, consultorías, expedientes, beneficios del personal,
-Vaso de Leche, oficina, Navidad, apoyo social, aniversario y reinado.
+Vaso de Leche, oficina, Navidad, apoyo social, aniversario, reinado, prensa y equipos de cómputo.
+Las tarjetas de maquinaria y vehículos incluyen reparaciones, implementaciones, mejoras,
+seguros y consumibles relacionados, siempre que la descripción identifique el activo.
+Prensa se identifica por el concepto de la orden, no solo por el nombre del proveedor.
+Tóner puede aparecer también en útiles de oficina: las categorías no son sumables.
 
 Los cortes temporales usan la **fecha de emisión** y las fechas del catálogo de
 gestiones. El día 100 se incluye; el último año corresponde al año calendario en

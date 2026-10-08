@@ -30,7 +30,7 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
         ],
         ['CIUD-1', 'O/C', ruc, 'PRUEBA CIUDADANA', monto, estado, '1993-02-05', 'ALMUERZOS Y REFRIGERIOS; ALQUILER DE CAMIONETA; TALONARIOS'],
         [],
-        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING; CONSULTORÍA DE EXPEDIENTE TÉCNICO; CHOCOLATADA NAVIDEÑA; APOYO COYUNTURAL'],
+        ['CIUD-2', 'O/C', ruc, 'PRUEBA CIUDADANA', '50', 'Devengada', '1993-02-06', 'ALIMENTACIÓN Y CATERING; CONSULTORÍA DE EXPEDIENTE TÉCNICO; CHOCOLATADA NAVIDEÑA; APOYO COYUNTURAL; PRENSA, PUBLICIDAD Y DIFUSIÓN; TÓNER, LAPTOP E IMPRESORA; SEGUROS Y SOAT DE CAMIONETA Y MOTOCICLETA; IMPLEMENTACIÓN Y PÓLIZA DE MAQUINARIA PESADA'],
       ]),
       'Evidencia',
     );
@@ -175,8 +175,8 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
       expect(resumenGastos.find(g => g.categoria === 'consultorias')).toMatchObject({ ordenes: 1, considerado: '50.00' });
       expect(resumenGastos.find(g => g.categoria === 'expedientes-tecnicos')).toMatchObject({ ordenes: 1, considerado: '50.00' });
       expect(resumenGastos.find(g => g.categoria === 'vaso-de-leche')).toMatchObject({ ordenes: 0, considerado: '0.00', meses: 1 });
-      expect(resumenGastos.find(g => g.categoria === 'utiles-oficina')).toMatchObject({ ordenes: 1, anuladas: 1, considerado: '0.00', meses: 1 });
-      for (const id of ['vacaciones-navidad', 'apoyo-social']) {
+      expect(resumenGastos.find(g => g.categoria === 'utiles-oficina')).toMatchObject({ ordenes: 2, anuladas: 1, considerado: '50.00', meses: 1 });
+      for (const id of ['vacaciones-navidad', 'apoyo-social', 'prensa', 'equipos-computo', 'maquinaria-pesada', 'mantenimiento-vehiculos']) {
         expect(resumenGastos.find(g => g.categoria === id)).toMatchObject({ ordenes: 1, considerado: '50.00', meses: 1 });
         const detalle = await gastos.listarOrdenesCategoria(categorias.categoriaGastoPorId(id)!, consulta);
         expect(detalle.total).toBe(1);
