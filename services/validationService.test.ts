@@ -403,11 +403,11 @@ describe('montos desproporcionados antes de importar', () => {
     expect(validar([0, 0, 0, 0, 125_000]).issues.some(i => i.code === 'MONTO_ATIPICO')).toBe(false);
   });
 
-  it('señala un monto que coincide con el RUC, incluso en órdenes anuladas', () => {
+  it('no exige revisar montos sospechosos en órdenes anuladas porque no cuentan económicamente', () => {
     const r = validar(['20541487710'], ['Anulada']);
-    expect(r.issues.find(i => i.code === 'MONTO_COINCIDE_RUC')?.rawValue).toBe('20541487710');
-    expect(r.orders[0]?.hasWarning).toBe(true);
-    expect(r.summary.warningRows).toBe(1);
+    expect(r.issues.some(i => i.code.startsWith('MONTO_'))).toBe(false);
+    expect(r.orders[0]?.hasWarning).toBe(false);
+    expect(r.summary.warningRows).toBe(0);
     expect(r.summary.consideredCents).toBe(0);
   });
 
