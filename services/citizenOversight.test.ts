@@ -208,7 +208,7 @@ describe.skipIf(process.env.INTEGRATION_TESTS_ENABLED !== '1')('instantáneas y 
     const inicial = await stats.datosPortadaInicial();
     expect(inicial.resumen).toEqual(portada.resumen);
     expect(inicial.mensual).toEqual(portada.mensual);
-    expect(inicial.ranking).toEqual(portada.ranking.slice(0, 6));
+    expect(inicial.ranking).toEqual(portada.ranking);
     expect(inicial.ultimos).toEqual(portada.ultimos);
     expect(portada.mensual.find((m) => m.periodo === '1993-02')?.considerado).toBe('50.00');
     expect(portada.anual.find((m) => m.periodo === '1993')?.considerado).toBe('50.00');
