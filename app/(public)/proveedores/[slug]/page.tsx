@@ -1,3 +1,5 @@
+import { Compartir } from '@/components/publico/compartir';
+import { imagenCompartida, metadataCompartida, resumenProveedor } from '@/lib/compartir';
 import { catalogoPrensa } from '@/lib/prensa';
 import { antecedentesElectoralesProveedor, informacionDocumentadaProveedor } from '@/services/electoralService';
 import { AntecedentesElectorales } from '@/components/publico/antecedentes-electorales';
@@ -39,12 +41,7 @@ export async function generateMetadata({
 
   if (!perfil) return { title: 'Proveedor no encontrado' };
 
-  return {
-    title: perfil.nombre,
-    description: `${perfil.nombre} (RUC ${perfil.ruc}): ${perfil.ordenes} órdenes y ${formatearMonto(
-      perfil.totalConsiderado,
-    )} de monto considerado.`,
-  };
+  return metadataCompartida(perfil.nombre, resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), `/proveedores/${encodeURIComponent(slug)}`, imagenCompartida('proveedor', slug));
 }
 
 export default async function PaginaProveedor({
@@ -105,6 +102,7 @@ export default async function PaginaProveedor({
         Todos los proveedores
       </Link>
 
+      <Compartir titulo={perfil.nombre} resumen={resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado)} ruta={`/proveedores/${encodeURIComponent(slug)}`} imagen={imagenCompartida('proveedor', slug)} />
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">
         {foto ? (
           <Image

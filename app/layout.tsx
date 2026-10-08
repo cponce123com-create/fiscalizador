@@ -48,14 +48,15 @@ const metadataPorDefecto: Metadata = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await leerConfiguracionPortal();
+  const imagen = config.fotoPortada || config.imagenSocial || config.logo;
   return {
     ...metadataPorDefecto,
     icons: {
       icon: config.favicon ? { url: config.favicon, type: 'image/png', sizes: '256x256' } : '/favicon.ico',
       ...(config.favicon ? { apple: { url: config.favicon, type: 'image/png', sizes: '256x256' } } : {}),
     },
-    openGraph: { ...metadataPorDefecto.openGraph, ...(config.imagenSocial ? { images: [{ url: config.imagenSocial, width: 1200, height: 630, alt: 'Fiscalizador · San Ramón' }] } : {}) },
-    twitter: { ...metadataPorDefecto.twitter, card: config.imagenSocial ? 'summary_large_image' : 'summary', ...(config.imagenSocial ? { images: [config.imagenSocial] } : {}) },
+    openGraph: { ...metadataPorDefecto.openGraph, ...(imagen ? { images: [{ url: imagen, alt: `Fiscalizador · ${config.municipio}` }] } : {}) },
+    twitter: { ...metadataPorDefecto.twitter, card: imagen ? 'summary_large_image' : 'summary', ...(imagen ? { images: [imagen] } : {}) },
   };
 }
 
