@@ -1,5 +1,6 @@
 import { normalizeSupplierName, slugify } from '@/services/normalization';
 import type { ClienteDb } from '@/services/auditService';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 /**
  * Alta y mantenimiento de proveedores.
@@ -142,8 +143,9 @@ export async function recalcularResumenGestion(
   db: ClienteDb,
   supplierId: string,
   managementPeriodId: string,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
 ): Promise<void> {
-  const base = { supplierId, managementPeriodId, importBatch: { isCurrent: true } };
+  const base = { supplierId, managementPeriodId, municipalityId, importBatch: { isCurrent: true } };
 
   const [total, anulado, considerado, fechas] = await Promise.all([
     db.order.aggregate({
@@ -173,7 +175,7 @@ export async function recalcularResumenGestion(
 
   await db.supplierManagementSummary.upsert({
     where: {
-      supplierId_managementPeriodId: { supplierId, managementPeriodId },
+      supplierId_municipalityId_managementPeriodId: { supplierId, municipalityId, managementPeriodId },
     },
     update: {
       orderCount: total._count._all,
@@ -186,6 +188,7 @@ export async function recalcularResumenGestion(
     },
     create: {
       supplierId,
+      municipalityId,
       managementPeriodId,
       orderCount: total._count._all,
       cancelledCount: anulado._count._all,
