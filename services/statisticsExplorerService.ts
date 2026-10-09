@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 export type VentanaEstadistica = 'gestion' | 'primeros-100' | 'ultimo-anio';
 export type EstadisticaEtapa = {
@@ -12,7 +13,9 @@ export type EstadisticaEtapa = {
 /** Una lectura de las órdenes vigentes de las últimas tres gestiones iniciadas.
  * Los cortes temporales usan fecha de emisión, no fecha de importación.
  */
-export async function estadisticasPorEtapa(): Promise<EstadisticaEtapa[]> {
+export async function estadisticasPorEtapa(
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<EstadisticaEtapa[]> {
   const filas = await prisma.$queryRaw<EstadisticaEtapa[]>`
     WITH gestiones AS (
       SELECT id, name, "startDate", "endDate" FROM "ManagementPeriod"
@@ -28,6 +31,7 @@ export async function estadisticasPorEtapa(): Promise<EstadisticaEtapa[]> {
       SELECT v.*,
         (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
           WHERE b."managementPeriodId" = v.id AND b."isCurrent" = true
+            AND b."municipalityId" = ${municipalityId}
             AND b.status IN ('COMPLETED', 'COMPLETED_WITH_WARNINGS')
             AND make_date(b.year, b.month, 1) < v.fin
             AND make_date(b.year, b.month, 1) + INTERVAL '1 month' > v.desde) AS meses,
@@ -39,6 +43,7 @@ export async function estadisticasPorEtapa(): Promise<EstadisticaEtapa[]> {
         st."countsEconomically", CASE WHEN left(s.ruc, 2) IN ('10', '20') THEN left(s.ruc, 2) ELSE 'otros' END AS grupo
       FROM "CurrentOrder" o JOIN gestiones g ON g.id = o."managementPeriodId"
       JOIN "Supplier" s ON s.id = o."supplierId" LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."municipalityId" = ${municipalityId}
     )
     SELECT v.id, v.name AS gestion, v.ventana, r.grupo,
       to_char(v.desde, 'YYYY-MM-DD') AS desde, to_char(v.fin - INTERVAL '1 day', 'YYYY-MM-DD') AS hasta,

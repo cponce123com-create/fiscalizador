@@ -22,6 +22,7 @@ export default async function Fuentes({ searchParams }: { searchParams: Promise<
   const vigentes = inventario.filter(b => libroImportado(b) && b.isCurrent && !b.requiresReview);
   const enlace = (page: number, year = filtros.year, month = filtros.month, tipo: typeof filtros.tipo | null = filtros.tipo) => {
     const query = new URLSearchParams();
+    if (params.municipalidad) query.set('municipalidad', params.municipalidad);
     if (year) query.set('year', String(year));
     if (month) query.set('month', String(month));
     if (tipo) query.set('tipo', tipo);
@@ -43,11 +44,12 @@ export default async function Fuentes({ searchParams }: { searchParams: Promise<
       <section id="libros" className="flex scroll-mt-6 flex-col gap-4">
         <div><h2 className="text-xl font-semibold">Libros importados</h2><p className="text-sm text-muted-foreground">{total} libro(s) en este listado. Incluye versiones anteriores; los análisis previos no se publican.</p></div>
         <form key={`${filtros.year ?? ""}-${filtros.month ?? ""}-${filtros.tipo ?? ""}`} action="/fuentes" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4">
+          {params.municipalidad ? <input type="hidden" name="municipalidad" value={params.municipalidad} /> : null}
           <label className="flex flex-col gap-1 text-sm">Año<select name="year" defaultValue={filtros.year ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option>{anios.map(anio => <option key={anio} value={anio}>{anio}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm">Mes<select name="month" defaultValue={filtros.month ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option>{MESES_LIBROS.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}</select></label>
           <label className="flex flex-col gap-1 text-sm">Tipo de libro<select name="tipo" defaultValue={filtros.tipo ?? ''} className="h-10 rounded-md border border-input bg-background px-3"><option value="">Todos</option><option value="ORDENES_COMPRA">Órdenes de compra</option><option value="ORDENES_SERVICIO">Órdenes de servicio</option><option value="CONSOLIDADO">Compras y servicios</option></select></label>
           <button className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">Filtrar libros</button>
-          <Link href="/fuentes#libros" className="px-2 py-2 text-sm underline">Ver todos</Link>
+          <Link href={params.municipalidad ? `/fuentes?municipalidad=${params.municipalidad}#libros` : '/fuentes#libros'} className="px-2 py-2 text-sm underline">Ver todos</Link>
         </form>
         {lotes.length === 0 ? <EstadoVacio titulo={inventario.length ? 'No hay libros para estos filtros' : 'Todavía no hay libros importados'} descripcion={inventario.length ? 'Selecciona otro periodo o pulsa Ver todos.' : 'Los libros aparecerán cuando el administrador confirme su importación y esta termine correctamente.'} icono={<FileSpreadsheet className="h-8 w-8" />} /> : null}
         <div className="grid gap-4 lg:grid-cols-2">

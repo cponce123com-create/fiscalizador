@@ -6,13 +6,15 @@ import { Paginacion } from '@/components/publico/paginacion';
 import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
 import { leerFiltros, serializarFiltros } from '@/lib/filtros';
 import { gastoAlimentacionPorGestion, listarOrdenesAlimentacion } from '@/services/foodService';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = metadataCompartida('Gastos en alimentación por gestión', 'Compara los montos registrados en órdenes de alimentación, comidas y refrigerios de las tres gestiones de San Ramón. Explora el detalle y los documentos de origen.', '/alimentacion', imagenCompartida('gasto', 'alimentacion'));
 export default async function PaginaAlimentacion({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams;
-  const filtros = leerFiltros({ gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });
-  const [gestiones, resultado] = await Promise.all([gastoAlimentacionPorGestion(), listarOrdenesAlimentacion(filtros)]);
+  const filtros = leerFiltros({ municipalidad: raw.municipalidad, gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const [gestiones, resultado] = await Promise.all([gastoAlimentacionPorGestion(municipalityId), listarOrdenesAlimentacion(filtros)]);
   filtros.pagina = resultado.pagina;
   return <div className="flex flex-col gap-6">
     <header><h1 className="text-2xl font-semibold sm:text-3xl">Alimentación: comparación por gestión</h1><p className="mt-3 text-sm text-muted-foreground">Órdenes de alimentación, alimentos, refrigerios, comidas, almuerzos, cenas, desayunos, bocaditos, lonches, catering, buffet, banquetes y raciones.</p></header>

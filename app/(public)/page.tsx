@@ -1,6 +1,6 @@
 import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
 import { leerFiltros, filtrosPorDefecto, serializarFiltros } from '@/lib/filtros';
-import { Suspense, cache } from 'react';
+import { Suspense } from 'react';
 import { categoriasGasto } from '@/lib/categorias-gasto';
 import { gastosPorCategoriaGestion } from '@/services/categorySpendingService';
 import { GastoAlimentacion } from '@/components/publico/gasto-alimentacion';
@@ -25,27 +25,30 @@ import { PeriodoRanking } from '@/components/publico/periodo-ranking';
 import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { datosPortadaInicial, periodosDelRanking } from '@/services/statisticsService';
 import { leerConfiguracionPortal } from '@/services/portalService';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Inicio',
   description: 'Vigilancia ciudadana de San Ramón: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
 };
-const cargarGastosPortada = cache(gastosPorCategoriaGestion);
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
 export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const periodosRanking = await periodosDelRanking();
   const parametros = await searchParams;
+  const filtrosBase = leerFiltros(parametros);
+  const municipalityId = await idMunicipalidadDesdeSlug(filtrosBase.municipalidadSlug);
+  const periodosRanking = await periodosDelRanking(filtrosBase);
   const gestionRanking = seleccionarPeriodoRanking(parametros.gestion, periodosRanking);
-  const tipoRucRanking = leerFiltros(parametros).tipoRuc;
-  const filtrosRanking = { ...filtrosPorDefecto(), gestionId: gestionRanking, tipoRuc: tipoRucRanking };
+  const tipoRucRanking = filtrosBase.tipoRuc;
+  const filtrosRanking = { ...filtrosPorDefecto(), municipalidadSlug: filtrosBase.municipalidadSlug, gestionId: gestionRanking, tipoRuc: tipoRucRanking };
+  const conMunicipalidad = (href: string) => filtrosBase.municipalidadSlug ? `${href}${href.includes('?') ? '&' : '?'}municipalidad=${filtrosBase.municipalidadSlug}` : href;
   const etiquetaRuc = tipoRucRanking ? `RUC ${tipoRucRanking}` : 'Todos los tipos de RUC';
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
   const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
-    datosPortadaInicial(gestionRanking, tipoRucRanking),
-    prisma.importBatch.count({ where: { requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
-    prisma.importBatch.findFirst({ where: { isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
+    datosPortadaInicial(gestionRanking, tipoRucRanking, municipalityId),
+    prisma.importBatch.count({ where: { municipalityId, requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
+    prisma.importBatch.findFirst({ where: { municipalityId, isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
   ]);
   const { resumen } = datos;
@@ -56,8 +59,8 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
         <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · San Ramón</p>
         <h1 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h1>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {config.municipio.replace(/^Municipalidad /, 'municipalidad ')}.</p>
-        <BusquedaPortada />
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={`/ordenes?texto=${texto.toLowerCase()}`} className="boton-enlace rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
+        <BusquedaPortada municipalidad={filtrosBase.municipalidadSlug} />
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={conMunicipalidad(`/ordenes?texto=${texto.toLowerCase()}`)} className="boton-enlace rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
       <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
         {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src={config.logo || "/identidad/escudo-san-ramon.webp"} alt={config.logo ? "Logo del portal" : "Escudo de San Ramón"} width={132} height={136} className="relative mx-auto my-4 h-36 w-full max-w-64 object-contain" /></>}
@@ -67,18 +70,18 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
 
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-card px-5 py-4 text-xs">
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2"><p className="flex items-center gap-2"><CalendarDays size={15} className="text-primary" aria-hidden="true" /><strong>Libros disponibles:</strong> {periodo}</p><p className="flex items-center gap-2"><Database size={15} className="text-primary" aria-hidden="true" />{resumen.mesesCargados} meses con libros vigentes</p></div>
-      <div><p className="text-[10px] text-muted-foreground">Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Sin datos publicados'}</p><Link href="/fuentes" className={enlaceSeccion}>Ver fuentes y cobertura <ArrowRight size={13} aria-hidden="true" /></Link></div>
+      <div><p className="text-[10px] text-muted-foreground">Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Sin datos publicados'}</p><Link href={conMunicipalidad('/fuentes')} className={enlaceSeccion}>Ver fuentes y cobertura <ArrowRight size={13} aria-hidden="true" /></Link></div>
     </div>
     <GuiaUso />
     {pendientes > 0 ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-950">{pendientes} versiones antiguas requieren revisión y están excluidas de los totales. La ausencia de información no significa gasto cero. <Link href="/fuentes" className="font-semibold underline">Consultar los periodos pendientes</Link>.</p> : null}
     <ResumenPortada resumen={resumen} />
 
     <div className="grid items-stretch gap-4 lg:grid-cols-2">
-      <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href="/estadisticas" className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><Suspense fallback={<CargaSeccion titulo="Gastos en alimentación" />}><AlimentacionPortada /></Suspense><Suspense fallback={<CargaSeccion titulo="Gastos en combustible" />}><CombustiblePortada /></Suspense></div>
+      <div className="flex min-w-0 flex-col gap-5"><div className="panel-portada"><Seccion titulo="Evolución de órdenes" descripcion="Monto considerado, según fecha de emisión." accion={<Link href={`/estadisticas${serializarFiltros(filtrosRanking, { gestionId: null, tipoRuc: null })}`} className={enlaceSeccion}>Ver análisis <ArrowRight size={13} aria-hidden="true" /></Link>}><EvolucionPortada puntos={datos.mensual} /></Seccion></div><Suspense fallback={<CargaSeccion titulo="Gastos en alimentación" />}><AlimentacionPortada municipalityId={municipalityId} /></Suspense><Suspense fallback={<CargaSeccion titulo="Gastos en combustible" />}><CombustiblePortada municipalityId={municipalityId} /></Suspense></div>
       <div className="panel-portada min-w-0 self-start"><Seccion titulo="Ranking de proveedores" descripcion={`Por monto considerado · ${nombreRanking} · ${etiquetaRuc}.`} accion={<Link href={`/ranking${serializarFiltros(filtrosRanking)}`} className={enlaceSeccion}>Ver ranking completo <ArrowRight size={13} aria-hidden="true" /></Link>}><PeriodoRanking periodos={periodosRanking} seleccionado={gestionRanking} /><TipoRucRanking filtros={filtrosRanking} ruta="/" /><RankingProveedores ranking={datos.ranking} /></Seccion></div>
     </div>
 
-    <Suspense fallback={<CargaSeccion titulo="Comparaciones de gastos por gestión" />}><ComparacionesGastos /></Suspense>
+    <Suspense fallback={<CargaSeccion titulo="Comparaciones de gastos por gestión" />}><ComparacionesGastos municipalityId={municipalityId} /></Suspense>
     <Suspense fallback={<CargaSeccion titulo="Contrataciones del listado de prensa" />}><SeguimientoPrensa /></Suspense>
 
     <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">
@@ -97,16 +100,16 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
 function CargaSeccion({ titulo }: { titulo: string }) {
   return <div role="status" aria-live="polite" className="panel-portada min-h-40"><p className="font-semibold">{titulo}</p><p className="mt-2 text-sm text-muted-foreground">Cargando datos de los libros…</p><div className="mt-5 space-y-3"><Skeleton className="h-3 w-2/3" /><Skeleton className="h-8 w-full" /><Skeleton className="h-3 w-5/6" /></div></div>;
 }
-async function AlimentacionPortada() {
-  return <GastoAlimentacion filas={await gastoAlimentacionPorGestion()} />;
+async function AlimentacionPortada({ municipalityId }: { municipalityId: string }) {
+  return <GastoAlimentacion filas={await gastoAlimentacionPorGestion(municipalityId)} />;
 }
-async function CombustiblePortada() {
+async function CombustiblePortada({ municipalityId }: { municipalityId: string }) {
   const categoria = categoriasGasto.find(c => c.id === 'combustible')!;
-  const gastos = await cargarGastosPortada();
+  const gastos = await gastosPorCategoriaGestion(municipalityId);
   return <GastoAlimentacion titulo={categoria.titulo} descripcion={categoria.descripcion} ruta="/gastos/combustible" filas={gastos.filter(f => f.categoria === categoria.id)} />;
 }
-async function ComparacionesGastos() {
-  const gastos = await cargarGastosPortada();
+async function ComparacionesGastos({ municipalityId }: { municipalityId: string }) {
+  const gastos = await gastosPorCategoriaGestion(municipalityId);
   return <section aria-labelledby="titulo-gastos-categorias" className="flex flex-col gap-4">
     <header><h2 id="titulo-gastos-categorias" className="titulo-editorial text-2xl font-bold">¿En qué se gasta? Compara las gestiones</h2><p className="mt-2 text-sm text-muted-foreground">Las últimas tres gestiones iniciadas, según los libros disponibles. Una orden puede pertenecer a más de una categoría: estos montos no se suman entre sí.</p></header>
     <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2">{categoriasGasto.filter(c => c.id !== 'combustible').map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={gastos.filter(f => f.categoria === c.id)} />)}</div>

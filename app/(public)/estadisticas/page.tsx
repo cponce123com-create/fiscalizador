@@ -16,6 +16,8 @@ import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Seccion } from '@/components/ui/seccion';
 import { formatearMonto } from '@/lib/utils';
 import { comparativaPorGestion, concentracionGasto } from '@/services/statisticsService';
+import { leerFiltros } from '@/lib/filtros';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 /** Exploración ciudadana: cobertura, conceptos, etapas de gobierno y evolución. */
 export const dynamic = 'force-dynamic';
@@ -26,10 +28,16 @@ export const metadata: Metadata = {
     'Explora gastos por gestión, tipo de RUC, primeros 100 días, último año de mandato, conceptos y evolución de las órdenes.',
 };
 
-export default async function PaginaEstadisticas() {
+export default async function PaginaEstadisticas({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const filtros = leerFiltros(await searchParams);
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const [gestiones, concentracion] = await Promise.all([
-    comparativaPorGestion(),
-    concentracionGasto(),
+    comparativaPorGestion(municipalityId),
+    concentracionGasto(municipalityId),
   ]);
 
   const sinDatos = gestiones.filter((fila) => fila.ordenes === 0);
@@ -63,9 +71,9 @@ export default async function PaginaEstadisticas() {
       </header>
 
       <nav aria-label="Explorar estadísticas" className="flex flex-wrap gap-2">{[['por-ruc', 'RUC 10 y RUC 20'], ['etapas', 'Inicio y cierre'], ['conceptos', '¿En qué se contrata?'], ['evolucion', 'Evolución'], ['concentraci-n-del-gasto', 'Concentración']].map(([id, titulo]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">{titulo}</a>)}</nav>
-      <Suspense fallback={<CargandoEstadisticas />}><PanelEtapas /></Suspense>
-      <Suspense fallback={<CargandoEstadisticas />}><PanelConceptos /></Suspense>
-      <Suspense fallback={<CargandoEstadisticas />}><PanelEvolucion /></Suspense>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelEtapas municipalityId={municipalityId} /></Suspense>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelConceptos municipalityId={municipalityId} /></Suspense>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelEvolucion municipalityId={municipalityId} /></Suspense>
 
       <Seccion
         titulo="Comparación por gestión"
@@ -133,15 +141,15 @@ export default async function PaginaEstadisticas() {
 function CargandoEstadisticas() {
   return <div role="status" className="rounded-xl border border-border bg-muted/30 p-6 text-sm text-muted-foreground">Preparando comparaciones con los libros disponibles…</div>;
 }
-async function PanelEtapas() { return <EstadisticasExplorables filas={await estadisticasPorEtapa()} />; }
-async function PanelConceptos() {
-  const [categorias, alimentacion] = await Promise.all([gastosPorCategoriaGestion(), gastoAlimentacionPorGestion()]);
+async function PanelEtapas({ municipalityId }: { municipalityId: string }) { return <EstadisticasExplorables filas={await estadisticasPorEtapa(municipalityId)} />; }
+async function PanelConceptos({ municipalityId }: { municipalityId: string }) {
+  const [categorias, alimentacion] = await Promise.all([gastosPorCategoriaGestion(municipalityId), gastoAlimentacionPorGestion(municipalityId)]);
   return <section id="conceptos" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">¿En qué se contrata?</h2><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Todas las comparaciones de gastos, reunidas para explorar las tres gestiones. Las categorías se detectan por la descripción y pueden superponerse: no deben sumarse entre sí. Abre el desglose para revisar cada orden.</p></div>
     <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3"><GastoAlimentacion filas={alimentacion} />{categoriasGasto.map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={categorias.filter(f => f.categoria === c.id)} />)}</div>
   </section>;
 }
-async function PanelEvolucion() {
-  const [mensual, anual] = await Promise.all([evolucionMensual(), evolucionAnual()]);
+async function PanelEvolucion({ municipalityId }: { municipalityId: string }) {
+  const [mensual, anual] = await Promise.all([evolucionMensual(municipalityId), evolucionAnual(municipalityId)]);
   const puntos = (filas: typeof mensual) => filas.map(f => ({ periodo: f.periodo, ordenes: f.ordenes, valor: Number(f.considerado), exacto: f.considerado }));
   return <section id="evolucion" className="scroll-mt-6 space-y-4"><h2 className="text-xl font-semibold">La evolución de las órdenes</h2><p className="text-sm text-muted-foreground">Todos los periodos importados. Los meses o años ausentes no se muestran como gasto cero.</p><div className="grid min-w-0 gap-6 xl:grid-cols-2"><div className="min-w-0"><h3 className="mb-3 font-semibold">Mes a mes</h3><GraficoEvolucion puntos={puntos(mensual)} etiquetaSerie="Monto considerado" nombrePeriodo="Mes" /></div><div className="min-w-0"><h3 className="mb-3 font-semibold">Año a año</h3><GraficoEvolucion puntos={puntos(anual)} etiquetaSerie="Monto considerado" nombrePeriodo="Año" /></div></div></section>;
 }
