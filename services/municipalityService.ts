@@ -39,3 +39,14 @@ export async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiv
     ruc: entidad.ruc,
   }));
 }
+
+export async function idMunicipalidadDesdeSlug(slug: string | null | undefined): Promise<string> {
+  if (!slug || slug === MUNICIPALIDAD_DEFAULT_SLUG) return MUNICIPALIDAD_DEFAULT_ID;
+
+  const entidad = await prisma.municipality.findFirst({
+    where: { slug, isActive: true },
+    select: { id: true },
+  });
+
+  return entidad?.id ?? MUNICIPALIDAD_DEFAULT_ID;
+}

@@ -31,6 +31,7 @@ const texto = z
   .regex(/^[^\p{C}]+$/u);
 
 const identificador = z.string().trim().min(1).max(60);
+const slug = z.string().trim().min(1).max(80).regex(/^[a-z0-9-]+$/);
 
 const entero = (minimo: number, maximo: number) =>
   z.coerce.number().int().min(minimo).max(maximo);
@@ -56,6 +57,7 @@ function validar<T>(esquema: z.ZodType<T>, valor: string | undefined): T | null 
 }
 
 export type Filtros = {
+  municipalidadSlug: string | null;
   anio: number | null;
   mes: number | null;
   gestionId: string | null;
@@ -100,6 +102,7 @@ export function leerFiltros(parametros: ParametrosCrudos): Filtros {
   const rangoInvalido = Boolean(desde && hasta && desde > hasta);
 
   return {
+    municipalidadSlug: validar(slug, crudo('municipalidad')),
     anio: validar(entero(2000, 2100), crudo('anio')),
     mes: validar(entero(1, 12), crudo('mes')),
     gestionId: validar(identificador, crudo('gestion')),
@@ -122,6 +125,7 @@ export function leerFiltros(parametros: ParametrosCrudos): Filtros {
 export function hayFiltrosActivos(filtros: Filtros): boolean {
   return Boolean(
     filtros.anio ??
+      filtros.municipalidadSlug ??
       filtros.mes ??
       filtros.gestionId ??
       filtros.tipoOrdenId ??
@@ -184,6 +188,7 @@ export function serializarFiltros(filtros: Filtros, cambios: Partial<Filtros> = 
   const combinados: Filtros = { ...filtros, ...cambios };
   const parametros = new URLSearchParams();
 
+  if (combinados.municipalidadSlug) parametros.set('municipalidad', combinados.municipalidadSlug);
   if (combinados.anio !== null) parametros.set('anio', String(combinados.anio));
   if (combinados.mes !== null) parametros.set('mes', String(combinados.mes));
   if (combinados.gestionId) parametros.set('gestion', combinados.gestionId);

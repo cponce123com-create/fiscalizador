@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { patronAlimentacion, patronExclusionAlimentacion, type GastoAlimentacionGestion } from '@/lib/alimentacion';
 import type { Filtros } from '@/lib/filtros';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 import type { FilaOrdenListado, ResultadoPaginado } from './statisticsService';
 
 // Normaliza la descripción de la vista: PostgreSQL fija las columnas de una vista
@@ -11,7 +13,9 @@ const descripcion = Prisma.sql`' ' || trim(regexp_replace(translate(lower(coales
 const coincide = Prisma.sql`${descripcion} ~ ${patronAlimentacion} AND ${descripcion} !~ ${patronExclusionAlimentacion}`;
 
 /** Las últimas tres gestiones iniciadas; los periodos futuros no desplazan la comparación. */
-export async function gastoAlimentacionPorGestion(): Promise<GastoAlimentacionGestion[]> {
+export async function gastoAlimentacionPorGestion(
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<GastoAlimentacionGestion[]> {
   const filas = await prisma.$queryRaw<GastoAlimentacionGestion[]>`
     WITH gestiones AS (
       SELECT id, name, "startDate" FROM "ManagementPeriod"
@@ -20,12 +24,13 @@ export async function gastoAlimentacionPorGestion(): Promise<GastoAlimentacionGe
     SELECT g.id, g.name AS gestion,
       (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
         WHERE b."managementPeriodId" = g.id AND b."isCurrent" = true
+        AND b."municipalityId" = ${municipalityId}
         AND b.status IN ('COMPLETED', 'COMPLETED_WITH_WARNINGS')) AS meses,
       COUNT(o.id)::int AS ordenes,
       COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
       COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS considerado
     FROM gestiones g
-    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id AND ${coincide}
+    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id AND o."municipalityId" = ${municipalityId} AND ${coincide}
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY g.id, g.name, g."startDate" ORDER BY g."startDate", g.id
   `;
@@ -34,8 +39,9 @@ export async function gastoAlimentacionPorGestion(): Promise<GastoAlimentacionGe
 
 /** Mismo criterio que la tarjeta: permite auditar cada orden que forma la comparación. */
 export async function listarOrdenesAlimentacion(filtros: Filtros): Promise<ResultadoPaginado<FilaOrdenListado>> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const gestion = filtros.gestionId ?? '';
-  const where = Prisma.sql`${coincide} AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})`;
+  const where = Prisma.sql`${coincide} AND o."municipalityId" = ${municipalityId} AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})`;
   const conteo = await prisma.$queryRaw<Array<{ total: number }>>`SELECT COUNT(*)::int AS total FROM "CurrentOrder" o WHERE ${where}`;
   const total = conteo[0]?.total ?? 0;
   const totalPaginas = Math.max(1, Math.ceil(total / filtros.porPagina));

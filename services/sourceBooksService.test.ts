@@ -3,6 +3,8 @@ const mocks = vi.hoisted(() => ({ findMany: vi.fn(), count: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ prisma: { importBatch: mocks } }));
 import { listarFuentesLibros } from './sourceBooksService';
 describe('inventario público de fuentes', () => {
+  const whereBase = { municipalityId: 'mun-san-ramon', status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } };
+
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.count.mockResolvedValue(25);
@@ -12,15 +14,15 @@ describe('inventario público de fuentes', () => {
     const datos = await listarFuentesLibros({});
     expect(datos.inventario.map(b => b.id)).toEqual(['importado', 'observado']);
     expect(datos.lotes[0].status).toBe('COMPLETED');
-    expect(mocks.findMany.mock.calls[0][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
-    expect(mocks.findMany.mock.calls[1][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
-    expect(mocks.count.mock.calls[0][0].where).toEqual({ status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } });
+    expect(mocks.findMany.mock.calls[0][0].where).toEqual(whereBase);
+    expect(mocks.findMany.mock.calls[1][0].where).toEqual(whereBase);
+    expect(mocks.count.mock.calls[0][0].where).toEqual(whereBase);
     expect(mocks.findMany.mock.calls[1][0].select._count).toEqual({ select: { orders: true } });
   });
   it('filtra periodo y tipo, con páginas limitadas en la base', async () => {
     const datos = await listarFuentesLibros({ year: '2026', month: '2', tipo: 'CONSOLIDADO', page: '2' });
     expect(datos.pagina).toBe(2);
-    expect(mocks.findMany.mock.calls[1][0]).toMatchObject({ where: { year: 2026, month: 2, importType: 'CONSOLIDADO' }, take: 12, skip: 12 });
+    expect(mocks.findMany.mock.calls[1][0]).toMatchObject({ where: { ...whereBase, year: 2026, month: 2, importType: 'CONSOLIDADO' }, take: 12, skip: 12 });
   });
   it('normaliza filtros inválidos y páginas fuera de rango', async () => {
     const datos = await listarFuentesLibros({ year: 'NaN', month: '99', tipo: 'otro', page: '9999' });

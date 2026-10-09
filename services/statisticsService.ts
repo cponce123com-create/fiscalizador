@@ -5,6 +5,8 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { type Filtros, rangoDeFechas } from '@/lib/filtros';
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 /**
  * Agregaciones del portal público.
@@ -57,7 +59,7 @@ export type ResumenGeneral = {
   ultimoPeriodo: string | null;
 };
 
-export async function resumenGeneral(): Promise<ResumenGeneral> {
+export async function resumenGeneral(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<ResumenGeneral> {
   const [
     ordenes,
     anuladas,
@@ -70,17 +72,17 @@ export async function resumenGeneral(): Promise<ResumenGeneral> {
     periodos,
     gestiones,
   ] = await Promise.all([
-    prisma.order.count({ where: { importBatch: { isCurrent: true } } }),
-    prisma.order.count({ where: { isCancelled: true, importBatch: { isCurrent: true } } }),
-    prisma.supplier.count({ where: { orders: { some: { importBatch: { isCurrent: true } } } } }),
-    prisma.supplier.count({ where: { rucPrefix: '10', orders: { some: { importBatch: { isCurrent: true } } } } }),
-    prisma.supplier.count({ where: { rucPrefix: '20', orders: { some: { importBatch: { isCurrent: true } } } } }),
-    prisma.order.aggregate({ where: { importBatch: { isCurrent: true } }, _sum: { amount: true } }),
-    prisma.order.aggregate({ where: { isCancelled: true, importBatch: { isCurrent: true } }, _sum: { amount: true } }),
+    prisma.order.count({ where: { municipalityId, importBatch: { isCurrent: true } } }),
+    prisma.order.count({ where: { municipalityId, isCancelled: true, importBatch: { isCurrent: true } } }),
+    prisma.supplier.count({ where: { orders: { some: { municipalityId, importBatch: { isCurrent: true } } } } }),
+    prisma.supplier.count({ where: { rucPrefix: '10', orders: { some: { municipalityId, importBatch: { isCurrent: true } } } } }),
+    prisma.supplier.count({ where: { rucPrefix: '20', orders: { some: { municipalityId, importBatch: { isCurrent: true } } } } }),
+    prisma.order.aggregate({ where: { municipalityId, importBatch: { isCurrent: true } }, _sum: { amount: true } }),
+    prisma.order.aggregate({ where: { municipalityId, isCancelled: true, importBatch: { isCurrent: true } }, _sum: { amount: true } }),
     // El monto considerado excluye las anuladas Y los estados que el catálogo marca
     // como que no cuentan económicamente.
     prisma.order.aggregate({
-      where: { isCancelled: false, status: { countsEconomically: true }, importBatch: { isCurrent: true } },
+      where: { municipalityId, isCancelled: false, status: { countsEconomically: true }, importBatch: { isCurrent: true } },
       _sum: { amount: true },
     }),
     // Cobertura temporal: determina si los gráficos de evolución tienen sentido.
@@ -91,9 +93,9 @@ export async function resumenGeneral(): Promise<ResumenGeneral> {
         MIN(year::text || '-' || lpad(month::text, 2, '0'))            AS primero,
         MAX(year::text || '-' || lpad(month::text, 2, '0'))            AS ultimo
       FROM "ImportBatch"
-      WHERE "isCurrent" = true
+      WHERE "isCurrent" = true AND "municipalityId" = ${municipalityId}
     `,
-    prisma.supplierManagementSummary.groupBy({ by: ['managementPeriodId'], where: { orderCount: { gt: 0 } } }),
+    prisma.supplierManagementSummary.groupBy({ by: ['managementPeriodId'], where: { municipalityId, orderCount: { gt: 0 } } }),
   ]);
 
   const cobertura = periodos[0];
@@ -138,7 +140,12 @@ export type FilaRanking = {
  * Agrupa órdenes vigentes por proveedor dentro de la gestión seleccionada. Sin
  * filtro (o con «todas») combina las gestiones; el peso usa el mismo conjunto.
  */
-export async function rankingProveedores(limite = 15, gestionId: string | null = null, tipoRuc: '10' | '20' | null = null): Promise<FilaRanking[]> {
+export async function rankingProveedores(
+  limite = 15,
+  gestionId: string | null = null,
+  tipoRuc: '10' | '20' | null = null,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<FilaRanking[]> {
   const gestion = gestionId === 'todas' ? '' : gestionId ?? '';
   const tipo = tipoRuc ?? '';
   const filas = await prisma.$queryRaw<
@@ -178,7 +185,8 @@ export async function rankingProveedores(limite = 15, gestionId: string | null =
     FROM "CurrentOrder" o
     JOIN "Supplier" s ON s.id = o."supplierId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-    WHERE (${gestion} = '' OR o."managementPeriodId" = ${gestion})
+    WHERE o."municipalityId" = ${municipalityId}
+      AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
       AND (${tipo} = '' OR left(s.ruc, 2) = ${tipo})
     GROUP BY s.id, s.ruc, s.name, s.slug
     ORDER BY COALESCE(
@@ -221,7 +229,10 @@ export type PuntoEvolucion = {
  * Se usa SQL crudo porque Prisma no permite agrupar por una función de fecha. Los
  * parámetros van interpolados por la plantilla de Prisma, nunca concatenados.
  */
-async function seriePorPeriodo(formato: 'YYYY-MM' | 'YYYY'): Promise<PuntoEvolucion[]> {
+async function seriePorPeriodo(
+  formato: 'YYYY-MM' | 'YYYY',
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<PuntoEvolucion[]> {
   const filas = await prisma.$queryRaw<
     Array<{ periodo: string; ordenes: number; registrado: string; considerado: string }>
   >`
@@ -235,7 +246,7 @@ async function seriePorPeriodo(formato: 'YYYY-MM' | 'YYYY'): Promise<PuntoEvoluc
       )::text AS considerado
     FROM "CurrentOrder" o
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-    WHERE o."issueDate" IS NOT NULL
+    WHERE o."issueDate" IS NOT NULL AND o."municipalityId" = ${municipalityId}
     GROUP BY 1
     ORDER BY 1
   `;
@@ -248,12 +259,12 @@ async function seriePorPeriodo(formato: 'YYYY-MM' | 'YYYY'): Promise<PuntoEvoluc
   }));
 }
 
-export function evolucionMensual(): Promise<PuntoEvolucion[]> {
-  return seriePorPeriodo('YYYY-MM');
+export function evolucionMensual(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<PuntoEvolucion[]> {
+  return seriePorPeriodo('YYYY-MM', municipalityId);
 }
 
-export function evolucionAnual(): Promise<PuntoEvolucion[]> {
-  return seriePorPeriodo('YYYY');
+export function evolucionAnual(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<PuntoEvolucion[]> {
+  return seriePorPeriodo('YYYY', municipalityId);
 }
 
 // =============================================================================
@@ -323,7 +334,7 @@ export type FilaComparativa = {
  * Los tres montos van separados por la misma razón que en el resto del portal: una
  * orden anulada se cuenta, pero no suma al considerado.
  */
-export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
+export async function comparativaPorGestion(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaComparativa[]> {
   const filas = await prisma.$queryRaw<
     Array<{
       gestion: string;
@@ -349,7 +360,7 @@ export async function comparativaPorGestion(): Promise<FilaComparativa[]> {
       )::text AS considerado,
       COALESCE(AVG(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS promedio
     FROM "ManagementPeriod" g
-    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id
+    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id AND o."municipalityId" = ${municipalityId}
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY g.name
     ORDER BY g.name
@@ -407,7 +418,7 @@ export type ConcentracionGasto = {
  * la página. Hacerlos dinámicos obligaría a componer SQL con `IN`, que es justo lo
  * que este módulo evita.
  */
-export async function concentracionGasto(): Promise<ConcentracionGasto> {
+export async function concentracionGasto(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<ConcentracionGasto> {
   const filas = await prisma.$queryRaw<
     Array<{
       totalProveedores: number;
@@ -428,6 +439,7 @@ export async function concentracionGasto(): Promise<ConcentracionGasto> {
       FROM "Supplier" s
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."municipalityId" = ${municipalityId}
       GROUP BY s.id
     ),
     acumulado AS (
@@ -571,9 +583,12 @@ export type FilaUltimoRegistro = {
   descripcion?: string | null;
 };
 
-export async function ultimosRegistros(limite = 8): Promise<FilaUltimoRegistro[]> {
+export async function ultimosRegistros(
+  limite = 8,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<FilaUltimoRegistro[]> {
   const ordenes = await prisma.order.findMany({
-    where: { importBatch: { isCurrent: true } },
+    where: { municipalityId, importBatch: { isCurrent: true } },
     orderBy: [{ issueDate: 'desc' }, { sourceRow: 'asc' }],
     take: limite,
     select: {
@@ -642,9 +657,16 @@ export async function datosPortada(gestionRanking: string | null = null): Promis
 }
 
 /** La portada inicial solo consulta datos visibles; el análisis completo vive en /estadisticas. */
-export async function datosPortadaInicial(gestionRanking: string | null = null, tipoRucRanking: '10' | '20' | null = null) {
+export async function datosPortadaInicial(
+  gestionRanking: string | null = null,
+  tipoRucRanking: '10' | '20' | null = null,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+) {
   const [resumen, ranking, mensual, ultimos] = await Promise.all([
-    resumenGeneral(), rankingProveedores(10, gestionRanking, tipoRucRanking), evolucionMensual(), ultimosRegistros(8),
+    resumenGeneral(municipalityId),
+    rankingProveedores(10, gestionRanking, tipoRucRanking, municipalityId),
+    evolucionMensual(municipalityId),
+    ultimosRegistros(8, municipalityId),
   ]);
   return { resumen, ranking, mensual, ultimos };
 }
@@ -662,11 +684,11 @@ export type ResultadoPaginado<T> = {
 };
 
 /** Años con órdenes. Alimenta los desplegables y el filtro por mes suelto. */
-export async function aniosDisponibles(): Promise<number[]> {
+export async function aniosDisponibles(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<number[]> {
   const filas = await prisma.$queryRaw<Array<{ anio: string }>>`
     SELECT DISTINCT to_char("issueDate", 'YYYY') AS anio
     FROM "CurrentOrder"
-    WHERE "issueDate" IS NOT NULL
+    WHERE "issueDate" IS NOT NULL AND "municipalityId" = ${municipalityId}
     ORDER BY 1 DESC
   `;
 
@@ -681,7 +703,10 @@ export async function aniosDisponibles(): Promise<number[]> {
  * pisa a los demás filtros.
  */
 export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
-  const condiciones: Prisma.OrderWhereInput[] = [{ importBatch: { isCurrent: true } }];
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const condiciones: Prisma.OrderWhereInput[] = [
+    { municipalityId, importBatch: { isCurrent: true } },
+  ];
 
   const rango = rangoDeFechas(filtros);
   if (rango) {
@@ -692,7 +717,7 @@ export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.Or
   // construye una condición por cada año presente: `?mes=6` significa «junio de
   // cualquier año».
   if (filtros.mes !== null && filtros.anio === null) {
-    const anios = await aniosDisponibles();
+    const anios = await aniosDisponibles(municipalityId);
 
     if (anios.length === 0) {
       // Sin años cargados no hay nada que buscar. Un `in` vacío no devuelve filas.
@@ -802,24 +827,29 @@ export async function listarOrdenes(
 }
 
 /** Solo gestiones con órdenes vigentes y publicadas; nunca un periodo vacío futuro. */
-export async function periodosDelRanking(): Promise<{ id: string; nombre: string }[]> {
+export async function periodosDelRanking(filtros?: Pick<Filtros, 'municipalidadSlug'>): Promise<{ id: string; nombre: string }[]> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros?.municipalidadSlug);
   const filas = await prisma.$queryRaw<Array<{ id: string; nombre: string }>>`
     SELECT g.id, g.name AS nombre FROM "ManagementPeriod" g
-    WHERE EXISTS (SELECT 1 FROM "CurrentOrder" o WHERE o."managementPeriodId" = g.id)
+    WHERE EXISTS (
+      SELECT 1 FROM "CurrentOrder" o
+      WHERE o."managementPeriodId" = g.id AND o."municipalityId" = ${municipalityId}
+    )
     ORDER BY g."startDate" DESC, g."endDate" DESC, g.id ASC
   `;
   return filas;
 }
 
 /** Opciones de los desplegables de filtro. */
-export async function opcionesDeFiltros(): Promise<{
+export async function opcionesDeFiltros(filtros?: Pick<Filtros, 'municipalidadSlug'>): Promise<{
   anios: number[];
   gestiones: { id: string; nombre: string }[];
   tiposOrden: { id: string; etiqueta: string }[];
   estados: { id: string; etiqueta: string }[];
 }> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros?.municipalidadSlug);
   const [anios, gestiones, tiposOrden, estados] = await Promise.all([
-    aniosDisponibles(),
+    aniosDisponibles(municipalityId),
     prisma.managementPeriod.findMany({
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
@@ -886,6 +916,7 @@ export type FilaProveedorListado = {
 export async function listarProveedores(
   filtros: Filtros,
 ): Promise<ResultadoPaginado<FilaProveedorListado>> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const texto = filtros.texto ?? '';
   const tipoRuc = filtros.tipoRuc ?? '';
   const palabras = palabrasBusqueda(texto);
@@ -904,6 +935,7 @@ export async function listarProveedores(
       SELECT COUNT(DISTINCT s.id)::int AS n
       FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
       WHERE ${coincide}
+        AND o."municipalityId" = ${municipalityId}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
     `,
     prisma.$queryRaw<
@@ -936,6 +968,7 @@ export async function listarProveedores(
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE ${coincide}
+        AND o."municipalityId" = ${municipalityId}
         AND (${tipoRuc} = '' OR s."rucPrefix" = ${tipoRuc})
       GROUP BY s.id, s.ruc, s.name, s.slug, s."supplierType"
       ORDER BY ${filtros.orden === 'relevancia' && texto ? relevancia : Prisma.sql`0 + 0`}, s.name ASC, s.id ASC
@@ -1134,6 +1167,7 @@ export type FilaRankingCompleto = {
 export async function rankingCompleto(
   filtros: Filtros,
 ): Promise<ResultadoPaginado<FilaRankingCompleto>> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const texto = filtros.texto ?? '';
   const tipoRuc = filtros.tipoRuc ?? '';
   // Mismo patrón que los demás filtros: cadena vacía significa «sin filtrar».
@@ -1144,6 +1178,7 @@ export async function rankingCompleto(
       SELECT COUNT(DISTINCT s.id)::int AS n
       FROM "Supplier" s JOIN "CurrentOrder" o ON o."supplierId" = s.id
       WHERE ${coincideProveedor(texto)}
+        AND o."municipalityId" = ${municipalityId}
         AND (${tipoRuc} = '' OR left(s.ruc, 2) = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
     `,
@@ -1186,6 +1221,7 @@ export async function rankingCompleto(
       JOIN "CurrentOrder" o ON o."supplierId" = s.id
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
       WHERE ${coincideProveedor(texto)}
+        AND o."municipalityId" = ${municipalityId}
         AND (${tipoRuc} = '' OR left(s.ruc, 2) = ${tipoRuc})
         AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})
       GROUP BY s.id, s.ruc, s.name, s.slug
