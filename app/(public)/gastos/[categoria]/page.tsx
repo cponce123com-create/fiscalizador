@@ -8,6 +8,7 @@ import { Paginacion } from '@/components/publico/paginacion';
 import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
 import { leerFiltros, serializarFiltros } from '@/lib/filtros';
 import { gastosPorCategoriaGestion, listarOrdenesCategoria } from '@/services/categorySpendingService';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ categoria: string }> }): Promise<Metadata> {
@@ -19,8 +20,9 @@ export default async function PaginaGastos({ params, searchParams }: { params: P
   if (!categoria) notFound();
   const ruta = `/gastos/${categoria.id}`;
   const raw = await searchParams;
-  const filtros = leerFiltros({ gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });
-  const [comparacion, resultado] = await Promise.all([gastosPorCategoriaGestion(), listarOrdenesCategoria(categoria, filtros)]);
+  const filtros = leerFiltros({ municipalidad: raw.municipalidad, gestion: raw.gestion, pagina: raw.pagina, porPagina: raw.porPagina });
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const [comparacion, resultado] = await Promise.all([gastosPorCategoriaGestion(municipalityId), listarOrdenesCategoria(categoria, filtros)]);
   const gestiones = comparacion.filter(g => g.categoria === categoria.id);
   filtros.pagina = resultado.pagina;
   return <div className="flex flex-col gap-6">

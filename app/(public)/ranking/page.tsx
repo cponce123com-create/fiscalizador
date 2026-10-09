@@ -33,8 +33,8 @@ export default async function PaginaRanking({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const parametros = await searchParams;
-  const periodos = await periodosDelRanking();
   const filtros = leerFiltros(parametros);
+  const periodos = await periodosDelRanking(filtros);
   filtros.gestionId = seleccionarPeriodoRanking(parametros.gestion, periodos);
   const resultado = await rankingCompleto(filtros);
 

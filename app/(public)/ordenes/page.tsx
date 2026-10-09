@@ -35,7 +35,7 @@ export default async function PaginaOrdenes({
 
   const [resultado, opciones] = await Promise.all([
     listarOrdenes(filtros),
-    opcionesDeFiltros(),
+    opcionesDeFiltros(filtros),
   ]);
 
   return (

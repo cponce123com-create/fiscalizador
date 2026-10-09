@@ -4,6 +4,8 @@ import { decimalMonetario } from '@/lib/decimal';
 import type { GastoAlimentacionGestion } from '@/lib/alimentacion';
 import { categoriasGasto, type CategoriaGasto } from '@/lib/categorias-gasto';
 import type { Filtros } from '@/lib/filtros';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 import type { FilaOrdenListado, ResultadoPaginado } from './statisticsService';
 
 // Normaliza la descripción de la vista: PostgreSQL fija las columnas de una vista
@@ -15,7 +17,9 @@ function coincide(categoria: CategoriaGasto) {
 export type GastoCategoriaGestion = GastoAlimentacionGestion & { categoria: string };
 
 /** Las últimas tres gestiones iniciadas; los periodos futuros no desplazan la comparación. */
-export async function gastosPorCategoriaGestion(): Promise<GastoCategoriaGestion[]> {
+export async function gastosPorCategoriaGestion(
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<GastoCategoriaGestion[]> {
   const valores = Prisma.join(categoriasGasto.map(c => Prisma.sql`(${c.id}, ${c.patrones[0]}, ${c.patrones[1]}, ${c.excluir})`));
   const filas = await prisma.$queryRaw<GastoCategoriaGestion[]>`
     WITH categorias(categoria, patron1, patron2, excluir) AS (VALUES ${valores}), gestiones AS (
@@ -24,10 +28,12 @@ export async function gastosPorCategoriaGestion(): Promise<GastoCategoriaGestion
     ), ordenes AS MATERIALIZED (
       SELECT o.id, o."managementPeriodId", o."statusId", o."isCancelled", o.amount, ${descripcion} AS normalizada FROM "CurrentOrder" o
       JOIN gestiones g ON g.id = o."managementPeriodId"
+      WHERE o."municipalityId" = ${municipalityId}
     )
     SELECT c.categoria, g.id, g.name AS gestion,
       (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
         WHERE b."managementPeriodId" = g.id AND b."isCurrent" = true
+        AND b."municipalityId" = ${municipalityId}
         AND b.status IN ('COMPLETED', 'COMPLETED_WITH_WARNINGS')) AS meses,
       COUNT(o.id)::int AS ordenes,
       COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
@@ -42,8 +48,9 @@ export async function gastosPorCategoriaGestion(): Promise<GastoCategoriaGestion
 
 /** Mismo criterio que la tarjeta: permite auditar cada orden que forma la comparación. */
 export async function listarOrdenesCategoria(categoria: CategoriaGasto, filtros: Filtros): Promise<ResultadoPaginado<FilaOrdenListado>> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const gestion = filtros.gestionId ?? '';
-  const where = Prisma.sql`${coincide(categoria)} AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})`;
+  const where = Prisma.sql`${coincide(categoria)} AND o."municipalityId" = ${municipalityId} AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})`;
   const conteo = await prisma.$queryRaw<Array<{ total: number }>>`SELECT COUNT(*)::int AS total FROM "CurrentOrder" o WHERE ${where}`;
   const total = conteo[0]?.total ?? 0;
   const totalPaginas = Math.max(1, Math.ceil(total / filtros.porPagina));
