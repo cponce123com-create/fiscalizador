@@ -25,12 +25,12 @@ import { PeriodoRanking } from '@/components/publico/periodo-ranking';
 import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { datosPortadaInicial, periodosDelRanking } from '@/services/statisticsService';
 import { leerConfiguracionPortal } from '@/services/portalService';
-import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
+import { idMunicipalidadDesdeSlug, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Inicio',
-  description: 'Vigilancia ciudadana de San Ramón: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
+  description: 'Vigilancia ciudadana: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
 };
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
@@ -45,26 +45,27 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const conMunicipalidad = (href: string) => filtrosBase.municipalidadSlug ? `${href}${href.includes('?') ? '&' : '?'}municipalidad=${filtrosBase.municipalidadSlug}` : href;
   const etiquetaRuc = tipoRucRanking ? `RUC ${tipoRucRanking}` : 'Todos los tipos de RUC';
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
-  const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config, municipalidad] = await Promise.all([
     datosPortadaInicial(gestionRanking, tipoRucRanking, municipalityId),
     prisma.importBatch.count({ where: { municipalityId, requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { municipalityId, isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(),
+    municipalidadActivaDesdeSlug(filtrosBase.municipalidadSlug),
   ]);
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
   return <div className="flex flex-col gap-5 sm:gap-7">
     <section className="grid items-center gap-7 lg:grid-cols-[1.15fr_1fr]" aria-labelledby="titulo-portada">
       <div>
-        <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · San Ramón</p>
+        <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · {municipalidad.nombreCorto}</p>
         <h1 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h1>
-        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {config.municipio.replace(/^Municipalidad /, 'municipalidad ')}.</p>
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {municipalidad.nombre.replace(/^Municipalidad /, 'municipalidad ')}.</p>
         <BusquedaPortada municipalidad={filtrosBase.municipalidadSlug} />
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={conMunicipalidad(`/ordenes?texto=${texto.toLowerCase()}`)} className="boton-enlace rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
       <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
-        {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src={config.logo || "/identidad/escudo-san-ramon.webp"} alt={config.logo ? "Logo del portal" : "Escudo de San Ramón"} width={132} height={136} className="relative mx-auto my-4 h-36 w-full max-w-64 object-contain" /></>}
-        <div className={`relative mt-auto rounded-xl p-4 ${config.fotoPortada ? 'bg-emerald-950/85' : 'border border-white/15 bg-white/5'}`}><p className="flex items-center gap-2 text-sm font-semibold"><MapPin size={16} className="shrink-0 text-amber-300" aria-hidden="true" />San Ramón, Chanchamayo</p><p className="mt-1 text-xs text-emerald-100">{config.fotoPortada ? config.creditoFoto : 'Municipalidad consultada · Portal ciudadano independiente'}</p></div>
+        {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src={config.logo || "/identidad/escudo-san-ramon.webp"} alt={config.logo ? `Logo del portal de ${municipalidad.nombreCorto}` : `Escudo de ${municipalidad.nombreCorto}`} width={132} height={136} className="relative mx-auto my-4 h-36 w-full max-w-64 object-contain" /></>}
+        <div className={`relative mt-auto rounded-xl p-4 ${config.fotoPortada ? 'bg-emerald-950/85' : 'border border-white/15 bg-white/5'}`}><p className="flex items-center gap-2 text-sm font-semibold"><MapPin size={16} className="shrink-0 text-amber-300" aria-hidden="true" />{municipalidad.nombreCorto}, {municipalidad.provincia}</p><p className="mt-1 text-xs text-emerald-100">{config.fotoPortada ? config.creditoFoto : 'Municipalidad consultada · Portal ciudadano independiente'}</p></div>
       </div>
     </section>
 
@@ -73,7 +74,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
       <div><p className="text-[10px] text-muted-foreground">Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Sin datos publicados'}</p><Link href={conMunicipalidad('/fuentes')} className={enlaceSeccion}>Ver fuentes y cobertura <ArrowRight size={13} aria-hidden="true" /></Link></div>
     </div>
     <GuiaUso />
-    {pendientes > 0 ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-950">{pendientes} versiones antiguas requieren revisión y están excluidas de los totales. La ausencia de información no significa gasto cero. <Link href="/fuentes" className="font-semibold underline">Consultar los periodos pendientes</Link>.</p> : null}
+    {pendientes > 0 ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-950">{pendientes} versiones antiguas requieren revisión y están excluidas de los totales. La ausencia de información no significa gasto cero. <Link href={conMunicipalidad('/fuentes')} className="font-semibold underline">Consultar los periodos pendientes</Link>.</p> : null}
     <ResumenPortada resumen={resumen} />
 
     <div className="grid items-stretch gap-4 lg:grid-cols-2">
@@ -86,14 +87,14 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
 
     <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">
       <div className="flex items-start gap-3"><TriangleAlert className="mt-1 shrink-0 text-amber-700" size={22} aria-hidden="true" /><div><h2 id="titulo-revision" className="titulo-editorial text-2xl font-bold">Órdenes para revisar</h2><p className="mt-1 text-xs text-amber-950/80">Comienza por consultar el detalle y contrastar el documento de origen.</p></div></div>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2"><Link href="/ordenes?orden=monto&direccion=desc" className="rounded-xl border border-amber-200 bg-white p-5 transition-colors hover:border-amber-500"><FileSearch size={21} className="mb-3 text-primary" aria-hidden="true" /><h3 className="text-sm font-semibold">Explora las órdenes de mayor monto</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Consulta qué se contrató, quién es el proveedor y cuál es la fuente. Un monto alto no demuestra una irregularidad.</p><span className={`${enlaceSeccion} mt-3`}>Consultar órdenes <ArrowRight size={13} aria-hidden="true" /></span></Link><div className="rounded-xl border border-amber-200 bg-white p-5"><ShieldCheck size={21} className="mb-3 text-amber-700" aria-hidden="true" /><h3 className="text-sm font-semibold">Sobrevaloración: sin evaluación disponible</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Los libros actuales registran montos de órdenes. No hay precios unitarios ni referencias de mercado suficientes para publicar alertas de sobrevaloración.</p><Link href="/metodologia" className={`${enlaceSeccion} mt-3`}>Conoce la metodología <ArrowRight size={13} aria-hidden="true" /></Link></div></div>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2"><Link href={conMunicipalidad('/ordenes?orden=monto&direccion=desc')} className="rounded-xl border border-amber-200 bg-white p-5 transition-colors hover:border-amber-500"><FileSearch size={21} className="mb-3 text-primary" aria-hidden="true" /><h3 className="text-sm font-semibold">Explora las órdenes de mayor monto</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Consulta qué se contrató, quién es el proveedor y cuál es la fuente. Un monto alto no demuestra una irregularidad.</p><span className={`${enlaceSeccion} mt-3`}>Consultar órdenes <ArrowRight size={13} aria-hidden="true" /></span></Link><div className="rounded-xl border border-amber-200 bg-white p-5"><ShieldCheck size={21} className="mb-3 text-amber-700" aria-hidden="true" /><h3 className="text-sm font-semibold">Sobrevaloración: sin evaluación disponible</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">Los libros actuales registran montos de órdenes. No hay precios unitarios ni referencias de mercado suficientes para publicar alertas de sobrevaloración.</p><Link href={conMunicipalidad('/metodologia')} className={`${enlaceSeccion} mt-3`}>Conoce la metodología <ArrowRight size={13} aria-hidden="true" /></Link></div></div>
     </section>
 
-    <div className="panel-portada"><Seccion titulo="Últimas órdenes registradas" descripcion="Órdenes con fecha de emisión más reciente en los libros vigentes." accion={<Link href="/ordenes" className={enlaceSeccion}>Ver todas las órdenes <ArrowRight size={13} aria-hidden="true" /></Link>}><UltimosRegistros registros={datos.ultimos} /></Seccion></div>
+    <div className="panel-portada"><Seccion titulo="Últimas órdenes registradas" descripcion="Órdenes con fecha de emisión más reciente en los libros vigentes." accion={<Link href={conMunicipalidad('/ordenes')} className={enlaceSeccion}>Ver todas las órdenes <ArrowRight size={13} aria-hidden="true" /></Link>}><UltimosRegistros registros={datos.ultimos} /></Seccion></div>
 
-    <section className="panel-portada" aria-labelledby="titulo-fuentes"><div className="mb-5 flex items-center gap-3"><BookOpen size={24} className="text-primary" aria-hidden="true" /><div><h2 id="titulo-fuentes" className="titulo-editorial text-2xl font-bold">Comprueba cada cifra</h2><p className="mt-1 text-xs text-muted-foreground">Información pública con procedencia y límites visibles.</p></div></div><div className="grid gap-3 sm:grid-cols-3">{[{ titulo: 'Libros originales', texto: 'Consulta los archivos, versiones y referencias que respaldan las órdenes.', href: '/fuentes', icono: BookOpen }, { titulo: 'Cobertura mensual', texto: 'Distingue libros completos, parciales y periodos sin información.', href: '/fuentes', icono: CalendarDays }, { titulo: 'Metodología', texto: 'Conoce qué sumamos, qué excluimos y cómo verificar la evidencia.', href: '/metodologia', icono: ShieldCheck }].map(({ titulo, texto, href, icono: Icono }) => <Link key={titulo} href={href} className="flex items-start gap-3 rounded-xl border border-border p-4 hover:border-primary"><span className="rounded-lg bg-muted p-2 text-primary"><Icono size={20} aria-hidden="true" /></span><span><span className="block text-sm font-semibold">{titulo}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{texto}</span></span></Link>)}</div></section>
+    <section className="panel-portada" aria-labelledby="titulo-fuentes"><div className="mb-5 flex items-center gap-3"><BookOpen size={24} className="text-primary" aria-hidden="true" /><div><h2 id="titulo-fuentes" className="titulo-editorial text-2xl font-bold">Comprueba cada cifra</h2><p className="mt-1 text-xs text-muted-foreground">Información pública con procedencia y límites visibles.</p></div></div><div className="grid gap-3 sm:grid-cols-3">{[{ titulo: 'Libros originales', texto: 'Consulta los archivos, versiones y referencias que respaldan las órdenes.', href: '/fuentes', icono: BookOpen }, { titulo: 'Cobertura mensual', texto: 'Distingue libros completos, parciales y periodos sin información.', href: '/fuentes', icono: CalendarDays }, { titulo: 'Metodología', texto: 'Conoce qué sumamos, qué excluimos y cómo verificar la evidencia.', href: '/metodologia', icono: ShieldCheck }].map(({ titulo, texto, href, icono: Icono }) => <Link key={titulo} href={conMunicipalidad(href)} className="flex items-start gap-3 rounded-xl border border-border p-4 hover:border-primary"><span className="rounded-lg bg-muted p-2 text-primary"><Icono size={20} aria-hidden="true" /></span><span><span className="block text-sm font-semibold">{titulo}</span><span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{texto}</span></span></Link>)}</div></section>
 
-    <Link href="/estadisticas" className="boton-enlace flex min-h-11 items-center justify-between gap-3 rounded-xl px-5 py-4 text-sm font-semibold text-primary">Más análisis: modalidades, gestiones y tipos de orden <ArrowRight size={18} aria-hidden="true" /></Link>
+    <Link href={conMunicipalidad('/estadisticas')} className="boton-enlace flex min-h-11 items-center justify-between gap-3 rounded-xl px-5 py-4 text-sm font-semibold text-primary">Más análisis: modalidades, gestiones y tipos de orden <ArrowRight size={18} aria-hidden="true" /></Link>
   </div>;
 }
 
