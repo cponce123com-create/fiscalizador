@@ -24,6 +24,7 @@ if (!connectionString) {
 
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
+const MUNICIPALIDAD_SAN_RAMON_ID = 'mun-san-ramon';
 
 /** Gestiones de gobierno. Se agregan nuevas sin tocar código. */
 const GESTIONES = [
@@ -161,6 +162,23 @@ const ETIQUETAS_PERSONAS = [
  * etiquetas y la visibilidad de columnas). Solo crea lo que falte.
  */
 async function sembrarCatalogos() {
+  await prisma.municipality.upsert({
+    where: { id: MUNICIPALIDAD_SAN_RAMON_ID },
+    update: {},
+    create: {
+      id: MUNICIPALIDAD_SAN_RAMON_ID,
+      name: 'Municipalidad Distrital de San Ramón',
+      shortName: 'San Ramón',
+      slug: 'san-ramon',
+      ruc: '20146657142',
+      province: 'Chanchamayo',
+      department: 'Junín',
+      entityType: 'DISTRITAL',
+      isDefault: true,
+      primaryColor: '#006b3f',
+    },
+  });
+
   for (const gestion of GESTIONES) {
     await prisma.managementPeriod.upsert({
       where: { name: gestion.name },
@@ -194,7 +212,7 @@ async function sembrarCatalogos() {
   }
 
   console.log(
-    `Catálogos: ${GESTIONES.length} gestiones, ${ESTADOS.length} estados, ` +
+    `Catálogos: 1 municipalidad, ${GESTIONES.length} gestiones, ${ESTADOS.length} estados, ` +
       `${TIPOS_ORDEN.length} tipos de orden, ${TIPOS_CONTRATO.length} tipos de contratación.`,
   );
 }

@@ -292,12 +292,40 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+model Municipality {
+  id           String   @id @default(cuid())
+  name         String
+  shortName    String
+  slug         String   @unique
+  ruc          String   @unique
+  province     String   @default("Chanchamayo")
+  department   String   @default("Junín")
+  entityType   String   @default("DISTRITAL")
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  logoUrl      String?
+  coverImageUrl String?
+  primaryColor String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  importBatches ImportBatch[]
+  orders         Order[]
+  summaries      SupplierManagementSummary[]
+
+  @@index([isDefault])
+  @@index([isActive])
+  @@index([province])
+}
+
 // =============================================================================
 // IMPORTACIÓN
 // =============================================================================
 
 model ImportBatch {
   id               String       @id @default(cuid())
+  municipalityId   String       @default("mun-san-ramon")
+  municipality     Municipality @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
   filename         String
   originalFilename String
   year             Int
@@ -345,7 +373,8 @@ model ImportBatch {
 
   // Un mismo periodo puede reimportarse, pero cada intento es una versión nueva
   // y explícita. Nunca se sobrescribe silenciosamente (docs/prompt.md sección 8).
-  @@unique([year, month, importType, version])
+  @@unique([municipalityId, year, month, importType, version])
+  @@index([municipalityId])
   @@index([period])
   @@index([status])
   @@index([isCurrent, year, month])
@@ -477,6 +506,8 @@ model SupplierPhoto {
 
 model Order {
   id            String      @id @default(cuid())
+  municipalityId String       @default("mun-san-ramon")
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
   importBatchId String
   importBatch   ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
@@ -525,6 +556,7 @@ model Order {
   updatedAt DateTime @updatedAt
 
   @@index([ruc])
+  @@index([municipalityId])
   @@index([supplierId])
   @@index([issueDate])
   @@index([statusId])
@@ -540,6 +572,8 @@ model Order {
 /// millones de filas en cada consulta del perfil o del historial.
 model SupplierManagementSummary {
   id                 String           @id @default(cuid())
+  municipalityId     String           @default("mun-san-ramon")
+  municipality       Municipality     @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
   supplierId         String
   managementPeriodId String
   managementPeriod   ManagementPeriod @relation(fields: [managementPeriodId], references: [id], onDelete: Cascade)
@@ -558,7 +592,8 @@ model SupplierManagementSummary {
 
   supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
-  @@unique([supplierId, managementPeriodId])
+  @@unique([supplierId, municipalityId, managementPeriodId])
+  @@index([municipalityId])
   @@index([managementPeriodId])
   @@index([consideredAmount])
 }

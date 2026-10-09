@@ -495,14 +495,15 @@ describe.skipIf(!hayBaseDeDatos)('eliminarImportacion contra la base real', () =
     // El resumen se rehace: no puede seguir contando las órdenes que se borraron.
     const restante = await prisma.order.findFirst({
       where: { supplierId: proveedor!.id },
-      select: { managementPeriodId: true },
+      select: { municipalityId: true, managementPeriodId: true },
     });
     expect(restante?.managementPeriodId).toBeTruthy();
 
     const resumen = await prisma.supplierManagementSummary.findUnique({
       where: {
-        supplierId_managementPeriodId: {
+        supplierId_municipalityId_managementPeriodId: {
           supplierId: proveedor!.id,
+          municipalityId: restante!.municipalityId,
           managementPeriodId: restante!.managementPeriodId!,
         },
       },

@@ -1,5 +1,6 @@
 import { requiereRevisionMonto, resumenConExclusiones, type MontoPorFila } from '@/lib/revision-montos';
 import { procesoCaducado, PROCESO_CADUCADO_MS } from '@/lib/import-process';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { Prisma } from '@/lib/generated/prisma/client';
@@ -55,6 +56,7 @@ export type AnalizarInput = {
   year: number;
   month: number;
   importType: ImportTypeValue;
+  municipalityId?: string;
   userId: string | null;
   sourceUrl?: string;
   coverageComplete?: boolean;
@@ -197,7 +199,12 @@ async function crearLoteConVersionLibre(
 ): Promise<{ id: string; version: number }> {
   for (let intento = 1; intento <= 2; intento++) {
     const ultima = await prisma.importBatch.findFirst({
-      where: { year: datos.year, month: datos.month, importType: datos.importType },
+      where: {
+        municipalityId: datos.municipalityId ?? MUNICIPALIDAD_DEFAULT_ID,
+        year: datos.year,
+        month: datos.month,
+        importType: datos.importType,
+      },
       orderBy: { version: 'desc' },
       select: { version: true },
     });
@@ -246,7 +253,10 @@ export type DuplicadoContenido = {
  * Las filas sin clave (sin número de orden o sin RUC) quedan fuera del recuento: no
  * se pueden comparar y se insertan siempre.
  */
-export async function analizarDuplicadosDeContenido(claves: string[]): Promise<DuplicadoContenido> {
+export async function analizarDuplicadosDeContenido(
+  claves: string[],
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<DuplicadoContenido> {
   const conClave = claves.filter((clave) => clave !== '');
   const unicas = [...new Set(conClave)];
 
@@ -255,7 +265,7 @@ export async function analizarDuplicadosDeContenido(claves: string[]): Promise<D
   }
 
   const existentes = await prisma.order.findMany({
-    where: { dedupeKey: { in: unicas }, importBatch: { isCurrent: true } },
+    where: { municipalityId, dedupeKey: { in: unicas }, importBatch: { isCurrent: true } },
     select: { dedupeKey: true, importBatchId: true },
   });
 
@@ -440,6 +450,7 @@ async function guardarArchivoOriginal(buffer: Buffer, filename: string, checksum
  */
 export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   const { buffer, originalFilename, year, month, importType, userId } = input;
+  const municipalityId = input.municipalityId ?? MUNICIPALIDAD_DEFAULT_ID;
 
   const catalogos = await cargarCatalogos();
   const checksum = computeChecksum(buffer);
@@ -454,7 +465,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   // filas que ya están en el portal aunque el archivo sea distinto.
   const [loteMismoChecksum, lotesMismoPeriodo, duplicadoContenido] = await Promise.all([
     prisma.importBatch.findFirst({
-      where: { checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+      where: { municipalityId, checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
       select: {
         id: true,
         originalFilename: true,
@@ -466,7 +477,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
       },
     }),
     prisma.importBatch.findMany({
-      where: { year, month, importType },
+      where: { municipalityId, year, month, importType },
       orderBy: { version: 'desc' },
       select: {
         id: true,
@@ -478,7 +489,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
         totalRows: true,
       },
     }),
-    analizarDuplicadosDeContenido(claves),
+    analizarDuplicadosDeContenido(claves, municipalityId),
   ]);
 
   // El archivo original se guarda SIEMPRE, antes de cualquier decisión.
@@ -494,6 +505,7 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
   // periodo se adelantó y chocó con la clave única (year, month, importType, version).
   const lote = await crearLoteConVersionLibre({
     filename: almacenado.key,
+    municipalityId,
     originalFilename,
     year,
     month,
@@ -641,6 +653,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
   // (sección 8 del pliego).
   const previos = await prisma.importBatch.count({
     where: {
+      municipalityId: lote.municipalityId,
       year: lote.year,
       month: lote.month,
       importType: lote.importType,
@@ -733,9 +746,15 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
     await prisma.$transaction(
       async (tx) => {
         // Bloqueo por periodo: OC, OS y consolidado comparten el mismo universo.
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lote.year}, ${lote.month})`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lote.municipalityId}), ${lote.year * 100 + lote.month})`;
         const vigentes = await tx.importBatch.findMany({
-          where: { year: lote.year, month: lote.month, isCurrent: true, id: { not: lote.id } },
+          where: {
+            municipalityId: lote.municipalityId,
+            year: lote.year,
+            month: lote.month,
+            isCurrent: true,
+            id: { not: lote.id },
+          },
         });
         if (
           lote.importType !== 'CONSOLIDADO' &&
@@ -755,6 +774,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         }
         const historicos = await tx.importBatch.findMany({
           where: {
+            municipalityId: lote.municipalityId,
             year: lote.year,
             month: lote.month,
             id: { not: lote.id },
@@ -766,8 +786,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         const idsAnteriores = historicos.map((b) => b.id);
         const paresAnteriores = await tx.order.findMany({
           where: { importBatchId: { in: idsAnteriores } },
-          select: { supplierId: true, managementPeriodId: true },
-          distinct: ['supplierId', 'managementPeriodId'],
+          select: { supplierId: true, municipalityId: true, managementPeriodId: true },
+          distinct: ['supplierId', 'municipalityId', 'managementPeriodId'],
         });
         await tx.importBatch.updateMany({
           where: { id: { in: idsAnteriores } },
@@ -805,6 +825,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
           .filter((o) => o.ruc !== null && idPorRuc.has(o.ruc))
           .map((o) => ({
             importBatchId: lote.id,
+            municipalityId: lote.municipalityId,
             rowNumber: o.rowNumber,
             sourceRow: o.sourceRow,
             orderNumber: o.orderNumber,
@@ -850,26 +871,33 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
         });
 
         // 3. Resúmenes por (proveedor, gestión).
-        const combinaciones = new Map<string, { supplierId: string; managementPeriodId: string }>();
+        const combinaciones = new Map<string, { supplierId: string; municipalityId: string; managementPeriodId: string }>();
         for (const orden of validacion.orders) {
           if (!orden.ruc || !orden.managementPeriodId) continue;
           const supplierId = idPorRuc.get(orden.ruc);
           if (!supplierId) continue;
-          combinaciones.set(`${supplierId}|${orden.managementPeriodId}`, {
+          combinaciones.set(`${supplierId}|${lote.municipalityId}|${orden.managementPeriodId}`, {
             supplierId,
+            municipalityId: lote.municipalityId,
             managementPeriodId: orden.managementPeriodId,
           });
         }
 
         for (const par of paresAnteriores) {
           if (par.managementPeriodId)
-            combinaciones.set(`${par.supplierId}|${par.managementPeriodId}`, {
+            combinaciones.set(`${par.supplierId}|${par.municipalityId}|${par.managementPeriodId}`, {
               supplierId: par.supplierId,
+              municipalityId: par.municipalityId,
               managementPeriodId: par.managementPeriodId,
             });
         }
         for (const combo of combinaciones.values()) {
-          await recalcularResumenGestion(tx, combo.supplierId, combo.managementPeriodId);
+          await recalcularResumenGestion(
+            tx,
+            combo.supplierId,
+            combo.managementPeriodId,
+            combo.municipalityId,
+          );
         }
 
         // 4. Auditoría, dentro de la misma transacción.
@@ -882,6 +910,7 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
           userAgent,
           metadata: {
             period: lote.period,
+            municipalityId: lote.municipalityId,
             version: lote.version,
             originalFilename: lote.originalFilename,
             checksum: lote.checksum,
@@ -988,6 +1017,7 @@ export async function eliminarImportacion(
       originalFilename: true,
       checksum: true,
       storageKey: true,
+      municipalityId: true,
       processingStartedAt: true,
     },
   });
@@ -1019,11 +1049,11 @@ export async function eliminarImportacion(
       const afectadas = (
         await tx.order.findMany({
           where: { importBatchId: lote.id },
-          select: { supplierId: true, managementPeriodId: true },
-          distinct: ['supplierId', 'managementPeriodId'],
+          select: { supplierId: true, municipalityId: true, managementPeriodId: true },
+          distinct: ['supplierId', 'municipalityId', 'managementPeriodId'],
         })
       ).filter(
-        (par): par is { supplierId: string; managementPeriodId: string } =>
+        (par): par is { supplierId: string; municipalityId: string; managementPeriodId: string } =>
           par.managementPeriodId !== null,
       );
 
@@ -1046,20 +1076,29 @@ export async function eliminarImportacion(
 
       if (proveedoresDelLote.length > 0) {
         const filas = await tx.order.groupBy({
-          by: ['supplierId', 'managementPeriodId'],
-          where: { supplierId: { in: proveedoresDelLote }, managementPeriodId: { not: null } },
+          by: ['supplierId', 'municipalityId', 'managementPeriodId'],
+          where: {
+            supplierId: { in: proveedoresDelLote },
+            municipalityId: lote.municipalityId,
+            managementPeriodId: { not: null },
+          },
           _count: { _all: true },
         });
 
         for (const fila of filas) {
           if (fila.managementPeriodId) {
-            restantes.set(`${fila.supplierId}|${fila.managementPeriodId}`, fila._count._all);
+            restantes.set(
+              `${fila.supplierId}|${fila.municipalityId}|${fila.managementPeriodId}`,
+              fila._count._all,
+            );
           }
         }
       }
 
       const sinOrdenes = afectadas.filter(
-        (par) => (restantes.get(`${par.supplierId}|${par.managementPeriodId}`) ?? 0) === 0,
+        (par) =>
+          (restantes.get(`${par.supplierId}|${par.municipalityId}|${par.managementPeriodId}`) ??
+            0) === 0,
       );
 
       if (sinOrdenes.length > 0) {
@@ -1067,6 +1106,7 @@ export async function eliminarImportacion(
           where: {
             OR: sinOrdenes.map((par) => ({
               supplierId: par.supplierId,
+              municipalityId: par.municipalityId,
               managementPeriodId: par.managementPeriodId,
             })),
           },
@@ -1074,8 +1114,11 @@ export async function eliminarImportacion(
       }
 
       for (const par of afectadas) {
-        if ((restantes.get(`${par.supplierId}|${par.managementPeriodId}`) ?? 0) > 0) {
-          await recalcularResumenGestion(tx, par.supplierId, par.managementPeriodId);
+        if (
+          (restantes.get(`${par.supplierId}|${par.municipalityId}|${par.managementPeriodId}`) ??
+            0) > 0
+        ) {
+          await recalcularResumenGestion(tx, par.supplierId, par.managementPeriodId, par.municipalityId);
         }
       }
 
@@ -1130,6 +1173,7 @@ export async function eliminarImportacion(
         userAgent,
         metadata: {
           period: lote.period,
+          municipalityId: lote.municipalityId,
           version: lote.version,
           originalFilename: lote.originalFilename,
           checksum: lote.checksum,
