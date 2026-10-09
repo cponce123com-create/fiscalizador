@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
 import { analizar } from '@/services/importService';
+import { asegurarMunicipalidadActiva } from '@/services/municipalityService';
 
 /**
  * FASE 1 del importador: analizar el archivo subido.
@@ -36,6 +37,7 @@ const camposSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
   month: z.coerce.number().int().min(1).max(12),
   importType: z.enum(['ORDENES_COMPRA', 'ORDENES_SERVICIO', 'CONSOLIDADO']),
+  municipalityId: z.string().min(1).max(80).optional(),
 });
 
 export async function POST(request: Request): Promise<Response> {
@@ -66,6 +68,7 @@ export async function POST(request: Request): Promise<Response> {
       year: formulario.get('year'),
       month: formulario.get('month'),
       importType: formulario.get('importType'),
+      municipalityId: formulario.get('municipalityId') || undefined,
     });
 
     if (!campos.success) {
@@ -73,6 +76,7 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const buffer = Buffer.from(await archivo.arrayBuffer());
+    const municipalityId = await asegurarMunicipalidadActiva(campos.data.municipalityId);
 
     const resultado = await analizar({
       buffer,
@@ -82,6 +86,7 @@ export async function POST(request: Request): Promise<Response> {
       year: campos.data.year,
       month: campos.data.month,
       importType: campos.data.importType,
+      municipalityId,
       userId: usuario.id,
     });
 

@@ -51,6 +51,7 @@ import {
   type ConfirmarRespuesta,
   type PeriodoRespuesta,
 } from '@/lib/api/cliente';
+import type { MunicipalidadActiva } from '@/lib/municipalidad';
 import { requiereRevisionMonto, resumenConExclusiones } from '@/lib/revision-montos';
 import { formatearCentavos, MESES } from '@/lib/utils';
 
@@ -145,11 +146,12 @@ function detectadoDuplicado(archivo: ArchivoEnCola, archivos: ArchivoEnCola[]) {
   return archivo.deteccion ? archivos.find(otro => otro.id !== archivo.id && otro.deteccion?.checksum === archivo.deteccion?.checksum) : undefined;
 }
 
-export function ImportacionPorLotes() {
+export function ImportacionPorLotes({ municipalidades }: { municipalidades: MunicipalidadActiva[] }) {
   const ahora = new Date();
 
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [tipo, setTipo] = useState('CONSOLIDADO');
+  const [municipalityId, setMunicipalityId] = useState(municipalidades[0]?.id ?? 'mun-san-ramon');
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -309,6 +311,7 @@ export function ImportacionPorLotes() {
         formulario.set('year', String(anioDePeriodo(archivo.periodo)));
         formulario.set('month', String(mesDePeriodo(archivo.periodo)));
         formulario.set('importType', tipo);
+        formulario.set('municipalityId', municipalityId);
 
         const datos = await pedirJson(
           '/api/admin/imports/analyze',
@@ -450,6 +453,26 @@ export function ImportacionPorLotes() {
             deshabilitada={ocupado || archivos.length >= MAX_ARCHIVOS}
             maxArchivos={MAX_ARCHIVOS}
           />
+
+          <GrupoCampo
+            etiqueta="Municipalidad"
+            htmlFor="municipalityId"
+            obligatorio
+            ayuda="Todos los libros de esta tanda se importarán para esta entidad."
+          >
+            <Selector
+              id="municipalityId"
+              value={municipalityId}
+              onChange={(evento: ChangeEvent<HTMLSelectElement>) => setMunicipalityId(evento.target.value)}
+              disabled={ocupado || archivos.length > 0}
+            >
+              {municipalidades.map((municipalidad) => (
+                <option key={municipalidad.id} value={municipalidad.id}>
+                  {municipalidad.nombreCorto} · {municipalidad.ruc}
+                </option>
+              ))}
+            </Selector>
+          </GrupoCampo>
 
           <GrupoCampo
             etiqueta="Tipo de información"
