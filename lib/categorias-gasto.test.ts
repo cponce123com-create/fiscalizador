@@ -15,6 +15,14 @@ describe('clasificación de gastos por descripción', () => {
     ['equipos-computo', 'Cartuchos de tinta para impresoras', 'Compra de cartuchos de escopeta'],
     ['equipos-computo', 'Adquisición de discos SSD y memoria RAM', 'Útiles escolares'],
     ['equipos-computo', 'Implementación de redes informáticas y routers', 'Compra de redes de pesca'],
+    ['seguridad-serenazgo', 'Servicio de serenazgo y patrullaje municipal', 'Servicio de seguridad ocupacional'],
+    ['seguridad-serenazgo', 'Adquisición de cámaras de seguridad y alarmas', 'Compra de cámaras fotográficas'],
+    ['seguridad-serenazgo', 'Radios portátiles para seguridad ciudadana', 'Publicidad radial'],
+    ['seguridad-serenazgo', 'Uniformes y chalecos para serenos', 'Uniformes para personal administrativo'],
+    ['limpieza-residuos', 'Servicio de limpieza pública y recojo de basura', 'Limpieza de oficinas'],
+    ['limpieza-residuos', 'Mantenimiento de compactadora de residuos sólidos', 'Mantenimiento de maquinaria pesada'],
+    ['limpieza-residuos', 'Compra de contenedores para residuos sólidos', 'Compra de contenedores de agua'],
+    ['limpieza-residuos', 'Bolsas negras y escobas para barrido de calles', 'Escobas para limpieza de local'],
     ['maquinaria-pesada', 'Implementación de maquinaria pesada', 'Implementación de equipo de cómputo'],
     ['maquinaria-pesada', 'Seguro de volquete y póliza de excavadora', 'Seguro del personal'],
     ['maquinaria-pesada', 'Revisión técnica de motoniveladora', 'Revisión de expediente técnico'],
@@ -63,7 +71,7 @@ describe('clasificación de gastos por descripción', () => {
   });
   it('permite conceptos compartidos sin duplicar categorías', () => {
     expect(categoriasGasto.filter(c => coincideCategoriaGasto(c, 'Consultoría de expediente técnico')).map(c => c.id)).toEqual(['consultorias', 'expedientes-tecnicos']);
-    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(15);
+    expect(new Set(categoriasGasto.map(c => c.id)).size).toBe(17);
     expect(categoriaGastoPorId('inexistente')).toBeUndefined();
   });
 });
