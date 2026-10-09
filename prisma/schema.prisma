@@ -425,6 +425,7 @@ model Supplier {
   /// Vínculos declarados a mano por la administración (los deducidos del DNI no
   /// se persisten: se calculan al vuelo).
   links     PersonSupplierLink[]
+  comparatorReviews ComparatorReview[]
 
   @@index([ruc])
   @@index([normalizedName])
@@ -672,6 +673,25 @@ model PersonSupplierLink {
 
   @@unique([personId, supplierId])
   @@index([personId])
+  @@index([supplierId])
+}
+
+/// Revisión interna del comparador: permite marcar cruces y sugerencias como
+/// revisados sin publicar nada ni convertir una coincidencia de apellidos en vínculo.
+model ComparatorReview {
+  id           String   @id @default(cuid())
+  subjectKey   String
+  supplierId   String
+  reviewed     Boolean  @default(false)
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([subjectKey, supplierId])
+  @@index([reviewed])
   @@index([supplierId])
 }
 
