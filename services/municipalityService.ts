@@ -9,11 +9,11 @@ export async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
     (await prisma.municipality.findFirst({
       where: { isDefault: true, isActive: true },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, slug: true, name: true, shortName: true, ruc: true },
+      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
     })) ??
     (await prisma.municipality.findUnique({
       where: { id: MUNICIPALIDAD_DEFAULT_ID },
-      select: { id: true, slug: true, name: true, shortName: true, ruc: true },
+      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
     }));
 
   return {
@@ -22,6 +22,9 @@ export async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
     nombre: entidad?.name ?? 'Municipalidad Distrital de San Ramón',
     nombreCorto: entidad?.shortName ?? 'San Ramón',
     ruc: entidad?.ruc ?? '20146657142',
+    provincia: entidad?.province ?? 'Chanchamayo',
+    departamento: entidad?.department ?? 'Junín',
+    tipoEntidad: entidad?.entityType ?? 'DISTRITAL',
   };
 }
 
@@ -29,7 +32,7 @@ export async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiv
   const entidades = await prisma.municipality.findMany({
     where: { isActive: true },
     orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    select: { id: true, slug: true, name: true, shortName: true, ruc: true },
+    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
   });
 
   if (entidades.length === 0) return [await municipalidadPorDefecto()];
@@ -40,7 +43,31 @@ export async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiv
     nombre: entidad.name,
     nombreCorto: entidad.shortName,
     ruc: entidad.ruc,
+    provincia: entidad.province,
+    departamento: entidad.department,
+    tipoEntidad: entidad.entityType,
   }));
+}
+
+export async function municipalidadActivaDesdeSlug(slug: string | null | undefined): Promise<MunicipalidadActiva> {
+  if (!slug || slug === MUNICIPALIDAD_DEFAULT_SLUG) return municipalidadPorDefecto();
+
+  const entidad = await prisma.municipality.findFirst({
+    where: { slug, isActive: true },
+    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
+  });
+
+  if (!entidad) return municipalidadPorDefecto();
+  return {
+    id: entidad.id,
+    slug: entidad.slug,
+    nombre: entidad.name,
+    nombreCorto: entidad.shortName,
+    ruc: entidad.ruc,
+    provincia: entidad.province,
+    departamento: entidad.department,
+    tipoEntidad: entidad.entityType,
+  };
 }
 
 export async function idMunicipalidadDesdeSlug(slug: string | null | undefined): Promise<string> {

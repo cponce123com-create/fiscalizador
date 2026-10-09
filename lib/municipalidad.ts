@@ -7,4 +7,7 @@ export type MunicipalidadActiva = {
   nombre: string;
   nombreCorto: string;
   ruc: string;
+  provincia: string;
+  departamento: string;
+  tipoEntidad: string;
 };
