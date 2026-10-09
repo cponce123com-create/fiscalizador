@@ -25,7 +25,7 @@ import { desactivar as desactivarSegundoFactor } from '../services/twoFactorServ
  *
  * La contraseña se lee de la variable de entorno `NUEVA_PASSWORD` y no de un
  * argumento, para que no quede en el historial del shell ni en la lista de
- * procesos. Si se pasa `--password`, funciona, pero avisa.
+ * procesos. `--password` está bloqueado a propósito.
  */
 
 const ROLES_VALIDOS: readonly Role[] = ['SUPERADMIN', 'ADMIN', 'EDITOR', 'VIEWER'];
@@ -33,7 +33,6 @@ const ROLES_VALIDOS: readonly Role[] = ['SUPERADMIN', 'ADMIN', 'EDITOR', 'VIEWER
 type Argumentos = {
   email: string;
   password: string | null;
-  passwordPorArgumento: boolean;
   exigirCambio: boolean;
   rol: Role | null;
   nombre: string | null;
@@ -76,6 +75,18 @@ function analizarArgumentos(argv: readonly string[]): Argumentos {
   }
 
   const passwordArgumento = obtener('--password');
+  if (passwordArgumento) {
+    throw new Error(
+      [
+        '--password está deshabilitado porque deja la contraseña en el historial del shell y en la lista de procesos.',
+        '',
+        'Usa la variable de entorno NUEVA_PASSWORD:',
+        '',
+        `  NUEVA_PASSWORD="..." npm run usuarios -- --email ${email.trim().toLowerCase()}`,
+      ].join(String.fromCharCode(10)),
+    );
+  }
+
   const rol = obtener('--rol');
 
   if (rol && !ROLES_VALIDOS.includes(rol as Role)) {
@@ -86,8 +97,7 @@ function analizarArgumentos(argv: readonly string[]): Argumentos {
     email: email.trim().toLowerCase(),
     password: desdeEnv
       ? (process.env.SEED_SUPERADMIN_PASSWORD ?? null)
-      : (passwordArgumento ?? process.env.NUEVA_PASSWORD ?? null),
-    passwordPorArgumento: Boolean(passwordArgumento),
+      : (process.env.NUEVA_PASSWORD ?? null),
     // El propósito de `--desde-env` es que esas credenciales funcionen, así que
     // la cuenta se crea si no existe y es superadministradora por defecto.
     rol: (rol as Role | null) ?? (desdeEnv ? 'SUPERADMIN' : null),
@@ -230,13 +240,6 @@ async function main(): Promise<void> {
 
   const fortaleza = validarFortaleza(args.password);
   if (!fortaleza.ok) throw new Error(fortaleza.motivo);
-
-  if (args.passwordPorArgumento) {
-    console.log('');
-    console.log('AVISO: has pasado la contraseña con --password, así que ha quedado');
-    console.log('en el historial del shell y en la lista de procesos. Cámbiala con');
-    console.log('NUEVA_PASSWORD la próxima vez.');
-  }
 
   const passwordHash = await hashearPassword(args.password);
 

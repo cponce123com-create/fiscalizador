@@ -53,18 +53,28 @@ describe('describirFalloDeAlmacenamiento', () => {
   const conCodigo = (code: string) => Object.assign(new Error('fallo del disco'), { code });
 
   it('traduce los códigos conocidos del sistema de archivos', () => {
-    expect(describirFalloDeAlmacenamiento(conCodigo('EACCES'))).toBe('EACCES (permiso denegado)');
-    expect(describirFalloDeAlmacenamiento(conCodigo('ENOENT'))).toBe('ENOENT (la ruta no existe)');
+    expect(describirFalloDeAlmacenamiento(conCodigo('EACCES'))).toBe(
+      'EACCES: permiso denegado en el directorio de almacenamiento',
+    );
+    expect(describirFalloDeAlmacenamiento(conCodigo('ENOENT'))).toBe(
+      'ENOENT: el directorio de almacenamiento no existe',
+    );
     expect(describirFalloDeAlmacenamiento(conCodigo('EROFS'))).toContain('solo lectura');
   });
 
   it('deja el código tal cual si no lo conoce', () => {
-    expect(describirFalloDeAlmacenamiento(conCodigo('EWEIRD'))).toBe('EWEIRD');
+    expect(describirFalloDeAlmacenamiento(conCodigo('EWEIRD'))).toBe(
+      'fallo de almacenamiento (EWEIRD)',
+    );
   });
 
   it('cae al nombre del error cuando no hay código', () => {
-    expect(describirFalloDeAlmacenamiento(new TypeError('x'))).toBe('TypeError');
-    expect(describirFalloDeAlmacenamiento('texto suelto')).toBe('error desconocido');
+    expect(describirFalloDeAlmacenamiento(new TypeError('x'))).toBe(
+      'fallo interno de almacenamiento',
+    );
+    expect(describirFalloDeAlmacenamiento('texto suelto')).toBe(
+      'fallo interno de almacenamiento',
+    );
   });
 });
 

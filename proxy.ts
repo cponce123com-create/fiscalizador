@@ -1,6 +1,8 @@
 import NextAuth from 'next-auth';
 
 import { authConfig } from '@/auth.config';
+import { validarCallbackAdmin } from '@/lib/auth/callback-url';
+import { limitarCuerpo } from '@/lib/limitar-cuerpo';
 
 /**
  * Middleware de protección de rutas.
@@ -16,6 +18,9 @@ import { authConfig } from '@/auth.config';
 const { auth } = NextAuth(authConfig);
 
 export default auth((request) => {
+  const limite = limitarCuerpo(request);
+  if (limite) return limite;
+
   const { nextUrl } = request;
   const haySesion = Boolean(request.auth);
   const esPaginaLogin = nextUrl.pathname === '/admin/login';
@@ -31,7 +36,7 @@ export default auth((request) => {
     const destino = new URL('/admin/login', nextUrl);
     // Se conserva el destino para volver a él tras iniciar sesión. Solo la ruta,
     // nunca la URL completa: así no se propaga nada más al formulario.
-    destino.searchParams.set('callbackUrl', nextUrl.pathname);
+    destino.searchParams.set('callbackUrl', validarCallbackAdmin(nextUrl.pathname + nextUrl.search));
     return Response.redirect(destino);
   }
 
