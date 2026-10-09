@@ -12,6 +12,7 @@ import type { Metadata } from 'next';
 import { GraficoBarras, type BarraGrafico } from '@/components/publico/grafico-barras';
 import { TablaComparativa } from '@/components/publico/tabla-comparativa';
 import { Aviso } from '@/components/ui/data';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Seccion } from '@/components/ui/seccion';
 import { formatearMonto } from '@/lib/utils';
 import { comparativaPorGestion, concentracionGasto } from '@/services/statisticsService';
@@ -51,6 +52,7 @@ export default async function PaginaEstadisticas() {
 
   return (
     <div className="flex flex-col gap-10">
+      <Breadcrumbs items={[{ label: 'Estadísticas' }]} />
       <header className="flex flex-col gap-3">
         <h1 className="text-2xl font-semibold sm:text-3xl">Estadísticas</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">

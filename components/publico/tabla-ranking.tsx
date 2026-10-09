@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { EstadoVacio } from '@/components/ui/data';
 import { formatearMonto } from '@/lib/utils';
 import type { FilaRankingCompleto } from '@/services/statisticsService';
 
@@ -12,9 +13,12 @@ import type { FilaRankingCompleto } from '@/services/statisticsService';
 export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
   if (filas.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No hay proveedores que coincidan con los filtros aplicados.
-      </p>
+      <EstadoVacio
+        titulo="Sin proveedores en este ranking"
+        descripcion="Cambia la gestión, el tipo de RUC o limpia la búsqueda para volver a comparar."
+      >
+        <Link href="/ranking" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Restablecer ranking</Link>
+      </EstadoVacio>
     );
   }
 

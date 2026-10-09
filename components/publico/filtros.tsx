@@ -1,5 +1,5 @@
 import { BusquedaEnVivo } from '@/components/publico/busqueda-en-vivo';
-import { Search, X } from 'lucide-react';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import Link from 'next/link';
 
 import { hayFiltrosActivos, serializarFiltros } from '@/lib/filtros';
@@ -62,7 +62,13 @@ export function Filtros({
 
   return (
     <BusquedaEnVivo ruta={ruta} consulta={serializarFiltros(filtros)} className="rounded-lg border border-border bg-card p-4">
-      {activos ? <div aria-label="Filtros activos" className="mb-4 flex flex-wrap gap-2">{etiquetas.filter(e => e.valor !== null).map(e => <Link key={e.clave} href={`${ruta}${serializarFiltros(filtros, { [e.clave]: null, pagina: 1 })}`} aria-label={`Quitar filtro ${e.texto}: ${e.valor}`} className="boton-enlace inline-flex max-w-full items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs text-primary"><span className="truncate">{e.texto}: {e.valor}</span><X size={12} aria-hidden="true" /></Link>)}</div> : null}
+      {activos ? <div aria-label="Filtros activos" className="mb-4 rounded-xl border border-primary/25 bg-primary/5 p-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-2 text-xs font-semibold text-primary"><SlidersHorizontal size={14} aria-hidden="true" />{etiquetas.filter(e => e.valor !== null).length} filtros activos</p>
+          <Link href={ruta} className="inline-flex items-center gap-1 text-xs font-semibold text-primary underline underline-offset-4"><X size={13} aria-hidden="true" />Limpiar todo</Link>
+        </div>
+        <div className="flex flex-wrap gap-2">{etiquetas.filter(e => e.valor !== null).map(e => <Link key={e.clave} href={`${ruta}${serializarFiltros(filtros, { [e.clave]: null, pagina: 1 })}`} aria-label={`Quitar filtro ${e.texto}: ${e.valor}`} className="boton-enlace inline-flex max-w-full items-center gap-2 rounded-full bg-card px-3 py-1.5 text-xs text-primary"><span className="truncate">{e.texto}: {e.valor}</span><X size={12} aria-hidden="true" /></Link>)}</div>
+      </div> : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {hay('texto') ? (
           <label className="col-span-2 flex min-w-0 flex-col gap-1.5 lg:col-span-1">
@@ -190,7 +196,7 @@ export function Filtros({
           type="submit"
           className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Aplicar filtros
+          Actualizar ahora
         </button>
 
         {activos ? (

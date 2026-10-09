@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { BusquedaProveedores } from '@/components/publico/busqueda-proveedores';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaProveedores } from '@/components/publico/tabla-proveedores';
+import { Anunciador } from '@/components/ui/anunciador';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { leerFiltros } from '@/lib/filtros';
 import { listarProveedores } from '@/services/statisticsService';
 
@@ -30,6 +32,7 @@ export default async function PaginaProveedores({
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumbs items={[{ label: 'Proveedores' }]} />
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold sm:text-3xl">Proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
@@ -40,6 +43,7 @@ export default async function PaginaProveedores({
       </header>
 
       <BusquedaProveedores filtros={filtros} />
+      <Anunciador mensaje={`${resultado.total} proveedores encontrados`} />
 
       <Paginacion filtros={filtros} total={resultado.total} ruta="/proveedores" />
 

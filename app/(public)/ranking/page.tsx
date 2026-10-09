@@ -1,9 +1,12 @@
 import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
 import type { Metadata } from 'next';
 
+import { FiltrosFlotante } from '@/components/publico/filtros-flotante';
 import { Filtros } from '@/components/publico/filtros';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaRanking } from '@/components/publico/tabla-ranking';
+import { Anunciador } from '@/components/ui/anunciador';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { PeriodoRanking } from '@/components/publico/periodo-ranking';
 import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { leerFiltros } from '@/lib/filtros';
@@ -37,6 +40,7 @@ export default async function PaginaRanking({
 
   return (
     <div className="flex flex-col gap-6">
+      <Breadcrumbs items={[{ label: 'Ranking de proveedores' }]} />
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold sm:text-3xl">Ranking de proveedores</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
@@ -49,12 +53,19 @@ export default async function PaginaRanking({
       <PeriodoRanking periodos={periodos} seleccionado={filtros.gestionId} />
       <TipoRucRanking filtros={filtros} ruta="/ranking" />
 
-      <Filtros
-        filtros={filtros}
-        ruta="/ranking"
-        campos={['texto']}
-        opciones={{ gestiones: [...periodos, { id: 'todas', nombre: 'Todos los periodos' }] }}
-      />
+      <div className="hidden md:block"><Filtros
+          filtros={filtros}
+          ruta="/ranking"
+          campos={['texto']}
+          opciones={{ gestiones: [...periodos, { id: 'todas', nombre: 'Todos los periodos' }] }}
+        /></div>
+      <FiltrosFlotante filtros={filtros} totalResultados={resultado.total}><Filtros
+          filtros={filtros}
+          ruta="/ranking"
+          campos={['texto']}
+          opciones={{ gestiones: [...periodos, { id: 'todas', nombre: 'Todos los periodos' }] }}
+        /></FiltrosFlotante>
+      <Anunciador mensaje={`${resultado.total} proveedores en el ranking`} />
 
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ranking" />
 
