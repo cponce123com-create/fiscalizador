@@ -5,6 +5,7 @@ import {
   FileSpreadsheet,
   LayoutDashboard,
   ListOrdered,
+  Building2,
   Settings2,
   Tags,
   Upload,
@@ -36,6 +37,7 @@ type Enlace = {
 
 const ENLACES: readonly Enlace[] = [
   { href: '/admin/apariencia', etiqueta: 'Apariencia y titulares', icono: Settings2, permiso: 'settings:manage' },
+  { href: '/admin/municipalidades', etiqueta: 'Municipalidades', icono: Building2, permiso: 'settings:manage' },
   { href: '/admin', etiqueta: 'Panel', icono: LayoutDashboard, permiso: null },
   { href: '/admin/importar', etiqueta: 'Importar', icono: Upload, permiso: 'imports:write' },
   { href: '/admin/descargas', etiqueta: 'Descargas SEACE', icono: Download, permiso: 'imports:write' },

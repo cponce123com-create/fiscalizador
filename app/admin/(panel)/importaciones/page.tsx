@@ -80,6 +80,7 @@ export default async function PaginaImportaciones({
         processingFinishedAt: true,
         errorMessage: true,
         uploadedBy: { select: { email: true } },
+        municipality: { select: { shortName: true, ruc: true } },
         managementPeriod: { select: { name: true } },
         _count: { select: { orders: true } },
       },
@@ -143,6 +144,7 @@ export default async function PaginaImportaciones({
           <TablaEncabezado>
             <TablaFila>
               <TablaCeldaEncabezado>Periodo</TablaCeldaEncabezado>
+              <TablaCeldaEncabezado>Municipalidad</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Versión</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Archivo</TablaCeldaEncabezado>
               <TablaCeldaEncabezado>Tipo</TablaCeldaEncabezado>
@@ -166,6 +168,11 @@ export default async function PaginaImportaciones({
                       Gestión {lote.managementPeriod.name}
                     </span>
                   ) : null}
+                </TablaCelda>
+
+                <TablaCelda>
+                  <span className="font-medium">{lote.municipality.shortName}</span>
+                  <span className="block text-xs text-muted-foreground">RUC {lote.municipality.ruc}</span>
                 </TablaCelda>
 
                 <TablaCelda className="tabular">{lote.version}</TablaCelda>

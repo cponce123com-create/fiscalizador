@@ -5,13 +5,14 @@ import { ImportacionPorLotes } from '@/components/admin/importacion-por-lotes';
 import { Aviso } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
+import { listarMunicipalidadesActivas } from '@/services/municipalityService';
 
 export const metadata: Metadata = {
   title: 'Importar',
 };
 
 export default async function PaginaImportar() {
-  const usuario = await usuarioActual();
+  const [usuario, municipalidades] = await Promise.all([usuarioActual(), listarMunicipalidadesActivas()]);
 
   // El enlace del menú ya se oculta sin permiso, pero la ruta es accesible por
   // URL: hay que comprobarlo también aquí.
@@ -42,7 +43,7 @@ export default async function PaginaImportar() {
         igual.
       </Aviso>
 
-      <ImportacionPorLotes />
+      <ImportacionPorLotes municipalidades={municipalidades} />
     </div>
   );
 }
