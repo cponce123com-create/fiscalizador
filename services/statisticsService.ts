@@ -1115,6 +1115,7 @@ export type FilaRankingCompleto = {
   ruc: string;
   nombre: string;
   slug: string;
+  fotoUrl?: string | null;
   ordenes: number;
   anuladas: number;
   registrado: string;
@@ -1152,6 +1153,7 @@ export async function rankingCompleto(
         ruc: string;
         name: string;
         slug: string;
+        photoUrl: string | null;
         ordenes: number;
         anuladas: number;
         registrado: string;
@@ -1165,6 +1167,9 @@ export async function rankingCompleto(
         s.ruc,
         s.name,
         s.slug,
+        CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL AND p."isPublic" = true AND p.publication->'foto'->>'enabled' = 'true' AND p.publication->'foto'->>'verifiedAt' IS NOT NULL)
+          THEN '/api/public/proveedores/' || s.id || '/foto?v=' || (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id)
+          ELSE NULL END AS "photoUrl",
         COUNT(o.id)::int AS ordenes,
         COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
         COALESCE(SUM(o.amount), 0)::text AS registrado,
@@ -1203,6 +1208,7 @@ export async function rankingCompleto(
       ruc: fila.ruc,
       nombre: fila.name,
       slug: fila.slug,
+      fotoUrl: fila.photoUrl ?? null,
       ordenes: aNumero(fila.ordenes),
       anuladas: aNumero(fila.anuladas),
       registrado: aDecimal2(fila.registrado),
