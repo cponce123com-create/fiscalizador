@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ResultadosBusqueda } from '@/components/publico/resultados-busqueda';
 import type { ResultadoBusquedaPublica } from '@/lib/busqueda-publica';
-import { Clock, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Loader, Search, SearchX, Sparkles } from 'lucide-react';
 
 const BUSQUEDAS_POPULARES = ['Combustible', 'Genaro Poma', 'Galarza', 'iPad', 'Mantenimiento', 'Prensa'];
 const CLAVE_RECIENTES = 'fiscalizador.busquedasRecientes';
@@ -71,7 +71,13 @@ export function BusquedaPortada({ textoInicial = '', resultadoInicial = null }: 
       <div className="flex min-w-0 flex-1 items-center gap-2 pl-2"><Search size={18} className="shrink-0 text-muted-foreground" aria-hidden="true" /><label htmlFor="buscar-portada" className="sr-only">Busca un proveedor, RUC o qué se compró</label><input id="buscar-portada" name="texto" type="search" maxLength={120} value={texto} onChange={evento => { secuencia.current++; setTexto(evento.target.value); setResultado(null); setEstado(evento.target.value.trim().length < 3 ? 'Escribe al menos 3 caracteres para buscar en vivo.' : 'Buscando…'); }} onCompositionStart={() => setComponiendo(true)} onCompositionEnd={() => setComponiendo(false)} aria-describedby="estado-busqueda-portada" placeholder="Busca un proveedor, RUC o qué se compró" className="min-w-0 w-full rounded-lg px-1 py-3 text-base sm:text-sm placeholder:text-muted-foreground" /></div>
       <button className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground hover:bg-emerald-800">Buscar</button>
     </form>
-    <p id="estado-busqueda-portada" role="status" aria-live="polite" className="mt-2 text-xs text-muted-foreground">{estado}</p>
+    <p id="estado-busqueda-portada" role="status" aria-live="polite" className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+      {estado === 'Buscando…' ? <><Loader size={12} className="animate-spin text-primary" aria-hidden="true" />Buscando en proveedores y órdenes...</> : null}
+      {estado !== 'Buscando…' && resultado && (resultado.totalProveedores > 0 || resultado.total > 0) ? <><CheckCircle size={12} className="text-success" aria-hidden="true" /><span className="font-medium text-success">{resultado.totalProveedores} proveedores y {resultado.total} órdenes encontradas.</span></> : null}
+      {estado !== 'Buscando…' && resultado && resultado.totalProveedores === 0 && resultado.total === 0 ? <><SearchX size={12} className="text-warning" aria-hidden="true" />Sin coincidencias. Prueba con menos palabras o cambia el orden de nombres.</> : null}
+      {estado.includes('No se pudo') ? <><AlertTriangle size={12} className="text-destructive" aria-hidden="true" /><span className="text-destructive">{estado}</span></> : null}
+      {!resultado && estado !== 'Buscando…' && !estado.includes('No se pudo') ? estado : null}
+    </p>
     {mostrarSugerencias && sugerencias.length ? <div className="mt-3 rounded-xl border border-border bg-card p-3">
       <p className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground"><Sparkles size={14} aria-hidden="true" />Sugerencias rápidas</p>
       <div className="flex flex-wrap gap-2">{sugerencias.map(s => <button key={s} type="button" onClick={() => usarSugerencia(s)} className="boton-enlace inline-flex min-h-9 items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs hover:border-primary hover:text-primary">{recientes.includes(s) ? <Clock size={12} aria-hidden="true" /> : null}{s}</button>)}</div>

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { EstadoVacio } from '@/components/ui/data';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 import type { FilaProveedorListado } from '@/services/statisticsService';
 
@@ -14,9 +15,12 @@ import type { FilaProveedorListado } from '@/services/statisticsService';
 export function TablaProveedores({ proveedores }: { proveedores: FilaProveedorListado[] }) {
   if (proveedores.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No hay proveedores que coincidan con los filtros aplicados.
-      </p>
+      <EstadoVacio
+        titulo="Sin proveedores coincidentes"
+        descripcion="La búsqueda acepta nombres en distinto orden. Prueba con un apellido, RUC o menos palabras."
+      >
+        <Link href="/proveedores" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todos los proveedores</Link>
+      </EstadoVacio>
     );
   }
 

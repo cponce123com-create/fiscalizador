@@ -1,7 +1,7 @@
 import { TextoCoincidente } from '@/components/publico/texto-coincidente';
 import Link from 'next/link';
 
-import { Insignia } from '@/components/ui/data';
+import { EstadoVacio, Insignia } from '@/components/ui/data';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 
 /**
@@ -33,16 +33,22 @@ export function TablaOrdenes({
 }) {
   if (ordenes.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No hay órdenes que coincidan con los filtros aplicados.
-      </p>
+      <EstadoVacio
+        titulo="Sin órdenes para estos filtros"
+        descripcion="Prueba con menos palabras, limpia algún filtro o revisa si ese periodo ya tiene libros publicados."
+      >
+        <div className="flex flex-wrap justify-center gap-2">
+          <Link href="/ordenes" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todas las órdenes</Link>
+          <Link href="/fuentes#libros" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Revisar cobertura</Link>
+        </div>
+      </EstadoVacio>
     );
   }
 
   return (
     <>
-    <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-4 sm:p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="min-w-0 flex-1 break-words font-semibold text-primary">{orden.tipo} · Orden {orden.orderNumber}</Link><span className={`tabular shrink-0 whitespace-nowrap text-right font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
+    <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-4 shadow-sm active:shadow-md sm:p-5">
+      <div className="flex items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="min-w-0 flex-1 break-words font-semibold text-primary">{orden.tipo ?? 'Orden'} · {orden.orderNumber}</Link><span className={`tabular shrink-0 whitespace-nowrap text-right text-base font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
       <p className="mt-2 text-xs text-muted-foreground">{formatearFecha(orden.issueDate)}</p>
       {mostrarProveedor ? <Link href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block break-words text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></Link> : null}
       <p className="my-3 break-words text-sm leading-relaxed"><TextoCoincidente texto={orden.description || 'Sin descripción en el libro'} consulta={consulta} /></p>

@@ -189,6 +189,18 @@ body {
   opacity: .5;
   box-shadow: none;
 }
+
+.portal-publico .tooltip-educativo {
+  min-height: 0;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+.portal-publico .tooltip-educativo:hover {
+  box-shadow: none;
+}
 @media (prefers-reduced-motion: reduce) {
   :where(button, .boton-enlace) { transition: none; }
 }

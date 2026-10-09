@@ -6,8 +6,7 @@ import { AntecedentesElectorales } from '@/components/publico/antecedentes-elect
 import { prisma } from '@/lib/prisma';
 import { datosPublicosProveedor, fuentesPublicasProveedor } from '@/lib/perfil-publico-proveedor';
 import type { Metadata } from 'next';
-import { ArrowLeft, Building2 } from 'lucide-react';
-import { Info } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -16,8 +15,11 @@ import { GraficoBarras, type BarraGrafico } from '@/components/publico/grafico-b
 import { GraficoEvolucion, type PuntoGrafico } from '@/components/publico/grafico-evolucion';
 import { Paginacion } from '@/components/publico/paginacion';
 import { TablaOrdenes } from '@/components/publico/tabla-ordenes';
+import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Aviso, Insignia } from '@/components/ui/data';
 import { Seccion } from '@/components/ui/seccion';
+import { TooltipEducativo } from '@/components/ui/tooltip-educativo';
+import { EXPLICACIONES } from '@/lib/explicaciones';
 import { leerFiltros } from '@/lib/filtros';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 import { listarOrdenes, perfilProveedor } from '@/services/statisticsService';
@@ -95,13 +97,7 @@ export default async function PaginaProveedor({
 
   return (
     <div className="flex flex-col gap-8">
-      <Link
-        href="/proveedores"
-        className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-        Todos los proveedores
-      </Link>
+      <Breadcrumbs items={[{ label: 'Proveedores', href: '/proveedores' }, { label: perfil.nombre }]} />
 
       <Compartir titulo={perfil.nombre} resumen={resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado)} ruta={`/proveedores/${encodeURIComponent(slug)}`} imagen={imagenCompartida('proveedor', slug)} />
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">
@@ -153,8 +149,8 @@ export default async function PaginaProveedor({
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-lg border border-primary/30 bg-card p-6 shadow-sm ring-1 ring-primary/15 lg:col-span-2">
-          <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" title="Suma de órdenes vigentes según el catálogo de estados. No incluye anuladas ni estados no económicos.">
-            Monto considerado <Info className="h-3.5 w-3.5" aria-hidden="true" />
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <TooltipEducativo explicacion={EXPLICACIONES.montoConsiderado}>Monto considerado</TooltipEducativo>
           </p>
           <p className="tabular mt-2 text-4xl font-semibold text-primary sm:text-5xl">
             {formatearMonto(perfil.totalConsiderado)}
@@ -166,8 +162,8 @@ export default async function PaginaProveedor({
 
         <div className="flex flex-col justify-between rounded-lg border border-border bg-card p-6 shadow-sm">
           <div>
-            <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground" title="Órdenes anuladas o que no cuentan económicamente. Se conservan para trazabilidad, pero no suman al monto considerado.">
-              Órdenes anuladas <Info className="h-3.5 w-3.5" aria-hidden="true" />
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <TooltipEducativo explicacion={EXPLICACIONES.ordenesAnuladas}>Órdenes anuladas</TooltipEducativo>
             </p>
             <p className="tabular mt-2 text-2xl font-semibold text-foreground">
               {perfil.anuladas.toLocaleString('es-PE')}

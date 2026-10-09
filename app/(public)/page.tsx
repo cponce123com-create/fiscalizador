@@ -4,6 +4,7 @@ import { Suspense, cache } from 'react';
 import { categoriasGasto } from '@/lib/categorias-gasto';
 import { gastosPorCategoriaGestion } from '@/services/categorySpendingService';
 import { GastoAlimentacion } from '@/components/publico/gasto-alimentacion';
+import { GuiaUso } from '@/components/publico/guia-uso';
 import { gastoAlimentacionPorGestion } from '@/services/foodService';
 import { PortadaPrensa } from '@/components/publico/portada-prensa';
 import { contratacionesPrensa } from '@/services/pressService';
@@ -68,6 +69,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2"><p className="flex items-center gap-2"><CalendarDays size={15} className="text-primary" aria-hidden="true" /><strong>Libros disponibles:</strong> {periodo}</p><p className="flex items-center gap-2"><Database size={15} className="text-primary" aria-hidden="true" />{resumen.mesesCargados} meses con libros vigentes</p></div>
       <div><p className="text-[10px] text-muted-foreground">Última incorporación: {ultimaActualizacion?.processingFinishedAt ? formatearFechaHora(ultimaActualizacion.processingFinishedAt) : 'Sin datos publicados'}</p><Link href="/fuentes" className={enlaceSeccion}>Ver fuentes y cobertura <ArrowRight size={13} aria-hidden="true" /></Link></div>
     </div>
+    <GuiaUso />
     {pendientes > 0 ? <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs leading-relaxed text-amber-950">{pendientes} versiones antiguas requieren revisión y están excluidas de los totales. La ausencia de información no significa gasto cero. <Link href="/fuentes" className="font-semibold underline">Consultar los periodos pendientes</Link>.</p> : null}
     <ResumenPortada resumen={resumen} />
 
