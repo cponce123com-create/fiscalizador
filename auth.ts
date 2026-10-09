@@ -1,5 +1,6 @@
 import NextAuth from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
+import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 
 import { authConfig } from '@/auth.config';
@@ -40,7 +41,15 @@ let hashSenuelo: string | null = null;
 
 async function obtenerHashSenuelo(): Promise<string> {
   if (!hashSenuelo) {
-    hashSenuelo = await hashearPassword('senuelo-para-igualar-tiempos-de-respuesta');
+    const semilla = process.env.AUTH_SECRET;
+    if (!semilla) {
+      throw new Error('AUTH_SECRET no configurado: no se puede generar hash señuelo.');
+    }
+
+    const derivada = createHmac('sha256', semilla)
+      .update('password-senuelo-determinista-v1')
+      .digest('hex');
+    hashSenuelo = await hashearPassword(derivada);
   }
   return hashSenuelo;
 }

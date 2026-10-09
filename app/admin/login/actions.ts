@@ -4,6 +4,7 @@ import { AuthError } from 'next-auth';
 import { z } from 'zod';
 
 import { signIn } from '@/auth';
+import { validarCallbackAdmin } from '@/lib/auth/callback-url';
 
 /**
  * Inicio de sesión con credenciales.
@@ -39,9 +40,7 @@ export async function iniciarSesion(
 
   // Solo se aceptan rutas internas del panel: si alguien manipula el parámetro
   // para apuntar a otro sitio, se ignora. Evita una redirección abierta.
-  const destino = formData.get('callbackUrl');
-  const callbackUrl =
-    typeof destino === 'string' && destino.startsWith('/admin') ? destino : '/admin';
+  const callbackUrl = validarCallbackAdmin(formData.get('callbackUrl'));
 
   try {
     await signIn('credentials', {

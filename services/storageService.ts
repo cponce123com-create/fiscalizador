@@ -1,4 +1,5 @@
-import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import path from 'node:path';
 
 import { env } from '@/lib/env';
@@ -49,12 +50,13 @@ export interface StorageDriver {
 const EXTENSIONES_PERMITIDAS = new Set(['.xls', '.xlsx', '.csv']);
 
 const MENSAJES_ERRNO: Record<string, string> = {
-  EACCES: 'permiso denegado',
-  ENOENT: 'la ruta no existe',
+  EACCES: 'permiso denegado en el directorio de almacenamiento',
+  ENOENT: 'el directorio de almacenamiento no existe',
   EPERM: 'operación no permitida',
   EROFS: 'el sistema de archivos es de solo lectura',
-  ENOSPC: 'no queda espacio en el disco',
-  ENOTDIR: 'la ruta pasa por un archivo y no por un directorio',
+  ENOSPC: 'no hay espacio disponible en el disco',
+  ENOTDIR: 'la ruta configurada no es un directorio',
+  EEXIST: 'ya existe un archivo con esa clave',
 };
 
 /**
@@ -68,17 +70,25 @@ const MENSAJES_ERRNO: Record<string, string> = {
  */
 export function describirFalloDeAlmacenamiento(error: unknown): string {
   if (!(error instanceof Error)) {
-    return 'error desconocido';
+    return 'fallo interno de almacenamiento';
   }
 
   const codigo = (error as NodeJS.ErrnoException).code;
 
   if (typeof codigo !== 'string' || codigo === '') {
-    return error.name;
+    return 'fallo interno de almacenamiento';
   }
 
   const descripcion = MENSAJES_ERRNO[codigo];
-  return descripcion ? `${codigo} (${descripcion})` : codigo;
+  if (!descripcion) {
+    console.error('Error de almacenamiento no catalogado:', {
+      codigo,
+      mensaje: error.message,
+    });
+    return `fallo de almacenamiento (${codigo})`;
+  }
+
+  return `${codigo}: ${descripcion}`;
 }
 
 /** Extensión en minúsculas, validada contra la lista permitida. */
@@ -157,6 +167,19 @@ export async function validarAlmacenamientoConfigurado(): Promise<void> {
     console.warn(
       `STORAGE_LOCAL_DIR apunta a ${raiz}. En Render debe estar bajo /var/data para conservar los libros originales entre despliegues.`,
     );
+  }
+}
+
+export async function existeDirectorioStorage(): Promise<boolean> {
+  if (env.STORAGE_DRIVER !== 'local') return true;
+
+  try {
+    const raiz = path.resolve(env.STORAGE_LOCAL_DIR);
+    await mkdir(raiz, { recursive: true });
+    await access(raiz, constants.R_OK | constants.W_OK);
+    return true;
+  } catch {
+    return false;
   }
 }
 
