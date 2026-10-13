@@ -25,7 +25,7 @@ playwright>=1.44.0
 # Resolutor del captcha tipo gimpy de SEACE. Licencia GPL: revísala si vas a distribuir
 # esto. Alternativa sin dependencia: `captcha.resolvedor: manual` en la configuración.
 gimpysolver==0.0.18
-Pillow>=10.0.0
+Pillow>=12.3.0
 
 # --- Configuración -----------------------------------------------------------
 # Sin PyYAML puedes usar un archivo .json, que no necesita dependencias.
