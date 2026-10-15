@@ -5,11 +5,13 @@ import Link from 'next/link';
 
 import { TarjetaCifra, Tarjeta, TarjetaContenido, TarjetaEncabezado, TarjetaTitulo } from '@/components/ui/card';
 import { Insignia } from '@/components/ui/data';
+import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import { usuarioActual } from '@/lib/auth/session';
 // Excepción deliberada a la arquitectura por capas: este panel de solo lectura consulta
 // Prisma directamente. Son consultas de presentación (contar y sumar), sin reglas de
 // negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
 import { prisma } from '@/lib/prisma';
+import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,
   formatearFechaHora,
@@ -27,26 +29,32 @@ export const metadata: Metadata = {
  * para sumarlas allí dejaría de funcionar en cuanto el portal acumule varias
  * gestiones (secciones 22 y 23 del pliego).
  */
-export default async function PaginaPanel() {
+export default async function PaginaPanel({ searchParams }: { searchParams: Promise<{ municipalidad?: string }> }) {
   const usuario = await usuarioActual();
+  const params = await searchParams;
+  const [municipalidades, municipalidad] = await Promise.all([
+    listarMunicipalidadesActivas(),
+    municipalidadActivaDesdeSlug(params.municipalidad),
+  ]);
+  const municipalityId = municipalidad.id;
 
   const [totalOrdenes, proveedores, importaciones, registrado, anulado, considerado, ultimas] =
     await Promise.all([
-      prisma.order.count(),
-      prisma.supplier.count(),
+      prisma.order.count({ where: { municipalityId } }),
+      prisma.supplier.count({ where: { orders: { some: { municipalityId } } } }),
       prisma.importBatch.count({
-        where: { status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+        where: { municipalityId, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
       }),
-      prisma.order.aggregate({ _sum: { amount: true } }),
-      prisma.order.aggregate({ where: { isCancelled: true }, _sum: { amount: true } }),
+      prisma.order.aggregate({ where: { municipalityId }, _sum: { amount: true } }),
+      prisma.order.aggregate({ where: { municipalityId, isCancelled: true }, _sum: { amount: true } }),
       // El monto considerado excluye las anuladas Y los estados que el catálogo
       // marca como que no cuentan económicamente.
       prisma.order.aggregate({
-        where: { isCancelled: false, status: { countsEconomically: true } },
+        where: { municipalityId, isCancelled: false, status: { countsEconomically: true } },
         _sum: { amount: true },
       }),
       prisma.importBatch.findMany({
-        where: { status: { in: ESTADOS_IMPORTADOS } },
+        where: { municipalityId, status: { in: ESTADOS_IMPORTADOS } },
         orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
         take: 5,
         select: {
@@ -75,6 +83,10 @@ export default async function PaginaPanel() {
         <p className="text-sm text-muted-foreground">
           Resumen de la información importada desde los libros del Portal de Transparencia.
         </p>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <SelectorMunicipalidad municipalidades={municipalidades} />
+        <p className="mt-2 text-xs text-muted-foreground">Mostrando únicamente información de {municipalidad.nombre}.</p>
       </div>
 
       {totalOrdenes === 0 ? (

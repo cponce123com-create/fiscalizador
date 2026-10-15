@@ -21,7 +21,7 @@ describe('autorización de borrado masivo', () => {
     const form = new FormData(); form.set('huella', 'a'.repeat(64)); form.set('confirmacion', 'ELIMINAR TODAS LAS IMPORTACIONES');
     const result = await accionEliminarTodasImportaciones(estado, form);
     expect(result.ok).toContain('2 importaciones'); expect(result.ok).toContain('1 archivos');
-    expect(mocks.bulk).toHaveBeenCalledWith({ userId: 'admin', huella: 'a'.repeat(64), confirmacion: 'ELIMINAR TODAS LAS IMPORTACIONES' });
+    expect(mocks.bulk).toHaveBeenCalledWith({ userId: 'admin', municipalityId: 'mun-san-ramon', huella: 'a'.repeat(64), confirmacion: 'ELIMINAR TODAS LAS IMPORTACIONES' });
     expect(mocks.revalidate).toHaveBeenCalledWith('/', 'layout');
   });
 });
