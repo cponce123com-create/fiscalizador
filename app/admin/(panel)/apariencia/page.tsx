@@ -21,8 +21,8 @@ export default async function Apariencia({ searchParams }: { searchParams: Promi
       <div className="grid gap-4 sm:grid-cols-2">
         <ImagenPortalControl municipalityId={municipalidad.id} tipo="logo" titulo="Logo del portal" descripcion="Encabezado, pie de página y portada cuando no hay fotografía. Sin personalizar, se utiliza el escudo existente." url={config.logo} />
         <ImagenPortalControl municipalityId={municipalidad.id} tipo="favicon" titulo="Favicon" descripcion="Icono de la pestaña del navegador y acceso en dispositivos móviles. Se prepara como PNG cuadrado de 256 px." url={config.favicon} />
-        <ImagenPortalControl municipalityId={municipalidad.id} tipo="portada" titulo="Fotografía de portada" descripcion="Imagen principal de la página de inicio. Usa una fotografía que tengas permiso para publicar." url={config.fotoPortada} credito={config.creditoFoto} />
-        <ImagenPortalControl municipalityId={municipalidad.id} tipo="social" titulo="Imagen para compartir enlaces" descripcion="Respaldo para compartir si no hay foto de portada. La portada tiene prioridad; se recorta esta imagen a 1200 × 630 px." url={config.imagenSocial} />
+        <ImagenPortalControl municipalityId={municipalidad.id} tipo="portada" titulo="Fotografía de portada" descripcion="Resolución ideal: 1920 × 1080 px (16:9). Se recorta automáticamente a ese formato. Usa una fotografía que tengas permiso para publicar." url={config.fotoPortada} credito={config.creditoFoto} />
+        <ImagenPortalControl municipalityId={municipalidad.id} tipo="social" titulo="Imagen para compartir enlaces" descripcion="Resolución ideal: 1200 × 630 px (1.91:1), estándar de WhatsApp y Facebook. Esta imagen tiene prioridad en la vista previa de enlaces." url={config.imagenSocial} />
       </div>
     </section>
     <div className="rounded-xl border border-border bg-card p-6"><FormularioAccion accion={guardarApariencia} etiqueta="Guardar cambios">

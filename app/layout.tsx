@@ -48,7 +48,9 @@ const metadataPorDefecto: Metadata = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await leerConfiguracionPortal();
-  const imagen = config.fotoPortada || config.imagenSocial || config.logo;
+  // La pieza social está compuesta para el recorte 1.91:1 de WhatsApp/Facebook.
+  // Solo si falta se utiliza la fotografía de portada como respaldo.
+  const imagen = config.imagenSocial || config.fotoPortada || config.logo;
   return {
     ...metadataPorDefecto,
     icons: {

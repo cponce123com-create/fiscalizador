@@ -14,6 +14,7 @@ describe('imágenes públicas de apariencia', () => {
     const favicon = await sharp(await prepararImagenPortal(await png(), 'favicon')).metadata();
     expect(favicon).toMatchObject({ format: 'png', width: 256, height: 256, hasAlpha: true });
     expect(await sharp(await prepararImagenPortal(await png(), 'social')).metadata()).toMatchObject({ format: 'png', width: 1200, height: 630 });
+    expect(await sharp(await prepararImagenPortal(await png(), 'portada')).metadata()).toMatchObject({ format: 'webp', width: 1920, height: 1080 });
     expect(await sharp(await prepararImagenPortal(await png(), 'logo')).metadata()).toMatchObject({ format: 'webp', width: 80, height: 40, hasAlpha: true });
   });
   it('rechaza SVG y archivos que exceden el límite antes de subir', async () => {

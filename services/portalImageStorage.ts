@@ -32,6 +32,7 @@ export async function prepararImagenPortal(buffer: Buffer, tipo: TipoImagenPorta
     const orientada = imagen.rotate();
     if (tipo === 'favicon') return orientada.resize(256, 256, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
     if (tipo === 'social') return orientada.resize(1200, 630, { fit: 'cover' }).png().toBuffer();
+    if (tipo === 'portada') return orientada.resize(1920, 1080, { fit: 'cover', position: 'attention', withoutEnlargement: false }).webp({ quality: 86 }).toBuffer();
     const size = tipo === 'logo' ? 768 : 1920;
     return orientada.resize({ width: size, height: size, fit: 'inside', withoutEnlargement: true }).webp({ quality: 85 }).toBuffer();
   } catch { throw new ErrorDeNegocio('Usa una imagen JPEG, PNG o WebP estática de hasta 16 millones de píxeles.'); }
