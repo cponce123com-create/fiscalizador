@@ -35,4 +35,14 @@ describe('lectura pública de la configuración', () => {
     });
     expect(await leerConfiguracionPortal()).toMatchObject({ titular: 'Titular vigente', fotoPortada: '', creditoFoto: '', logo: 'https://res.cloudinary.com/test/image/upload/logo.webp' });
   });
+  it('comparte logo y favicon globales entre municipalidades y mantiene portada municipal', async () => {
+    mocks.municipalidad.mockResolvedValue({ name: 'Municipalidad Distrital de Perené' });
+    mocks.leer.mockImplementation(async ({ where }: { where: { key: string } }) => {
+      if (where.key === 'portal-imagen-logo') return { value: { url: 'https://res.cloudinary.com/test/image/upload/logo-global.webp', publicId: null, cloud: null, credito: '' } };
+      if (where.key === 'portal-imagen-favicon') return { value: { url: 'https://res.cloudinary.com/test/image/upload/favicon-global.png', publicId: null, cloud: null, credito: '' } };
+      if (where.key === 'portal-imagen-portada:mun-perene') return { value: { url: 'https://res.cloudinary.com/test/image/upload/perene.webp', publicId: null, cloud: null, credito: 'Perené · Foto propia' } };
+      return null;
+    });
+    expect(await leerConfiguracionPortal('mun-perene')).toMatchObject({ logo: 'https://res.cloudinary.com/test/image/upload/logo-global.webp', favicon: 'https://res.cloudinary.com/test/image/upload/favicon-global.png', fotoPortada: 'https://res.cloudinary.com/test/image/upload/perene.webp' });
+  });
 });

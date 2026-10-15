@@ -5,6 +5,7 @@ import { leerConfiguracionPortal } from '@/services/portalService';
 import { ImagenPortalControl } from '@/components/admin/imagenes-portal';
 import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 export const metadata = { title: 'Apariencia y titulares' };
 export default async function Apariencia({ searchParams }: { searchParams: Promise<{ municipalidad?: string }> }) {
@@ -15,12 +16,17 @@ export default async function Apariencia({ searchParams }: { searchParams: Promi
   const campo = 'rounded-lg border border-input bg-background px-3 py-3 text-sm';
   return <div className="mx-auto max-w-3xl space-y-6">
     <div><h1 className="text-2xl font-semibold">Apariencia y titulares</h1><p className="mt-2 text-sm text-muted-foreground">Identifica la municipalidad consultada y publica un aviso en todas las páginas del portal ciudadano.</p></div>
-    <div className="rounded-xl border border-border bg-card p-4"><SelectorMunicipalidad municipalidades={municipalidades} /><p className="mt-2 text-xs text-muted-foreground">Editando la identidad de {municipalidad.nombre}.</p></div>
     <section className="space-y-4" aria-labelledby="imagenes-portal">
-      <div><h2 id="imagenes-portal" className="text-xl font-semibold">Identidad e imágenes del portal</h2><p className="mt-2 text-sm text-muted-foreground">Sube desde tu equipo. Las imágenes se alojan en Cloudinary y se publican al guardar cada tarjeta. JPEG, PNG o WebP, hasta 5 MB. Usa PNG o WebP con transparencia para el logo.</p></div>
+      <div><h2 id="imagenes-portal" className="text-xl font-semibold">Identidad general de Fiscalizador</h2><p className="mt-2 text-sm text-muted-foreground">El logo y el favicon son únicos y se muestran en todas las municipalidades. Se alojan en Cloudinary al guardar. Usa PNG o WebP, hasta 5 MB.</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <ImagenPortalControl municipalityId={municipalidad.id} tipo="logo" titulo="Logo del portal" descripcion="Encabezado, pie de página y portada cuando no hay fotografía. Sin personalizar, se utiliza el escudo existente." url={config.logo} />
-        <ImagenPortalControl municipalityId={municipalidad.id} tipo="favicon" titulo="Favicon" descripcion="Icono de la pestaña del navegador y acceso en dispositivos móviles. Se prepara como PNG cuadrado de 256 px." url={config.favicon} />
+        <ImagenPortalControl municipalityId={MUNICIPALIDAD_DEFAULT_ID} tipo="logo" titulo="Logo general del portal" descripcion="Marca única de Fiscalizador en el encabezado y pie de todas las municipalidades. Se recomienda PNG o WebP con transparencia." url={config.logo} />
+        <ImagenPortalControl municipalityId={MUNICIPALIDAD_DEFAULT_ID} tipo="favicon" titulo="Favicon general" descripcion="Icono único de Fiscalizador para pestañas y accesos móviles. Se prepara como PNG cuadrado de 256 px." url={config.favicon} />
+      </div>
+    </section>
+    <div className="rounded-xl border border-border bg-card p-4"><SelectorMunicipalidad municipalidades={municipalidades} /><p className="mt-2 text-xs text-muted-foreground">Editando portada y titulares de {municipalidad.nombre}.</p></div>
+    <section className="space-y-4" aria-labelledby="imagenes-municipales">
+      <div><h2 id="imagenes-municipales" className="text-xl font-semibold">Imágenes de {municipalidad.nombreCorto}</h2><p className="mt-2 text-sm text-muted-foreground">Estas imágenes sí cambian según la municipalidad seleccionada.</p></div>
+      <div className="grid gap-4 sm:grid-cols-2">
         <ImagenPortalControl municipalityId={municipalidad.id} tipo="portada" titulo="Fotografía de portada" descripcion="Resolución ideal: 1920 × 1080 px (16:9). Se recorta automáticamente a ese formato. Usa una fotografía que tengas permiso para publicar." url={config.fotoPortada} credito={config.creditoFoto} />
         <ImagenPortalControl municipalityId={municipalidad.id} tipo="social" titulo="Imagen para compartir enlaces" descripcion="Resolución ideal: 1200 × 630 px (1.91:1), estándar de WhatsApp y Facebook. Esta imagen tiene prioridad en la vista previa de enlaces." url={config.imagenSocial} />
       </div>
