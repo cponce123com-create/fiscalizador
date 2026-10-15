@@ -23,6 +23,7 @@ import { EXPLICACIONES } from '@/lib/explicaciones';
 import { leerFiltros } from '@/lib/filtros';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 import { listarOrdenes, perfilProveedor } from '@/services/statisticsService';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 /**
  * Perfil público de un proveedor.
@@ -35,16 +36,20 @@ import { listarOrdenes, perfilProveedor } from '@/services/statisticsService';
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
-  params,
+  params, searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const perfil = await perfilProveedor(slug);
+  const filtros = leerFiltros(await searchParams);
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const perfil = await perfilProveedor(slug, municipalityId);
 
   if (!perfil) return { title: 'Proveedor no encontrado' };
 
-  return metadataCompartida(perfil.nombre, resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), `/proveedores/${encodeURIComponent(slug)}`, imagenCompartida('proveedor', slug));
+  const sufijo = filtros.municipalidadSlug ? `?municipalidad=${filtros.municipalidadSlug}` : '';
+  return metadataCompartida(perfil.nombre, resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), `/proveedores/${encodeURIComponent(slug)}${sufijo}`, imagenCompartida('proveedor', slug, filtros.municipalidadSlug));
 }
 
 export default async function PaginaProveedor({
@@ -55,7 +60,9 @@ export default async function PaginaProveedor({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { slug } = await params;
-  const perfil = await perfilProveedor(slug);
+  const filtrosBase = leerFiltros(await searchParams);
+  const municipalityId = await idMunicipalidadDesdeSlug(filtrosBase.municipalidadSlug);
+  const perfil = await perfilProveedor(slug, municipalityId);
 
   if (!perfil) notFound();
 
@@ -66,7 +73,7 @@ export default async function PaginaProveedor({
 
   // El proveedor se fija aquí, no se toma de la URL: así el parámetro `proveedor`
   // no puede usarse para mezclar órdenes de dos proveedores en la misma pantalla.
-  const filtros = { ...leerFiltros(await searchParams), proveedorId: perfil.id };
+  const filtros = { ...filtrosBase, proveedorId: perfil.id };
   const ordenes = await listarOrdenes(filtros);
 
   // Los enlaces de paginación no repiten el identificador: ya está en la ruta.
@@ -99,7 +106,7 @@ export default async function PaginaProveedor({
     <div className="flex flex-col gap-8">
       <Breadcrumbs items={[{ label: 'Proveedores', href: '/proveedores' }, { label: perfil.nombre }]} />
 
-      <Compartir titulo={perfil.nombre} resumen={resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado)} ruta={`/proveedores/${encodeURIComponent(slug)}`} imagen={imagenCompartida('proveedor', slug)} />
+      <Compartir titulo={perfil.nombre} resumen={resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado)} ruta={`/proveedores/${encodeURIComponent(slug)}${filtrosBase.municipalidadSlug ? `?municipalidad=${filtrosBase.municipalidadSlug}` : ''}`} imagen={imagenCompartida('proveedor', slug, filtrosBase.municipalidadSlug)} />
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">
         {foto ? (
           <Image

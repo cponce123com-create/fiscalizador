@@ -49,7 +49,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
     datosPortadaInicial(gestionRanking, tipoRucRanking, municipalityId),
     prisma.importBatch.count({ where: { municipalityId, requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { municipalityId, isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
-    leerConfiguracionPortal(),
+    leerConfiguracionPortal(municipalityId),
     municipalidadActivaDesdeSlug(filtrosBase.municipalidadSlug),
   ]);
   const { resumen } = datos;

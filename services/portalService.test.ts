@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ leer: vi.fn() }));
-vi.mock('@/lib/prisma', () => ({ prisma: { appSetting: { findUnique: mocks.leer } } }));
+const mocks = vi.hoisted(() => ({ leer: vi.fn(), municipalidad: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({ prisma: { appSetting: { findUnique: mocks.leer }, municipality: { findUnique: mocks.municipalidad } } }));
 import { leerConfiguracionPortal } from './portalService';
 import { configuracionPorDefecto } from '@/lib/portal-settings';
 describe('lectura pública de la configuración', () => {
@@ -12,6 +12,13 @@ describe('lectura pública de la configuración', () => {
   it('no publica una configuración antigua o inválida', async () => {
     mocks.leer.mockResolvedValue({value: {cintaActiva: true, enlace: 'javascript:alert(1)'}});
     expect((await leerConfiguracionPortal()).cintaActiva).toBe(false);
+  });
+  it('usa claves y nombre independientes para otra municipalidad', async () => {
+    mocks.leer.mockResolvedValue(null);
+    mocks.municipalidad.mockResolvedValue({ name: 'Municipalidad Distrital de Perené' });
+    const config = await leerConfiguracionPortal('mun-perene');
+    expect(mocks.leer).toHaveBeenCalledWith({ where: { key: 'portal-ciudadano:mun-perene' } });
+    expect(config.municipio).toBe('Municipalidad Distrital de Perené');
   });
   it('devuelve el titular guardado sin datos administrativos', async () => {
     const config = {...configuracionPorDefecto(), cintaActiva: true, titular: 'Consulta las fuentes', enlace:'/fuentes'};

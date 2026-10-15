@@ -21,6 +21,7 @@ async function atender(
       month: true,
       version: true,
       importType: true,
+      municipalityId: true,
     },
   });
   if (!batch || !['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(batch.status))
@@ -96,7 +97,7 @@ async function atender(
     lineas.push(campos.map((c) => c === 'amount' ? celdaMontoCsv(valores[c] == null ? null : String(valores[c])) : celdaCsv(valores[c])).join(','));
     registros.push(valores);
   }
-  const config = await leerConfiguracionPortal();
+  const config = await leerConfiguracionPortal(batch.municipalityId);
   const excel = new URL(request.url).searchParams.get('formato') === 'xlsx';
   if (excel) return new Response(Buffer.from(extractoExcel(campos, registros)), {
     headers: {

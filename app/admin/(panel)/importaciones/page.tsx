@@ -96,7 +96,7 @@ export default async function PaginaImportaciones({
   ]);
 
   const [config, ajustes] = await Promise.all([
-    leerConfiguracionPortal(),
+    leerConfiguracionPortal(municipalidad.id),
     prisma.appSetting.findMany({ where: { key: { in: lotes.map(l => claveOriginal(l.id)) } } }),
   ]);
   const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));

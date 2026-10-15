@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 const imagenPublica = z.string().trim().max(500).default('').refine(valor => {
   if (!valor) return true;
@@ -30,6 +31,8 @@ export const esquemaPortal = z.object({
 });
 export type ConfiguracionPortal = z.infer<typeof esquemaPortal>;
 export const CLAVE_PORTAL = 'portal-ciudadano';
+export const clavePortal = (municipalityId = MUNICIPALIDAD_DEFAULT_ID) =>
+  municipalityId === MUNICIPALIDAD_DEFAULT_ID ? CLAVE_PORTAL : `${CLAVE_PORTAL}:${municipalityId}`;
 export function configuracionPorDefecto(): ConfiguracionPortal {
   return { municipio: process.env.NEXT_PUBLIC_MUNICIPALIDAD?.trim() || 'Municipalidad Distrital de San Ramón', cintaActiva: false, titular: '', enlace: '', velocidad: 'normal', fotoPortada: '', creditoFoto: '', logo: '', favicon: '', imagenSocial: '' };
 }

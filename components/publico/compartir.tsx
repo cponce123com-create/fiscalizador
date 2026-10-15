@@ -14,7 +14,10 @@ export function Compartir({ titulo, resumen, ruta, imagen }: { titulo: string; r
   async function preparar() {
     setOcupado(true); setMensaje(''); setArchivo(null);
     try {
-      const r = await fetch(imagen, { cache: 'no-store' });
+      const imagenUrl = new URL(imagen, window.location.origin);
+      const municipalidad = new URL(window.location.href).searchParams.get('municipalidad');
+      if (municipalidad && !imagenUrl.searchParams.has('municipalidad')) imagenUrl.searchParams.set('municipalidad', municipalidad);
+      const r = await fetch(imagenUrl, { cache: 'no-store' });
       if (!r.ok || !r.headers.get('content-type')?.startsWith('image/png')) throw new Error();
       const file = new File([await r.blob()], 'fiscalizador.png', { type: 'image/png' });
       setArchivo(file); setNativo(Boolean(navigator.canShare?.({ files: [file] }) && navigator.share));

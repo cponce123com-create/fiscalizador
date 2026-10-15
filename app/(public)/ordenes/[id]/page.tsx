@@ -8,7 +8,6 @@ import { formatearFecha, formatearFechaHora, formatearMonto } from '@/lib/utils'
 export const dynamic = 'force-dynamic';
 export default async function DetalleOrden({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const config = await leerConfiguracionPortal();
   const orden = await prisma.order.findUnique({
     where: { id },
     include: {
@@ -20,6 +19,7 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
   });
   if (!orden || !['COMPLETED', 'COMPLETED_WITH_WARNINGS'].includes(orden.importBatch.status))
     notFound();
+  const config = await leerConfiguracionPortal(orden.municipalityId);
   const b = orden.importBatch;
   const ocultos = await camposOcultos(b.id);
   const campos: [string, string, unknown][] = [

@@ -1,11 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Megaphone, Pause, Play } from 'lucide-react';
 import type { ConfiguracionPortal } from '@/lib/portal-settings';
 
-export function CintaTitulares({ config }: { config: ConfiguracionPortal }) {
+export function CintaTitulares({ configuraciones, slugPredeterminado }: { configuraciones: Record<string, ConfiguracionPortal>; slugPredeterminado: string }) {
   const [pausada, setPausada] = useState(false);
+  const searchParams = useSearchParams();
+  const config = configuraciones[searchParams.get('municipalidad') ?? slugPredeterminado] ?? configuraciones[slugPredeterminado];
+  if (!config) return null;
   if (!config.cintaActiva || !config.titular) return null;
   const contenido = config.enlace ? <a href={config.enlace} className="underline underline-offset-4">{config.titular}</a> : config.titular;
   return <section aria-label="Aviso del portal" className="border-b border-amber-400 bg-amber-300 text-emerald-950">
