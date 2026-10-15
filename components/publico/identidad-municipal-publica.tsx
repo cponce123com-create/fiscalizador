@@ -74,11 +74,14 @@ export function PiePublico({ configuraciones, municipalidades }: { configuracion
           </div>
         </div>
         <div className="flex flex-wrap items-start gap-4 text-sm text-emerald-100">
+          <Link href="/proyecto" className="hover:underline">Visión y reglas</Link>
+          <Link href="/privacidad" className="hover:underline">Datos personales y privacidad</Link>
           <Link href={conMunicipalidad('/fuentes', slug)} className="hover:underline">Fuentes y cobertura</Link>
           <Link href={conMunicipalidad('/metodologia', slug)} className="hover:underline">Metodología</Link>
           <Link href="/admin" className="hover:underline">Administración</Link>
         </div>
       </div>
+      <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-emerald-100/75">Fiscalizador 2026 - Todos los derechos reservados.</div>
     </footer>
   );
 }

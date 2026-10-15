@@ -9,6 +9,7 @@ import { gastoAlimentacionPorGestion } from '@/services/foodService';
 import { PortadaPrensa } from '@/components/publico/portada-prensa';
 import { contratacionesPrensa } from '@/services/pressService';
 import { BusquedaPortada } from '@/components/publico/busqueda-portada';
+import { BusquedaGlobal } from '@/components/publico/busqueda-global';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -55,11 +56,13 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
   return <div className="flex flex-col gap-5 sm:gap-7">
+    <BusquedaGlobal />
     <section className="grid items-center gap-7 lg:grid-cols-[1.15fr_1fr]" aria-labelledby="titulo-portada">
       <div>
         <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · {municipalidad.nombreCorto}</p>
-        <h1 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h1>
+        <h2 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h2>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {municipalidad.nombre.replace(/^Municipalidad /, 'municipalidad ')}.</p>
+        <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-emerald-800">Buscar solo en {municipalidad.nombreCorto}</p>
         <BusquedaPortada municipalidad={filtrosBase.municipalidadSlug} />
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={conMunicipalidad(`/ordenes?texto=${texto.toLowerCase()}`)} className="boton-enlace rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
