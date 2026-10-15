@@ -3,7 +3,8 @@ import { requierePermiso, SinPermiso } from '@/lib/auth/session';
 import { respuestaDeError } from '@/lib/api/responses';
 import { ErrorDeNegocio } from '@/lib/errors';
 import { leerFormularioLimitado } from '@/lib/formulario-limitado';
-import { claveImagenPortal, esquemaImagenPortal, esquemaTipoImagenPortal, MAX_IMAGEN_PORTAL_BYTES, type ImagenPortal } from '@/lib/portal-images';
+import { claveImagenPortal, esquemaImagenPortal, esquemaTipoImagenPortal, imagenPortalEsGlobal, MAX_IMAGEN_PORTAL_BYTES, type ImagenPortal } from '@/lib/portal-images';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 import { prisma } from '@/lib/prisma';
 import { registrarAuditoria } from '@/services/auditService';
 import { retirarImagenPortal, subirImagenPortal } from '@/services/portalImageStorage';
@@ -25,7 +26,7 @@ async function cambiar(request: Request, contexto: Contexto, borrar: boolean) {
     let municipalityId = '';
     if (!borrar) {
       const form = await leerFormularioLimitado(request, MAX_IMAGEN_PORTAL_BYTES + 64 * 1024);
-      municipalityId = await asegurarMunicipalidadActiva(String(form.get('municipalityId') ?? ''));
+      municipalityId = imagenPortalEsGlobal(tipo) ? MUNICIPALIDAD_DEFAULT_ID : await asegurarMunicipalidadActiva(String(form.get('municipalityId') ?? ''));
       const archivo = form.get('imagen');
       const credito = String(form.get('credito') ?? '').trim();
       if (!(archivo instanceof File) || !archivo.size || archivo.size > MAX_IMAGEN_PORTAL_BYTES) throw new ErrorDeNegocio('Selecciona una imagen de hasta 5 MB.');
@@ -33,7 +34,7 @@ async function cambiar(request: Request, contexto: Contexto, borrar: boolean) {
       nueva = await subirImagenPortal(Buffer.from(await archivo.arrayBuffer()), tipo);
       nueva.credito = tipo === 'portada' ? credito : '';
     } else {
-      municipalityId = await asegurarMunicipalidadActiva(new URL(request.url).searchParams.get('municipalityId'));
+      municipalityId = imagenPortalEsGlobal(tipo) ? MUNICIPALIDAD_DEFAULT_ID : await asegurarMunicipalidadActiva(new URL(request.url).searchParams.get('municipalityId'));
     }
     const key = claveImagenPortal(tipo, municipalityId);
     const imagen = nueva ?? { url: '', publicId: null, cloud: null, credito: '' };
@@ -44,7 +45,7 @@ async function cambiar(request: Request, contexto: Contexto, borrar: boolean) {
       await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${key}))`;
       const previo = await tx.appSetting.findUnique({ where: { key } });
       await tx.appSetting.upsert({ where: { key }, create: { key, value: imagen }, update: { value: imagen } });
-      await registrarAuditoria(tx, { userId: usuario.id, action: 'CHANGE_SETTINGS', entity: 'AppSetting', entityId: key, metadata: { tipo, retirada: borrar, url: imagen.url } });
+      await registrarAuditoria(tx, { userId: usuario.id, action: 'CHANGE_SETTINGS', entity: 'AppSetting', entityId: key, metadata: { tipo, alcance: imagenPortalEsGlobal(tipo) ? 'global' : 'municipal', municipalityId: imagenPortalEsGlobal(tipo) ? null : municipalityId, retirada: borrar, url: imagen.url } });
       const parsed = esquemaImagenPortal.safeParse(previo?.value);
       return parsed.success ? parsed.data : null;
     });
