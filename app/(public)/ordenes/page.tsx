@@ -53,7 +53,7 @@ export default async function PaginaOrdenes({
       <FiltrosFlotante filtros={filtros} totalResultados={resultado.total}><Filtros filtros={filtros} opciones={opciones} ruta="/ordenes" /></FiltrosFlotante>
       <Anunciador mensaje={`${resultado.total} órdenes encontradas`} />
 
-      <Link className="boton-enlace inline-flex w-fit items-center rounded-lg px-4 py-2 text-sm text-primary" href="/fuentes#libros">Descargar libros por mes</Link>
+      <Link className="boton-enlace inline-flex w-fit items-center rounded-lg px-4 py-2 text-sm text-primary" href={`${filtros.municipalidadSlug ? `/fuentes?municipalidad=${filtros.municipalidadSlug}` : '/fuentes'}#libros`}>Descargar libros por mes</Link>
       {filtros.texto && filtros.orden === 'relevancia' ? <p className="text-sm text-muted-foreground">Primero se muestran coincidencias exactas y palabras completas en la descripción; después, coincidencias parciales.</p> : null}
       <Paginacion filtros={filtros} total={resultado.total} ruta="/ordenes" />
 

@@ -17,6 +17,8 @@ import {
 import { Seccion } from '@/components/ui/seccion';
 import { formatearFechaHora, formatearMonto } from '@/lib/utils';
 import { detalleDeEtiqueta, resumenVinculos, vinculosPorEtiqueta } from '@/services/personsService';
+import { leerFiltros } from '@/lib/filtros';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,15 +42,18 @@ export const metadata: Metadata = {
  * El DNI no aparece nunca aquí: solo el nombre, lo que se afirma y de dónde sale
  * (Ley 29733 de protección de datos personales).
  */
-export default async function PaginaVinculos() {
-  const [resumen, porEtiqueta] = await Promise.all([resumenVinculos(), vinculosPorEtiqueta()]);
+export default async function PaginaVinculos({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const filtros = leerFiltros(await searchParams);
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const sufijo = filtros.municipalidadSlug ? `?municipalidad=${filtros.municipalidadSlug}` : '';
+  const [resumen, porEtiqueta] = await Promise.all([resumenVinculos({ municipalityId }), vinculosPorEtiqueta({ municipalityId })]);
 
   // Solo se pide el detalle de las etiquetas que tienen algo que mostrar.
   const conDatos = porEtiqueta.filter((etiqueta) => etiqueta.proveedores > 0);
   const detalles = await Promise.all(
     conDatos.map(async (etiqueta) => ({
       etiqueta,
-      ...(await detalleDeEtiqueta(etiqueta.tagId)),
+      ...(await detalleDeEtiqueta(etiqueta.tagId, { municipalityId })),
     })),
   );
 
@@ -184,7 +189,7 @@ export default async function PaginaVinculos() {
                     <TablaFila key={proveedor.supplierId}>
                       <TablaCelda>
                         <Link
-                          href={`/proveedores/${proveedor.slug}`}
+                          href={`/proveedores/${proveedor.slug}${sufijo}`}
                           className="font-medium underline-offset-2 hover:underline"
                         >
                           {proveedor.nombre}

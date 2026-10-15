@@ -1,4 +1,5 @@
 import { Prisma } from '@/lib/generated/prisma/client';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { catalogoPrensa } from '@/lib/prensa';
@@ -141,7 +142,7 @@ async function sujetosRegistrados(): Promise<Sujeto[]> {
   return [...mapa.values()];
 }
 
-async function proveedoresConOrdenes(): Promise<ProveedorBase[]> {
+async function proveedoresConOrdenes(municipalityId: string): Promise<ProveedorBase[]> {
   const filas = await prisma.$queryRaw<Array<{
     id: string;
     ruc: string;
@@ -166,6 +167,7 @@ async function proveedoresConOrdenes(): Promise<ProveedorBase[]> {
     FROM "Supplier" s
     JOIN "CurrentOrder" o ON o."supplierId" = s.id
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE o."municipalityId" = ${municipalityId}
     GROUP BY s.id, s.ruc, s.name, s.slug
     ORDER BY COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0) DESC, s.name ASC
   `;
@@ -183,8 +185,8 @@ async function revisionesPara(cruces: Pick<CruceComparador, 'subjectKey' | 'supp
   return new Set(filas.map(f => `${f.subjectKey}|${f.supplierId}`));
 }
 
-export async function comparadorAdmin(estado: 'todos' | 'pendientes' | 'revisados' = 'pendientes') {
-  const [sujetos, proveedores] = await Promise.all([sujetosRegistrados(), proveedoresConOrdenes()]);
+export async function comparadorAdmin(estado: 'todos' | 'pendientes' | 'revisados' = 'pendientes', municipalityId = MUNICIPALIDAD_DEFAULT_ID) {
+  const [sujetos, proveedores] = await Promise.all([sujetosRegistrados(), proveedoresConOrdenes(municipalityId)]);
   const porDni = new Map(proveedores.filter(p => p.dni).map(p => [p.dni!, p]));
   const porRuc = new Map(proveedores.map(p => [p.ruc, p]));
   const exactos: CruceComparador[] = [];

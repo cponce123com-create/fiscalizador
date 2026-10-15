@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 
 it.each([
-  ['', {}], ['?soloAnuladas=false', {}], ['?soloAnuladas=true', { isCancelled: true }],
+  ['', { municipalityId: 'mun-san-ramon' }], ['?soloAnuladas=false', { municipalityId: 'mun-san-ramon' }], ['?soloAnuladas=true', { municipalityId: 'mun-san-ramon', isCancelled: true }],
 ])('aplica el filtro booleano correctamente: %s', async (query, where) => {
   const response = await GET(new Request(`http://localhost/api/orders${query}`));
   expect(response.status).toBe(200);

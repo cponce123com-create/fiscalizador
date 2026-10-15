@@ -1,5 +1,5 @@
 import { TextoCoincidente } from '@/components/publico/texto-coincidente';
-import Link from 'next/link';
+import { EnlaceMunicipal } from './enlace-municipal';
 
 import { EstadoVacio, Insignia } from '@/components/ui/data';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
@@ -38,8 +38,8 @@ export function TablaOrdenes({
         descripcion="Prueba con menos palabras, limpia algún filtro o revisa si ese periodo ya tiene libros publicados."
       >
         <div className="flex flex-wrap justify-center gap-2">
-          <Link href="/ordenes" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todas las órdenes</Link>
-          <Link href="/fuentes#libros" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Revisar cobertura</Link>
+          <EnlaceMunicipal href="/ordenes" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todas las órdenes</EnlaceMunicipal>
+          <EnlaceMunicipal href="/fuentes#libros" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Revisar cobertura</EnlaceMunicipal>
         </div>
       </EstadoVacio>
     );
@@ -48,11 +48,11 @@ export function TablaOrdenes({
   return (
     <>
     <div className="grid gap-3 md:hidden">{ordenes.map(orden => <article key={orden.id} className="rounded-xl border border-border bg-card p-4 shadow-sm active:shadow-md sm:p-5">
-      <div className="flex items-start justify-between gap-3"><Link href={`/ordenes/${orden.id}`} className="min-w-0 flex-1 break-words font-semibold text-primary">{orden.tipo ?? 'Orden'} · {orden.orderNumber}</Link><span className={`tabular shrink-0 whitespace-nowrap text-right text-base font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
+      <div className="flex items-start justify-between gap-3"><EnlaceMunicipal href={`/ordenes/${orden.id}`} className="min-w-0 flex-1 break-words font-semibold text-primary">{orden.tipo ?? 'Orden'} · {orden.orderNumber}</EnlaceMunicipal><span className={`tabular shrink-0 whitespace-nowrap text-right text-base font-semibold ${orden.isCancelled ? 'text-muted-foreground line-through' : ''}`}>{formatearMonto(orden.amount)}</span></div>
       <p className="mt-2 text-xs text-muted-foreground">{formatearFecha(orden.issueDate)}</p>
-      {mostrarProveedor ? <Link href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block break-words text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></Link> : null}
+      {mostrarProveedor ? <EnlaceMunicipal href={`/proveedores/${orden.proveedorSlug}`} className="mt-3 block break-words text-sm font-medium">{orden.proveedor}<span className="block text-xs text-muted-foreground">RUC {orden.ruc}</span></EnlaceMunicipal> : null}
       <p className="my-3 break-words text-sm leading-relaxed"><TextoCoincidente texto={orden.description || 'Sin descripción en el libro'} consulta={consulta} /></p>
-      <div className="flex flex-wrap items-center justify-between gap-3"><Insignia tono={orden.isCancelled ? 'error' : 'neutro'}>{orden.estado ?? 'Estado no informado'}{orden.isCancelled ? ' · no suma' : ''}</Insignia><Link href={`/ordenes/${orden.id}`} className="text-sm font-medium text-primary underline underline-offset-4">Ver detalle y fuente</Link></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Insignia tono={orden.isCancelled ? 'error' : 'neutro'}>{orden.estado ?? 'Estado no informado'}{orden.isCancelled ? ' · no suma' : ''}</Insignia><EnlaceMunicipal href={`/ordenes/${orden.id}`} className="text-sm font-medium text-primary underline underline-offset-4">Ver detalle y fuente</EnlaceMunicipal></div>
     </article>)}</div>
     <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm"><caption className="sr-only">Órdenes registradas y sus montos</caption>
@@ -89,7 +89,7 @@ export function TablaOrdenes({
               </td>
 
               <td className="px-3 py-2.5">
-                <Link href={`/ordenes/${orden.id}`} className="font-medium underline underline-offset-2">{orden.orderNumber}</Link>
+                <EnlaceMunicipal href={`/ordenes/${orden.id}`} className="font-medium underline underline-offset-2">{orden.orderNumber}</EnlaceMunicipal>
                 {orden.tipo ? (
                   <span className="ml-2 text-xs text-muted-foreground">{orden.tipo}</span>
                 ) : null}
@@ -97,13 +97,13 @@ export function TablaOrdenes({
 
               {mostrarProveedor ? (
                 <td className="max-w-[15rem] px-3 py-2.5">
-                  <Link
+                  <EnlaceMunicipal
                     href={`/proveedores/${orden.proveedorSlug}`}
                     className="line-clamp-2 hover:underline"
                     title={orden.proveedor}
                   >
                     {orden.proveedor}
-                  </Link>
+                  </EnlaceMunicipal>
                   <span className="tabular block text-xs text-muted-foreground">{orden.ruc}</span>
                 </td>
               ) : null}

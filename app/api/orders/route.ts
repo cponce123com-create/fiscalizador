@@ -6,6 +6,7 @@ import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import type { Prisma } from '@/lib/generated/prisma/client';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 
 /**
  * Consulta de órdenes, paginada y ordenada EN EL SERVIDOR.
@@ -31,6 +32,7 @@ const paramsSchema = z.object({
   soloAnuladas: z.enum(['true', 'false']).transform((valor) => valor === 'true').optional(),
   orderBy: z.enum(['issueDate', 'amount', 'orderNumber']).default('issueDate'),
   dir: z.enum(['asc', 'desc']).default('desc'),
+  municipalidad: z.string().trim().max(80).regex(/^[a-z0-9-]+$/).optional(),
 });
 
 export async function GET(request: Request): Promise<Response> {
@@ -44,10 +46,11 @@ export async function GET(request: Request): Promise<Response> {
       throw new ErrorDeNegocio('Parámetros de consulta inválidos.');
     }
 
-    const { page, pageSize, q, statusId, managementPeriodId, soloAnuladas, orderBy, dir } =
+    const { page, pageSize, q, statusId, managementPeriodId, soloAnuladas, orderBy, dir, municipalidad } =
       parsed.data;
 
-    const where: Prisma.OrderWhereInput = {};
+    const municipalityId = await idMunicipalidadDesdeSlug(municipalidad);
+    const where: Prisma.OrderWhereInput = { municipalityId };
 
     if (statusId) where.statusId = statusId;
     if (managementPeriodId) where.managementPeriodId = managementPeriodId;

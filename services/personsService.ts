@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { contextoDePeticion, registrarAuditoria, type ClienteDb } from '@/services/auditService';
 import { slugify } from '@/services/normalization';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 /**
  * Personas señaladas por la administración y sus vínculos con proveedores.
@@ -382,7 +383,8 @@ export async function proveedoresVinculados(personaId: string): Promise<Proveedo
  */
 export async function vinculosPorEtiqueta({
   soloPublicas = true,
-}: { soloPublicas?: boolean } = {}): Promise<VinculoPorEtiqueta[]> {
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+}: { soloPublicas?: boolean; municipalityId?: string } = {}): Promise<VinculoPorEtiqueta[]> {
   const filas = await prisma.$queryRaw<
     Array<{
       tagId: string;
@@ -404,6 +406,7 @@ export async function vinculosPorEtiqueta({
         ) AS considerado
       FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."municipalityId" = ${municipalityId}
       GROUP BY o."supplierId"
     ),
     vinculos AS (
@@ -412,14 +415,16 @@ export async function vinculosPorEtiqueta({
       FROM "Person" p
       JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
       JOIN "Supplier" s ON s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
-      WHERE ${soloPublicas} = false OR p."isPublic" = true
+      WHERE (${soloPublicas} = false OR p."isPublic" = true)
+        AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = s.id AND co."municipalityId" = ${municipalityId})
       UNION
       -- Declarados a mano por la administración.
       SELECT pt."tagId" AS "tagId", p.id AS "personId", l."supplierId" AS "supplierId"
       FROM "PersonSupplierLink" l
       JOIN "Person" p ON p.id = l."personId"
       JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
-      WHERE ${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)
+      WHERE (${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL))
+        AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = l."supplierId" AND co."municipalityId" = ${municipalityId})
     ),
     resumen AS (
       SELECT
@@ -467,7 +472,8 @@ export async function vinculosPorEtiqueta({
 /** Totales de la sección entera, sin contar dos veces un proveedor compartido. */
 export async function resumenVinculos({
   soloPublicas = true,
-}: { soloPublicas?: boolean } = {}): Promise<ResumenVinculos> {
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+}: { soloPublicas?: boolean; municipalityId?: string } = {}): Promise<ResumenVinculos> {
   const filas = await prisma.$queryRaw<
     Array<{ personas: number; proveedores: number; ordenes: number; considerado: string }>
   >`
@@ -481,18 +487,21 @@ export async function resumenVinculos({
         ) AS considerado
       FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      WHERE o."municipalityId" = ${municipalityId}
       GROUP BY o."supplierId"
     ),
     vinculos AS (
       SELECT p.id AS "personId", s.id AS "supplierId"
       FROM "Person" p
       JOIN "Supplier" s ON s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
-      WHERE ${soloPublicas} = false OR p."isPublic" = true
+      WHERE (${soloPublicas} = false OR p."isPublic" = true)
+        AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = s.id AND co."municipalityId" = ${municipalityId})
       UNION
       SELECT l."personId" AS "personId", l."supplierId" AS "supplierId"
       FROM "PersonSupplierLink" l
       JOIN "Person" p ON p.id = l."personId"
-      WHERE ${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)
+      WHERE (${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL))
+        AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = l."supplierId" AND co."municipalityId" = ${municipalityId})
     )
     SELECT
       (SELECT COUNT(DISTINCT "personId") FROM vinculos)::int AS personas,
@@ -520,7 +529,7 @@ export async function resumenVinculos({
  * el DNI con el RUC de las personas naturales, y persistirlo obligaría a resincronizarlo
  * en cada importación.
  */
-async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean): Promise<string[]> {
+async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean, municipalityId: string): Promise<string[]> {
   const filas = await prisma.$queryRaw<Array<{ personId: string }>>`
     SELECT DISTINCT p.id AS "personId"
     FROM "Person" p
@@ -531,8 +540,9 @@ async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean): Pr
         EXISTS (
           SELECT 1 FROM "Supplier" s
           WHERE s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
+            AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = s.id AND co."municipalityId" = ${municipalityId})
         )
-        OR EXISTS (SELECT 1 FROM "PersonSupplierLink" l WHERE l."personId" = p.id AND (${soloPublicas} = false OR (l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)))
+        OR EXISTS (SELECT 1 FROM "PersonSupplierLink" l WHERE l."personId" = p.id AND (${soloPublicas} = false OR (l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL)) AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = l."supplierId" AND co."municipalityId" = ${municipalityId}))
       )
   `;
 
@@ -553,10 +563,10 @@ async function idsDePersonasConVinculo(tagId: string, soloPublicas: boolean): Pr
  */
 export async function detalleDeEtiqueta(
   tagId: string,
-  { soloPublicas = true }: { soloPublicas?: boolean } = {},
+  { soloPublicas = true, municipalityId = MUNICIPALIDAD_DEFAULT_ID }: { soloPublicas?: boolean; municipalityId?: string } = {},
 ): Promise<{ personas: PersonaSenalada[]; proveedores: FilaVinculoProveedor[] }> {
   const [idsConVinculo, filas] = await Promise.all([
-    idsDePersonasConVinculo(tagId, soloPublicas),
+    idsDePersonasConVinculo(tagId, soloPublicas, municipalityId),
     prisma.$queryRaw<
       Array<{
         supplierId: string;
@@ -580,6 +590,7 @@ export async function detalleDeEtiqueta(
           ) AS considerado
         FROM "CurrentOrder" o
         LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+        WHERE o."municipalityId" = ${municipalityId}
         GROUP BY o."supplierId"
       ),
       vinculos AS (
@@ -588,12 +599,14 @@ export async function detalleDeEtiqueta(
         JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
         JOIN "Supplier" s ON s."rucPrefix" = '10' AND substring(s.ruc FROM 3 FOR 8) = p.dni
         WHERE pt."tagId" = ${tagId} AND (${soloPublicas} = false OR p."isPublic" = true)
+          AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = s.id AND co."municipalityId" = ${municipalityId})
         UNION
         SELECT p.id AS "personId", l."supplierId" AS "supplierId", 'declarado' AS origen
         FROM "PersonSupplierLink" l
         JOIN "Person" p ON p.id = l."personId"
         JOIN "PersonTagOnPerson" pt ON pt."personId" = p.id
         WHERE pt."tagId" = ${tagId} AND (${soloPublicas} = false OR (p."isPublic" = true AND l."sourceUrl" IS NOT NULL AND l."verifiedAt" IS NOT NULL))
+          AND EXISTS (SELECT 1 FROM "CurrentOrder" co WHERE co."supplierId" = l."supplierId" AND co."municipalityId" = ${municipalityId})
       )
       SELECT
         s.id AS "supplierId",

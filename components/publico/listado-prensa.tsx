@@ -4,8 +4,11 @@ import { useState } from 'react';
 import type { ContratacionPrensa } from '@/lib/prensa';
 import { palabrasBusqueda } from '@/lib/busqueda-ordenes';
 import { TarjetaPrensa } from './tarjeta-prensa';
+import { useSearchParams } from 'next/navigation';
 
 export function ListadoPrensa({ filas }: { filas: ContratacionPrensa[] }) {
+  const searchParams = useSearchParams();
+  const municipalidad = searchParams.get('municipalidad');
   const [texto, setTexto] = useState('');
   const [soloConOrdenes, setSoloConOrdenes] = useState(false);
   const palabras = palabrasBusqueda(texto);
@@ -16,6 +19,6 @@ export function ListadoPrensa({ filas }: { filas: ContratacionPrensa[] }) {
       <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={soloConOrdenes} onChange={evento => setSoloConOrdenes(evento.target.checked)} />Solo con órdenes publicadas</label>
     </div>
     <p role="status" aria-live="polite" className="text-xs text-muted-foreground">{visibles.length} de {filas.length} personas y medios del listado.</p>
-    {visibles.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{visibles.map(f => <TarjetaPrensa key={f.ruc} fila={f} />)}</div> : <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No hay coincidencias con esta búsqueda.</p>}
+    {visibles.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{visibles.map(f => <TarjetaPrensa key={f.ruc} fila={f} municipalidad={municipalidad} />)}</div> : <p className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">No hay coincidencias con esta búsqueda.</p>}
   </div>;
 }

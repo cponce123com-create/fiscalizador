@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { EnlaceMunicipal } from './enlace-municipal';
 
 import { EstadoVacio } from '@/components/ui/data';
 import { formatearMonto } from '@/lib/utils';
@@ -18,13 +18,13 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
         titulo="Sin proveedores en este ranking"
         descripcion="Cambia la gestión, el tipo de RUC o limpia la búsqueda para volver a comparar."
       >
-        <Link href="/ranking" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Restablecer ranking</Link>
+        <EnlaceMunicipal href="/ranking" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Restablecer ranking</EnlaceMunicipal>
       </EstadoVacio>
     );
   }
 
   return (
-    <><div className="grid gap-3 md:hidden">{filas.map(f => <article key={f.supplierId} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex gap-3"><FotoProveedor key={f.fotoUrl} url={f.fotoUrl} nombre={f.nombre} /><div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground">Puesto {f.posicion} · {f.peso}% del monto considerado</p><Link href={`/proveedores/${f.slug}`} className="mt-2 block break-words font-semibold text-primary">{f.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {f.ruc} · {f.ordenes} órdenes{f.anuladas ? ` · ${f.anuladas} anuladas` : ''}</p></div></div><dl className="mt-4 grid gap-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Considerado</dt><dd className="tabular font-semibold">{formatearMonto(f.considerado)}</dd></div></dl><Link href={`/proveedores/${f.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Consultar proveedor</Link></article>)}</div>
+    <><div className="grid gap-3 md:hidden">{filas.map(f => <article key={f.supplierId} className="min-w-0 rounded-xl border border-border bg-card p-4"><div className="flex gap-3"><FotoProveedor key={f.fotoUrl} url={f.fotoUrl} nombre={f.nombre} /><div className="min-w-0 flex-1"><p className="text-xs text-muted-foreground">Puesto {f.posicion} · {f.peso}% del monto considerado</p><EnlaceMunicipal href={`/proveedores/${f.slug}`} className="mt-2 block break-words font-semibold text-primary">{f.nombre}</EnlaceMunicipal><p className="mt-1 text-xs text-muted-foreground">RUC {f.ruc} · {f.ordenes} órdenes{f.anuladas ? ` · ${f.anuladas} anuladas` : ''}</p></div></div><dl className="mt-4 grid gap-2 text-sm"><div className="flex flex-wrap justify-between gap-2"><dt className="text-muted-foreground">Considerado</dt><dd className="tabular font-semibold">{formatearMonto(f.considerado)}</dd></div></dl><EnlaceMunicipal href={`/proveedores/${f.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Consultar proveedor</EnlaceMunicipal></article>)}</div>
     <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
@@ -58,13 +58,13 @@ export function TablaRanking({ filas }: { filas: FilaRankingCompleto[] }) {
                 <div className="flex items-start gap-3">
                   <FotoProveedor key={fila.fotoUrl} url={fila.fotoUrl} nombre={fila.nombre} />
                   <div className="min-w-0">
-                    <Link
+                    <EnlaceMunicipal
                       href={`/proveedores/${fila.slug}`}
                       className="line-clamp-2 font-medium hover:underline"
                       title={fila.nombre}
                     >
                       {fila.nombre}
-                    </Link>
+                    </EnlaceMunicipal>
                     <span className="tabular block text-xs text-muted-foreground">{fila.ruc}</span>
                   </div>
                 </div>
