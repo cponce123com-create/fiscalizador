@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { accionEliminarImportacion, accionPublicarOriginal, accionEliminarTodasImportaciones } from '@/app/admin/importaciones/actions';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
+import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import { Aviso, EstadoVacio, Insignia, Tabla, TablaCelda, TablaCeldaEncabezado, TablaCuerpo, TablaEncabezado, TablaFila } from '@/components/ui/data';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
@@ -16,6 +17,7 @@ import { leerConfiguracionPortal } from '@/services/portalService';
 import { claveOriginal, esOriginalPublicado } from '@/services/bookPublicationService';
 import { CONFIRMACION_BORRADO_MASIVO, resumenBorradoImportaciones } from '@/services/bulkImportDeletionService';
 import { prisma } from '@/lib/prisma';
+import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 import {
   ETIQUETAS_ESTADO_IMPORTACION,
   ETIQUETAS_TIPO_IMPORTACION,
@@ -40,7 +42,7 @@ const TONO_POR_ESTADO: Record<string, 'exito' | 'advertencia' | 'error' | 'neutr
 export default async function PaginaImportaciones({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string }>;
+  searchParams: Promise<{ page?: string; municipalidad?: string }>;
 }) {
   const usuario = await usuarioActual();
 
@@ -54,12 +56,17 @@ export default async function PaginaImportaciones({
 
   const puedeEscribir = puede(usuario.role, 'imports:write');
 
-  const { page } = await searchParams;
+  const { page, municipalidad: slugMunicipalidad } = await searchParams;
+  const [municipalidades, municipalidad] = await Promise.all([
+    listarMunicipalidadesActivas(),
+    municipalidadActivaDesdeSlug(slugMunicipalidad),
+  ]);
   const pagina = Math.max(1, Number(page ?? '1') || 1);
+  const whereLotes = { municipalityId: municipalidad.id, status: { in: ESTADOS_IMPORTADOS } };
 
   const [lotes, total] = await Promise.all([
     prisma.importBatch.findMany({
-      where: { status: { in: ESTADOS_IMPORTADOS } },
+      where: whereLotes,
       orderBy: [{ year: 'desc' }, { month: 'desc' }, { version: 'desc' }],
       skip: (pagina - 1) * POR_PAGINA,
       take: POR_PAGINA,
@@ -85,7 +92,7 @@ export default async function PaginaImportaciones({
         _count: { select: { orders: true } },
       },
     }),
-    prisma.importBatch.count({ where: { status: { in: ESTADOS_IMPORTADOS } } }),
+    prisma.importBatch.count({ where: whereLotes }),
   ]);
 
   const [config, ajustes] = await Promise.all([
@@ -93,7 +100,7 @@ export default async function PaginaImportaciones({
     prisma.appSetting.findMany({ where: { key: { in: lotes.map(l => claveOriginal(l.id)) } } }),
   ]);
   const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));
-  const borrado = puedeEscribir ? await resumenBorradoImportaciones() : null;
+  const borrado = puedeEscribir ? await resumenBorradoImportaciones(municipalidad.id) : null;
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   return (
@@ -104,6 +111,10 @@ export default async function PaginaImportaciones({
           Historial de libros importados. Los análisis previos no aparecen aquí: un libro se incorpora
           cuando confirmas la importación y termina correctamente. Las eliminaciones quedan en la auditoría.
         </p>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-4">
+        <SelectorMunicipalidad municipalidades={municipalidades} />
+        <p className="mt-2 text-xs text-muted-foreground">El historial y las acciones corresponden únicamente a {municipalidad.nombre}.</p>
       </div>
 
       {puedeEscribir ? (
@@ -117,10 +128,11 @@ export default async function PaginaImportaciones({
 
       {borrado && borrado.lotes > 0 ? (
         <details className="rounded-lg border border-destructive/40 bg-card p-4">
-          <summary className="cursor-pointer font-medium text-destructive">Eliminar todas las importaciones</summary>
-          <p className="my-3 text-sm">Se eliminarán {borrado.lotes} archivos de todos los periodos (libros importados y preparaciones privadas), sus {borrado.ordenes} órdenes, columnas, hallazgos, resúmenes y archivos originales. Se conservan los proveedores y sus perfiles, fotos y vínculos. No se puede deshacer.</p>
+          <summary className="cursor-pointer font-medium text-destructive">Eliminar todas las importaciones de {municipalidad.nombreCorto}</summary>
+          <p className="my-3 text-sm">Se eliminarán {borrado.lotes} archivos de esta municipalidad, sus {borrado.ordenes} órdenes, columnas, hallazgos, resúmenes y archivos originales. Las demás municipalidades no se modificarán. Se conservan los proveedores y sus perfiles, fotos y vínculos. No se puede deshacer.</p>
           <FormularioAccion key={borrado.huella} accion={accionEliminarTodasImportaciones} etiqueta="Eliminar todas las importaciones" variante="destructive" confirmar={`¿Eliminar definitivamente ${borrado.lotes} importaciones y ${borrado.ordenes} órdenes?`}>
             <input type="hidden" name="huella" value={borrado.huella} />
+            <input type="hidden" name="municipalityId" value={municipalidad.id} />
             <label className="flex max-w-xl flex-col gap-2 text-sm">Para confirmar, escribe {CONFIRMACION_BORRADO_MASIVO}<input required name="confirmacion" autoComplete="off" className="h-10 rounded-md border border-input bg-background px-3" /></label>
           </FormularioAccion>
         </details>
@@ -281,7 +293,7 @@ export default async function PaginaImportaciones({
           <div className="flex items-center gap-2">
             {pagina > 1 ? (
               <Link
-                href={`/admin/importaciones?page=${pagina - 1}`}
+                href={`/admin/importaciones?page=${pagina - 1}${municipalidad.slug === 'san-ramon' ? '' : `&municipalidad=${municipalidad.slug}`}`}
                 className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
               >
                 Anterior
@@ -290,7 +302,7 @@ export default async function PaginaImportaciones({
 
             {pagina < totalPaginas ? (
               <Link
-                href={`/admin/importaciones?page=${pagina + 1}`}
+                href={`/admin/importaciones?page=${pagina + 1}${municipalidad.slug === 'san-ramon' ? '' : `&municipalidad=${municipalidad.slug}`}`}
                 className="boton-enlace inline-flex h-9 items-center rounded-md border border-border bg-card px-4 text-sm font-medium hover:bg-muted"
               >
                 Siguiente

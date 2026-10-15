@@ -11,6 +11,7 @@ import { registrarAuditoria } from '@/services/auditService';
 import { claveOriginal, leerOriginalVerificado, tieneColumnasPrivadas } from '@/services/bookPublicationService';
 import { eliminarTodasImportaciones } from '@/services/bulkImportDeletionService';
 import { eliminarImportacion } from '@/services/importService';
+import { asegurarMunicipalidadActiva } from '@/services/municipalityService';
 
 /**
  * Eliminar una importación.
@@ -98,8 +99,9 @@ export async function accionPublicarOriginal(
 export async function accionEliminarTodasImportaciones(_estado: EstadoFormulario, formData: FormData): Promise<EstadoFormulario> {
   try {
     const usuario = await requierePermiso('imports:write');
+    const municipalityId = await asegurarMunicipalidadActiva(texto(formData.get('municipalityId')));
     const huella = z.string().regex(/^[a-f0-9]{64}$/).parse(texto(formData.get('huella')));
-    const resultado = await eliminarTodasImportaciones({ userId: usuario.id, huella, confirmacion: texto(formData.get('confirmacion')) });
+    const resultado = await eliminarTodasImportaciones({ userId: usuario.id, municipalityId, huella, confirmacion: texto(formData.get('confirmacion')) });
     revalidatePath('/', 'layout');
     return { error: null, ok: `${resultado.lotes} importaciones y ${resultado.ordenes} órdenes eliminadas. Se conservaron los proveedores, perfiles, fotos y vínculos.${resultado.archivosPendientes ? ` No se pudieron retirar ${resultado.archivosPendientes} archivos del almacenamiento; revisa los originales antes de volver a cargar.` : ''}` };
   } catch (error) { return { error: mensajeDeErrorDeAccion(error), ok: null }; }

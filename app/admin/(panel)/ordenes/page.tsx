@@ -6,6 +6,7 @@ import { ListOrdered, Search } from 'lucide-react';
 import Link from 'next/link';
 
 import { Boton } from '@/components/ui/button';
+import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import {
   Aviso,
   EstadoVacio,
@@ -26,6 +27,7 @@ import { usuarioActual } from '@/lib/auth/session';
 // de negocio que reutilizar; en cuanto haya lógica que compartir, se mueve a `services/`.
 import { prisma } from '@/lib/prisma';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
+import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 
 export const metadata: Metadata = {
   title: 'Órdenes',
@@ -40,6 +42,7 @@ function esCampoOrden(valor: string | undefined): valor is CampoOrden {
 }
 
 type Filtros = {
+  municipalidad: string;
   q: string;
   orderBy: CampoOrden;
   dir: 'asc' | 'desc';
@@ -48,6 +51,7 @@ type Filtros = {
 
 function enlaceConPagina(filtros: Filtros, pagina: number): string {
   const params = new URLSearchParams();
+  if (filtros.municipalidad !== 'san-ramon') params.set('municipalidad', filtros.municipalidad);
   if (filtros.q) params.set('q', filtros.q);
   params.set('orderBy', filtros.orderBy);
   params.set('dir', filtros.dir);
@@ -65,7 +69,7 @@ function enlaceConPagina(filtros: Filtros, pagina: number): string {
 export default async function PaginaOrdenes({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string; orderBy?: string; dir?: string; soloAnuladas?: string }>;
+  searchParams: Promise<{ page?: string; q?: string; orderBy?: string; dir?: string; soloAnuladas?: string; municipalidad?: string }>;
 }) {
   const usuario = await usuarioActual();
 
@@ -78,8 +82,13 @@ export default async function PaginaOrdenes({
   }
 
   const params = await searchParams;
+  const [municipalidades, municipalidad] = await Promise.all([
+    listarMunicipalidadesActivas(),
+    municipalidadActivaDesdeSlug(params.municipalidad),
+  ]);
 
   const filtros: Filtros = {
+    municipalidad: municipalidad.slug,
     q: (params.q ?? '').trim().slice(0, 100),
     orderBy: esCampoOrden(params.orderBy) ? params.orderBy : 'issueDate',
     dir: params.dir === 'asc' ? 'asc' : 'desc',
@@ -88,7 +97,7 @@ export default async function PaginaOrdenes({
 
   const pagina = Math.max(1, Number(params.page ?? '1') || 1);
 
-  const where: Prisma.OrderWhereInput = {};
+  const where: Prisma.OrderWhereInput = { municipalityId: municipalidad.id };
 
   if (filtros.soloAnuladas) where.isCancelled = true;
 
@@ -136,6 +145,7 @@ export default async function PaginaOrdenes({
           Órdenes de compra y de servicio importadas de los libros del Portal de Transparencia.
         </p>
       </div>
+      <div className="rounded-xl border border-border bg-card p-4"><SelectorMunicipalidad municipalidades={municipalidades} /></div>
 
       <BusquedaEnVivo ruta="/admin/ordenes" consulta={enlaceConPagina(filtros, 1).split('?')[1] ?? ''} className="flex flex-wrap items-end gap-4">
         <div className="flex min-w-[16rem] flex-1 flex-col gap-1.5">
@@ -184,7 +194,7 @@ export default async function PaginaOrdenes({
 
         {filtros.q || filtros.soloAnuladas ? (
           <Link
-            href="/admin/ordenes"
+            href={municipalidad.slug === 'san-ramon' ? '/admin/ordenes' : `/admin/ordenes?municipalidad=${municipalidad.slug}`}
             className="boton-enlace inline-flex h-9 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             Limpiar

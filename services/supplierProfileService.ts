@@ -5,9 +5,10 @@ import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { dniDesdeRuc, esquemaPerfilProveedor, type DatosPerfilProveedor } from '@/lib/supplier-profile';
 import { registrarAuditoria } from '@/services/auditService';
 
-export async function listarPerfilesProveedores(q = '', tipo = '', page = '1') {
+export async function listarPerfilesProveedores(q = '', tipo = '', page = '1', municipalityId?: string) {
   const texto = q.trim().slice(0, 100);
   const where: Prisma.SupplierWhereInput = {
+    ...(municipalityId ? { orders: { some: { municipalityId } } } : {}),
     ...(tipo === '10' || tipo === '20' ? { ruc: { startsWith: tipo } } : {}),
     ...(texto ? { OR: [
       buscarNombreProveedor(texto),
@@ -20,7 +21,7 @@ export async function listarPerfilesProveedores(q = '', tipo = '', page = '1') {
   const numero = Number(page);
   const pagina = Math.min(paginas, Number.isSafeInteger(numero) && numero > 0 ? numero : 1);
   const proveedores = await prisma.supplier.findMany({ where, orderBy: [{ name: 'asc' }, { id: 'asc' }], take: 20, skip: (pagina - 1) * 20,
-    select: { id: true, name: true, ruc: true, profile: { select: { id: true } }, _count: { select: { orders: true } } },
+    select: { id: true, name: true, ruc: true, profile: { select: { id: true } }, _count: { select: { orders: municipalityId ? { where: { municipalityId } } : true } } },
   });
   return { proveedores, total, pagina, paginas };
 }

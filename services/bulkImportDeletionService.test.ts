@@ -4,7 +4,7 @@ vi.mock('@/lib/prisma', () => ({ prisma: { importBatch: { findMany: mocks.batche
 vi.mock('@/services/storageService', () => ({ getStorage: () => ({ remove: mocks.remove }) }));
 import { CONFIRMACION_BORRADO_MASIVO, eliminarTodasImportaciones, huellaImportaciones } from './bulkImportDeletionService';
 const lote = { id: 'lote', updatedAt: new Date('2026-01-01'), status: 'COMPLETED', processingStartedAt: new Date(), storageKey: 'original' };
-const datos = () => ({ userId: 'admin', confirmacion: CONFIRMACION_BORRADO_MASIVO, huella: huellaImportaciones([lote]) });
+const datos = () => ({ userId: 'admin', municipalityId: 'mun-san-ramon', confirmacion: CONFIRMACION_BORRADO_MASIVO, huella: huellaImportaciones([lote]) });
 describe('borrado masivo de importaciones', () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -29,7 +29,8 @@ describe('borrado masivo de importaciones', () => {
   it('limpia resúmenes/publicación y audita sin borrar proveedores ni perfiles', async () => {
     const resultado = await eliminarTodasImportaciones(datos());
     expect(resultado).toEqual({ lotes: 1, ordenes: 12, archivosPendientes: 0 });
-    expect(mocks.deleteSummaries).toHaveBeenCalledWith({});
+    expect(mocks.batches).toHaveBeenCalledWith(expect.objectContaining({ where: { municipalityId: 'mun-san-ramon' } }));
+    expect(mocks.deleteSummaries).toHaveBeenCalledWith({ where: { municipalityId: 'mun-san-ramon' } });
     expect(mocks.deleteSettings).toHaveBeenCalledWith({ where: { key: { in: ['libro-original-publico:lote'] } } });
     expect(mocks.deleteBatches).toHaveBeenCalledWith({ where: { id: { in: ['lote'] } } });
     expect(mocks.audit).toHaveBeenCalled();
