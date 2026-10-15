@@ -6,8 +6,8 @@ import { useRouter } from 'next/navigation';
 import { ImagePlus, Upload, Trash2 } from 'lucide-react';
 import { MAX_IMAGEN_PORTAL_BYTES, type TipoImagenPortal } from '@/lib/portal-images';
 
-export function ImagenPortalControl({ tipo, titulo, descripcion, url, credito = '' }: {
-  tipo: TipoImagenPortal; titulo: string; descripcion: string; url: string; credito?: string;
+export function ImagenPortalControl({ municipalityId, tipo, titulo, descripcion, url, credito = '' }: {
+  municipalityId: string; tipo: TipoImagenPortal; titulo: string; descripcion: string; url: string; credito?: string;
 }) {
   const router = useRouter();
   const archivo = useRef<HTMLInputElement>(null);
@@ -25,7 +25,9 @@ export function ImagenPortalControl({ tipo, titulo, descripcion, url, credito = 
       const form = new FormData();
       if (foto) form.set('imagen', foto);
       form.set('credito', creditoActual);
-      const response = await fetch(`/api/admin/apariencia/imagenes/${tipo}`, { method: borrar ? 'DELETE' : 'POST', body: borrar ? undefined : form });
+      form.set('municipalityId', municipalityId);
+      const ruta = `/api/admin/apariencia/imagenes/${tipo}${borrar ? `?municipalityId=${encodeURIComponent(municipalityId)}` : ''}`;
+      const response = await fetch(ruta, { method: borrar ? 'DELETE' : 'POST', body: borrar ? undefined : form });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'No se pudo guardar la imagen.');
       setMensaje(data.aviso ?? (borrar ? 'Imagen retirada.' : 'Imagen publicada en el portal.'));

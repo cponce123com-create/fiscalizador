@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 export const TIPOS_IMAGEN_PORTAL = ['logo', 'favicon', 'portada', 'social'] as const;
 export const esquemaTipoImagenPortal = z.enum(TIPOS_IMAGEN_PORTAL);
 export type TipoImagenPortal = z.infer<typeof esquemaTipoImagenPortal>;
 export const MAX_IMAGEN_PORTAL_BYTES = 5 * 1024 * 1024;
-export const claveImagenPortal = (tipo: TipoImagenPortal) => `portal-imagen-${tipo}`;
+export const claveImagenPortal = (tipo: TipoImagenPortal, municipalityId = MUNICIPALIDAD_DEFAULT_ID) =>
+  municipalityId === MUNICIPALIDAD_DEFAULT_ID ? `portal-imagen-${tipo}` : `portal-imagen-${tipo}:${municipalityId}`;
 export const esquemaImagenPortal = z.object({
   url: z.string().max(500).refine(valor => {
     if (!valor) return true;

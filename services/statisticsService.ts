@@ -1028,7 +1028,7 @@ export type PerfilProveedor = {
  * porque es lo que la sección 14 del pliego exige dejar claro: una orden anulada
  * existe y se muestra, pero no suma.
  */
-export async function perfilProveedor(slug: string): Promise<PerfilProveedor | null> {
+export async function perfilProveedor(slug: string, municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<PerfilProveedor | null> {
   const proveedor = await prisma.supplier.findUnique({
     where: { slug },
     select: { id: true, ruc: true, name: true, slug: true, supplierType: true, photoUrl: true },
@@ -1061,7 +1061,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
         to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima
       FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE o."supplierId" = ${proveedor.id}
+      WHERE o."supplierId" = ${proveedor.id} AND o."municipalityId" = ${municipalityId}
     `,
     prisma.$queryRaw<Array<{ etiqueta: string; ordenes: number; considerado: string }>>`
       SELECT
@@ -1074,7 +1074,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
       FROM "CurrentOrder" o
       JOIN "ManagementPeriod" g ON g.id = o."managementPeriodId"
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE o."supplierId" = ${proveedor.id}
+      WHERE o."supplierId" = ${proveedor.id} AND o."municipalityId" = ${municipalityId}
       GROUP BY g.name
       ORDER BY g.name
     `,
@@ -1088,7 +1088,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
         )::text AS considerado
       FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
+      WHERE o."supplierId" = ${proveedor.id} AND o."municipalityId" = ${municipalityId} AND o."issueDate" IS NOT NULL
       GROUP BY 1
       ORDER BY 1
     `,
@@ -1102,7 +1102,7 @@ export async function perfilProveedor(slug: string): Promise<PerfilProveedor | n
         )::text AS considerado
       FROM "CurrentOrder" o
       LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      WHERE o."supplierId" = ${proveedor.id} AND o."issueDate" IS NOT NULL
+      WHERE o."supplierId" = ${proveedor.id} AND o."municipalityId" = ${municipalityId} AND o."issueDate" IS NOT NULL
       GROUP BY 1
       ORDER BY 1
     `,

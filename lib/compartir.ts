@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import type { GastoAlimentacionGestion } from './alimentacion';
 import { formatearMonto } from './utils';
 
-export function imagenCompartida(tipo: 'gasto' | 'proveedor' | 'estadistica', id: string) {
-  return `/api/public/compartir/${tipo}/${encodeURIComponent(id)}?v=2`;
+export function imagenCompartida(tipo: 'gasto' | 'proveedor' | 'estadistica', id: string, municipalidadSlug?: string | null) {
+  const municipio = municipalidadSlug && municipalidadSlug !== 'san-ramon' ? `&municipalidad=${encodeURIComponent(municipalidadSlug)}` : '';
+  return `/api/public/compartir/${tipo}/${encodeURIComponent(id)}?v=2${municipio}`;
 }
 export function textoCompartido(titulo: string, resumen: string, url: string) {
   return `📊 *${titulo}*\n\n${resumen}\n\n🔎 *Explora las órdenes y sus fuentes*\n${url}`;

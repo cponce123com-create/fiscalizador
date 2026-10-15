@@ -4,11 +4,11 @@ import { renderizarTarjeta } from '@/services/shareImageService';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export async function GET(_request: Request, { params }: { params: Promise<{ tipo: string; id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ tipo: string; id: string }> }) {
   return peticionPublicaLimitada('image', async () => {
     try {
       const { tipo, id } = await params;
-      const tarjeta = await prepararTarjetaPublica(tipo, id);
+      const tarjeta = await prepararTarjetaPublica(tipo, id, new URL(request.url).searchParams.get('municipalidad'));
       if (!tarjeta) return new Response(null, { status: 404, headers: { 'Cache-Control': 'no-store' } });
       // Materializa el PNG dentro del límite de concurrencia (ImageResponse transmite de forma diferida).
       const imagen = renderizarTarjeta(tarjeta);

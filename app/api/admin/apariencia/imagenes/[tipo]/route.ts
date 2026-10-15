@@ -7,6 +7,7 @@ import { claveImagenPortal, esquemaImagenPortal, esquemaTipoImagenPortal, MAX_IM
 import { prisma } from '@/lib/prisma';
 import { registrarAuditoria } from '@/services/auditService';
 import { retirarImagenPortal, subirImagenPortal } from '@/services/portalImageStorage';
+import { asegurarMunicipalidadActiva } from '@/services/municipalityService';
 
 export const runtime = 'nodejs';
 type Contexto = { params: Promise<{ tipo: string }> };
@@ -21,16 +22,20 @@ async function cambiar(request: Request, contexto: Contexto, borrar: boolean) {
     const tipoValidado = esquemaTipoImagenPortal.safeParse((await contexto.params).tipo);
     if (!tipoValidado.success) throw new ErrorDeNegocio('Tipo de imagen no válido.');
     const tipo = tipoValidado.data;
+    let municipalityId = '';
     if (!borrar) {
       const form = await leerFormularioLimitado(request, MAX_IMAGEN_PORTAL_BYTES + 64 * 1024);
+      municipalityId = await asegurarMunicipalidadActiva(String(form.get('municipalityId') ?? ''));
       const archivo = form.get('imagen');
       const credito = String(form.get('credito') ?? '').trim();
       if (!(archivo instanceof File) || !archivo.size || archivo.size > MAX_IMAGEN_PORTAL_BYTES) throw new ErrorDeNegocio('Selecciona una imagen de hasta 5 MB.');
       if (credito.length > 180 || (tipo === 'portada' && !credito)) throw new ErrorDeNegocio('Indica el lugar y el crédito de la fotografía (hasta 180 caracteres).');
       nueva = await subirImagenPortal(Buffer.from(await archivo.arrayBuffer()), tipo);
       nueva.credito = tipo === 'portada' ? credito : '';
+    } else {
+      municipalityId = await asegurarMunicipalidadActiva(new URL(request.url).searchParams.get('municipalityId'));
     }
-    const key = claveImagenPortal(tipo);
+    const key = claveImagenPortal(tipo, municipalityId);
     const imagen = nueva ?? { url: '', publicId: null, cloud: null, credito: '' };
     const anterior = await prisma.$transaction(async tx => {
       // Serializa sustituciones de una misma imagen; los titulares se guardan por separado.

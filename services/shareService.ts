@@ -13,6 +13,7 @@ import { gastosPorCategoriaGestion } from './categorySpendingService';
 import { leerConfiguracionPortal } from './portalService';
 import { leerFotoPrivada } from './privatePhotoStorage';
 import type { TarjetaCompartida } from './shareImageService';
+import { idMunicipalidadDesdeSlug } from './municipalityService';
 
 const ESTADISTICAS_COMPARTIBLES: Record<string, { titulo: string; ventana: VentanaEstadistica; grupo?: '10' | '20' | 'otros'; ruta: string }> = {
   'ruc-10': { titulo: 'RUC 10 · personas naturales', ventana: 'gestion', grupo: '10', ruta: '/estadisticas#por-ruc' },
@@ -31,27 +32,29 @@ function agruparEstadistica(filas: EstadisticaEtapa[], ventana: VentanaEstadisti
   });
 }
 
-export const prepararTarjetaPublica = cache(async (tipo: string, id: string): Promise<TarjetaCompartida | null> => {
+export const prepararTarjetaPublica = cache(async (tipo: string, id: string, municipalidadSlug?: string | null): Promise<TarjetaCompartida | null> => {
   if (id.length > 180 || !/^[a-zA-Z0-9_-]+$/.test(id)) return null;
   const base = urlDelSitio();
+  const municipalityId = await idMunicipalidadDesdeSlug(municipalidadSlug);
+  const sufijoMunicipalidad = municipalidadSlug && municipalidadSlug !== 'san-ramon' ? `?municipalidad=${encodeURIComponent(municipalidadSlug)}` : '';
   if (tipo === 'gasto') {
     const categoria = id === 'alimentacion' ? null : categoriaGastoPorId(id);
     if (!categoria && id !== 'alimentacion') return null;
-    const filas = id === 'alimentacion' ? await gastoAlimentacionPorGestion() : (await gastosPorCategoriaGestion()).filter(f => f.categoria === id);
-    const config = await leerConfiguracionPortal();
-    return { titulo: categoria?.titulo ?? 'Gastos en alimentación', resumen: resumenGastos(filas), ruta: `${base}${id === 'alimentacion' ? '/alimentacion' : `/gastos/${id}`}`, municipio: config.municipio, filas };
+    const filas = id === 'alimentacion' ? await gastoAlimentacionPorGestion(municipalityId) : (await gastosPorCategoriaGestion(municipalityId)).filter(f => f.categoria === id);
+    const config = await leerConfiguracionPortal(municipalityId);
+    return { titulo: categoria?.titulo ?? 'Gastos en alimentación', resumen: resumenGastos(filas), ruta: `${base}${id === 'alimentacion' ? '/alimentacion' : `/gastos/${id}`}${sufijoMunicipalidad}`, municipio: config.municipio, filas };
   }
   if (tipo === 'estadistica') {
     const definicion = ESTADISTICAS_COMPARTIBLES[id];
     if (!definicion) return null;
-    const [filas, config] = await Promise.all([estadisticasPorEtapa(), leerConfiguracionPortal()]);
+    const [filas, config] = await Promise.all([estadisticasPorEtapa(municipalityId), leerConfiguracionPortal(municipalityId)]);
     const agrupadas = agruparEstadistica(filas, definicion.ventana, definicion.grupo);
-    return { titulo: definicion.titulo, resumen: resumenGastos(agrupadas), ruta: `${base}${definicion.ruta}`, municipio: config.municipio, filas: agrupadas };
+    return { titulo: definicion.titulo, resumen: resumenGastos(agrupadas), ruta: `${base}${definicion.ruta}${sufijoMunicipalidad}`, municipio: config.municipio, filas: agrupadas };
   }
   if (tipo !== 'proveedor') return null;
-  const perfil = await perfilProveedor(id);
+  const perfil = await perfilProveedor(id, municipalityId);
   if (!perfil) return null;
-  const [config, ficha] = await Promise.all([leerConfiguracionPortal(), prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { isPublic: true, publication: true, photoKey: true } })]);
+  const [config, ficha] = await Promise.all([leerConfiguracionPortal(municipalityId), prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { isPublic: true, publication: true, photoKey: true } })]);
   let foto: string | undefined;
   if (ficha?.photoKey && datoProveedorPublicado(ficha, 'foto')) {
     try {
@@ -60,5 +63,5 @@ export const prepararTarjetaPublica = cache(async (tipo: string, id: string): Pr
       foto = `data:image/png;base64,${png.toString('base64')}`;
     } catch { /* El perfil sigue siendo compartible sin fotografía. */ }
   }
-  return { titulo: perfil.nombre, resumen: resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), municipio: config.municipio, ruta: `${base}/proveedores/${encodeURIComponent(id)}`, filas: [], foto, proveedor: { monto: perfil.totalConsiderado, ordenes: perfil.ordenes } };
+  return { titulo: perfil.nombre, resumen: resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), municipio: config.municipio, ruta: `${base}/proveedores/${encodeURIComponent(id)}${sufijoMunicipalidad}`, filas: [], foto, proveedor: { monto: perfil.totalConsiderado, ordenes: perfil.ordenes } };
 });

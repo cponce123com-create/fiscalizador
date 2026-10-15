@@ -9,12 +9,14 @@ import { listarFuentesLibros, type FiltrosLibros } from '@/services/sourceBooksS
 import { claveOriginal, esOriginalPublicado } from '@/services/bookPublicationService';
 import { prisma } from '@/lib/prisma';
 import { formatearFechaHora } from '@/lib/utils';
+import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Fuentes y cobertura' };
 
 export default async function Fuentes({ searchParams }: { searchParams: Promise<FiltrosLibros> }) {
   const params = await searchParams;
-  const [datos, config] = await Promise.all([listarFuentesLibros(params), leerConfiguracionPortal()]);
+  const municipalityId = await idMunicipalidadDesdeSlug(params.municipalidad);
+  const [datos, config] = await Promise.all([listarFuentesLibros(params), leerConfiguracionPortal(municipalityId)]);
   const { inventario, lotes, total, pagina, totalPaginas, filtros } = datos;
   const ajustes = await prisma.appSetting.findMany({ where: { key: { in: lotes.filter(libroImportado).map(l => claveOriginal(l.id)) } } });
   const publicados = new Set(ajustes.filter(a => esOriginalPublicado(a.value)).map(a => a.key));
