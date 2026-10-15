@@ -9,8 +9,8 @@ import { POST, DELETE } from './route';
 import { SinPermiso } from '@/lib/auth/session';
 import { ErrorDeNegocio } from '@/lib/errors';
 const imagen = { url: 'https://res.cloudinary.com/test/image/upload/logo.webp', publicId: 'fiscalizador/portal/01234567-0123-0123-0123-012345678901', cloud: 'test', credito: '' };
-function request(tipo = 'logo', origin = 'https://portal.test', credito = '') {
-  const form = new FormData(); form.set('imagen', new File(['imagen'], 'foto.png', { type: 'image/png' })); form.set('credito', credito);
+function request(tipo = 'logo', origin = 'https://portal.test', credito = '', municipalityId = '') {
+  const form = new FormData(); form.set('imagen', new File(['imagen'], 'foto.png', { type: 'image/png' })); form.set('credito', credito); form.set('municipalityId', municipalityId);
   return new Request(`https://portal.test/api/admin/apariencia/imagenes/${tipo}`, { method: 'POST', headers: { origin }, body: form });
 }
 const contexto = (tipo = 'logo') => ({ params: Promise.resolve({ tipo }) });
@@ -40,6 +40,12 @@ describe('administración de imágenes del portal', () => {
     expect(mocks.audit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ userId: 'superadmin', entityId: 'portal-imagen-portada' }));
     expect(mocks.retirar).toHaveBeenCalledWith(anterior);
     expect(mocks.refresh).toHaveBeenCalledWith('/', 'layout');
+  });
+  it('guarda logo y favicon con clave global aunque el formulario provenga de otra municipalidad', async () => {
+    const response = await POST(request('logo', 'https://portal.test', '', 'mun-perene'), contexto('logo'));
+    expect(response.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { key: 'portal-imagen-logo' } }));
+    expect(mocks.audit).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ entityId: 'portal-imagen-logo', metadata: expect.objectContaining({ alcance: 'global', municipalityId: null }) }));
   });
   it('retira el recurso nuevo si el guardado falla, conservando la referencia anterior', async () => {
     mocks.upsert.mockRejectedValueOnce(new ErrorDeNegocio('No se pudo guardar'));
