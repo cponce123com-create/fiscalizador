@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { EnlaceMunicipal } from './enlace-municipal';
 
 import { EstadoVacio } from '@/components/ui/data';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
@@ -19,13 +19,13 @@ export function TablaProveedores({ proveedores }: { proveedores: FilaProveedorLi
         titulo="Sin proveedores coincidentes"
         descripcion="La búsqueda acepta nombres en distinto orden. Prueba con un apellido, RUC o menos palabras."
       >
-        <Link href="/proveedores" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todos los proveedores</Link>
+        <EnlaceMunicipal href="/proveedores" className="boton-enlace rounded-lg px-4 py-2 text-sm text-primary">Ver todos los proveedores</EnlaceMunicipal>
       </EstadoVacio>
     );
   }
 
   return (
-    <><div className="grid gap-3 md:hidden">{proveedores.map(p => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><Link href={`/proveedores/${p.slug}`} className="block break-words text-base font-semibold text-primary">{p.nombre}</Link><p className="mt-1 text-xs text-muted-foreground">RUC {p.ruc} · {p.tipo}</p><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Monto considerado</dt><dd className="tabular break-words font-semibold">{formatearMonto(p.considerado)}</dd></div><div><dt className="text-xs text-muted-foreground">Órdenes</dt><dd>{p.ordenes.toLocaleString('es-PE')}</dd></div><div><dt className="text-xs text-muted-foreground">Primera aparición</dt><dd>{p.primeraAparicion ? formatearFecha(p.primeraAparicion) : '—'}</dd></div><div><dt className="text-xs text-muted-foreground">Última aparición</dt><dd>{p.ultimaAparicion ? formatearFecha(p.ultimaAparicion) : '—'}</dd></div></dl><Link href={`/proveedores/${p.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Ver perfil y órdenes</Link></article>)}</div>
+    <><div className="grid gap-3 md:hidden">{proveedores.map(p => <article key={p.id} className="min-w-0 rounded-xl border border-border bg-card p-4"><EnlaceMunicipal href={`/proveedores/${p.slug}`} className="block break-words text-base font-semibold text-primary">{p.nombre}</EnlaceMunicipal><p className="mt-1 text-xs text-muted-foreground">RUC {p.ruc} · {p.tipo}</p><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Monto considerado</dt><dd className="tabular break-words font-semibold">{formatearMonto(p.considerado)}</dd></div><div><dt className="text-xs text-muted-foreground">Órdenes</dt><dd>{p.ordenes.toLocaleString('es-PE')}</dd></div><div><dt className="text-xs text-muted-foreground">Primera aparición</dt><dd>{p.primeraAparicion ? formatearFecha(p.primeraAparicion) : '—'}</dd></div><div><dt className="text-xs text-muted-foreground">Última aparición</dt><dd>{p.ultimaAparicion ? formatearFecha(p.ultimaAparicion) : '—'}</dd></div></dl><EnlaceMunicipal href={`/proveedores/${p.slug}`} className="mt-3 inline-flex min-h-11 items-center text-sm text-primary underline">Ver perfil y órdenes</EnlaceMunicipal></article>)}</div>
     <div className="hidden md:block overflow-x-auto rounded-lg border border-border bg-card">
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
@@ -55,13 +55,13 @@ export function TablaProveedores({ proveedores }: { proveedores: FilaProveedorLi
           {proveedores.map((proveedor) => (
             <tr key={proveedor.id} className="border-t border-border align-top">
               <td className="max-w-[22rem] px-3 py-2.5">
-                <Link
+                <EnlaceMunicipal
                   href={`/proveedores/${proveedor.slug}`}
                   className="line-clamp-2 font-medium hover:underline"
                   title={proveedor.nombre}
                 >
                   {proveedor.nombre}
-                </Link>
+                </EnlaceMunicipal>
                 <span className="tabular block text-xs text-muted-foreground">{proveedor.ruc}</span>
               </td>
 

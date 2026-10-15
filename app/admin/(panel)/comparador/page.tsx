@@ -7,6 +7,8 @@ import { requierePermiso } from '@/lib/auth/session';
 import { formatearFecha, formatearMonto } from '@/lib/utils';
 import { comparadorAdmin, type CruceComparador } from '@/services/comparatorService';
 import { EstadoVacio, Insignia } from '@/components/ui/data';
+import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
+import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 
 export const dynamic = 'force-dynamic';
 export const metadata = { title: 'Comparador' };
@@ -22,7 +24,9 @@ export default async function ComparadorAdmin({ searchParams }: { searchParams: 
   const usuario = await requierePermiso('persons:read');
   const params = await searchParams;
   const estado = leerEstado(params.estado);
-  const datos = await comparadorAdmin(estado);
+  const slugMunicipalidad = Array.isArray(params.municipalidad) ? params.municipalidad[0] : params.municipalidad;
+  const [municipalidades, municipalidad] = await Promise.all([listarMunicipalidadesActivas(), municipalidadActivaDesdeSlug(slugMunicipalidad)]);
+  const datos = await comparadorAdmin(estado, municipalidad.id);
   const editable = puede(usuario.role, 'persons:write');
 
   return (
@@ -39,6 +43,7 @@ export default async function ComparadorAdmin({ searchParams }: { searchParams: 
           coincidencias por apellidos son solo alertas para revisión manual.
         </p>
       </header>
+      <div className="rounded-xl border border-border bg-card p-4"><SelectorMunicipalidad municipalidades={municipalidades} /><p className="mt-2 text-xs text-muted-foreground">Los cruces y montos corresponden únicamente a {municipalidad.nombre}.</p></div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Tarjeta etiqueta="Personas evaluadas" valor={datos.totales.sujetos} />
@@ -56,7 +61,7 @@ export default async function ComparadorAdmin({ searchParams }: { searchParams: 
         ].map(([valor, etiqueta]) => (
           <Link
             key={valor}
-            href={`/admin/comparador?estado=${valor}`}
+            href={`/admin/comparador?estado=${valor}${municipalidad.slug === 'san-ramon' ? '' : `&municipalidad=${municipalidad.slug}`}`}
             aria-current={estado === valor ? 'page' : undefined}
             className={`rounded-lg border px-4 py-2 text-sm font-medium ${estado === valor ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted'}`}
           >

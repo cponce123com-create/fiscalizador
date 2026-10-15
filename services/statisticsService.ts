@@ -278,7 +278,7 @@ export type FilaGestion = {
   considerado: string;
 };
 
-export async function gastoPorGestion(): Promise<FilaGestion[]> {
+export async function gastoPorGestion(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaGestion[]> {
   const filas = await prisma.$queryRaw<
     Array<{ gestion: string; ordenes: number; proveedores: number; considerado: string }>
   >`
@@ -291,7 +291,7 @@ export async function gastoPorGestion(): Promise<FilaGestion[]> {
         0
       )::text AS considerado
     FROM "ManagementPeriod" g
-    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id
+    LEFT JOIN "CurrentOrder" o ON o."managementPeriodId" = g.id AND o."municipalityId" = ${municipalityId}
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     GROUP BY g.name
     ORDER BY g.name
@@ -497,7 +497,7 @@ export type FilaContratacion = {
   considerado: string;
 };
 
-export async function tiposContratacion(limite = 8): Promise<FilaContratacion[]> {
+export async function tiposContratacion(limite = 8, municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaContratacion[]> {
   const filas = await prisma.$queryRaw<
     Array<{ etiqueta: string; ordenes: number; registrado: string; considerado: string }>
   >`
@@ -512,6 +512,7 @@ export async function tiposContratacion(limite = 8): Promise<FilaContratacion[]>
     FROM "CurrentOrder" o
     LEFT JOIN "ContractType" c ON c.id = o."contractTypeId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE o."municipalityId" = ${municipalityId}
     GROUP BY 1
     ORDER BY COALESCE(SUM(o.amount), 0) DESC
     LIMIT ${limite}
@@ -537,7 +538,7 @@ export type FilaTipoOrden = {
   considerado: string;
 };
 
-export async function repartoPorTipoOrden(): Promise<FilaTipoOrden[]> {
+export async function repartoPorTipoOrden(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaTipoOrden[]> {
   const filas = await prisma.$queryRaw<
     Array<{ codigo: string; etiqueta: string; ordenes: number; registrado: string; considerado: string }>
   >`
@@ -553,6 +554,7 @@ export async function repartoPorTipoOrden(): Promise<FilaTipoOrden[]> {
     FROM "CurrentOrder" o
     LEFT JOIN "OrderType" t ON t.id = o."orderTypeId"
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE o."municipalityId" = ${municipalityId}
     GROUP BY 1, 2
     ORDER BY COALESCE(SUM(o.amount), 0) DESC
   `;
@@ -640,17 +642,17 @@ export type DatosPortada = {
  * Las consultas se lanzan en paralelo: son independientes entre sí y en serie
  * sumarían latencia sin motivo.
  */
-export async function datosPortada(gestionRanking: string | null = null): Promise<DatosPortada> {
+export async function datosPortada(gestionRanking: string | null = null, municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<DatosPortada> {
   const [resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos] =
     await Promise.all([
-      resumenGeneral(),
-      rankingProveedores(10, gestionRanking),
-      evolucionMensual(),
-      evolucionAnual(),
-      gastoPorGestion(),
-      tiposContratacion(6),
-      repartoPorTipoOrden(),
-      ultimosRegistros(8),
+      resumenGeneral(municipalityId),
+      rankingProveedores(10, gestionRanking, null, municipalityId),
+      evolucionMensual(municipalityId),
+      evolucionAnual(municipalityId),
+      gastoPorGestion(municipalityId),
+      tiposContratacion(6, municipalityId),
+      repartoPorTipoOrden(municipalityId),
+      ultimosRegistros(8, municipalityId),
     ]);
 
   return { resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos };

@@ -126,7 +126,7 @@ export default async function PaginaEstadisticas({
                 {formatearMonto(concentracion.totalConsiderado)}
               </span>
               . El detalle proveedor a proveedor está en el{' '}
-              <a href="/ranking" className="underline underline-offset-2 hover:text-foreground">
+              <a href={filtros.municipalidadSlug ? `/ranking?municipalidad=${filtros.municipalidadSlug}` : '/ranking'} className="underline underline-offset-2 hover:text-foreground">
                 ranking
               </a>
               .

@@ -11,7 +11,7 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
   const orden = await prisma.order.findUnique({
     where: { id },
     include: {
-      importBatch: true,
+      importBatch: { include: { municipality: { select: { slug: true } } } },
       supplier: true,
       status: true,
       orderType: true,
@@ -21,6 +21,7 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
     notFound();
   const config = await leerConfiguracionPortal(orden.municipalityId);
   const b = orden.importBatch;
+  const sufijoMunicipalidad = b.municipality.slug === 'san-ramon' ? '' : `?municipalidad=${b.municipality.slug}`;
   const ocultos = await camposOcultos(b.id);
   const campos: [string, string, unknown][] = [
     ['orderNumber', 'Número', orden.orderNumber],
@@ -67,7 +68,7 @@ export default async function DetalleOrden({ params }: { params: Promise<{ id: s
         Libro: {tituloLibro(b, config.municipio)}
       </p>
       <p className="break-all text-xs">SHA-256 del original: {b.checksum}</p>
-      <Link id="fuente-orden" className="boton-enlace scroll-mt-6 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground" href={`/fuentes#${b.id}`}>
+      <Link id="fuente-orden" className="boton-enlace scroll-mt-6 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground" href={`/fuentes${sufijoMunicipalidad}#${b.id}`}>
         Ver fuente, cobertura y descargar extracto
       </Link>
       <p>

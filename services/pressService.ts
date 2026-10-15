@@ -2,9 +2,10 @@ import { Prisma } from '@/lib/generated/prisma/client';
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { catalogoPrensa, posicionPrensa, type ResumenPrensa } from '@/lib/prensa';
+import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 
 /** Un cruce por RUC exacto; no fusiona homónimos ni atribuye órdenes de empresas a personas. */
-export async function contratacionesPrensa(catalogo: readonly { ruc: string; nombre: string }[] = catalogoPrensa): Promise<ResumenPrensa> {
+export async function contratacionesPrensa(catalogo: readonly { ruc: string; nombre: string }[] = catalogoPrensa, municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<ResumenPrensa> {
   if (!catalogo.length) return { filas: [], conOrdenes: 0, ordenes: 0, considerado: '0.00' };
   const rucs = [...new Set(catalogo.map(p => p.ruc))];
   const agregados = await prisma.$queryRaw<Array<{
@@ -22,7 +23,7 @@ export async function contratacionesPrensa(catalogo: readonly { ruc: string; nom
       to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima,
       CASE WHEN EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL AND p."isPublic" = true AND p.publication->'foto'->>'enabled' = 'true' AND p.publication->'foto'->>'verifiedAt' IS NOT NULL)
         THEN '/api/public/proveedores/' || s.id || '/foto?v=' || (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id) ELSE NULL END AS "fotoUrl"
-    FROM "Supplier" s LEFT JOIN "CurrentOrder" o ON o."supplierId" = s.id
+    FROM "Supplier" s LEFT JOIN "CurrentOrder" o ON o."supplierId" = s.id AND o."municipalityId" = ${municipalityId}
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
     WHERE s.ruc IN (${Prisma.join(rucs)})
     GROUP BY s.id, s.ruc, s.name, s.slug
