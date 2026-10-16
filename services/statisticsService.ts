@@ -800,6 +800,9 @@ export async function listarOrdenes(
   const where = await construirWhereOrdenes(filtros);
 
   const select = { id: true, orderNumber: true, issueDate: true, description: true, amount: true, ruc: true, isCancelled: true, orderType: { select: { code: true } }, status: { select: { label: true } }, supplier: { select: { name: true, slug: true } } } as const;
+  if (filtros.texto && filtros.orden === 'relevancia' && palabrasBusqueda(filtros.texto).length) {
+    return listarOrdenesConTextoCompleto(filtros);
+  }
   const grupos = filtros.texto && filtros.orden === 'relevancia' ? gruposBusquedaOrdenes(filtros.texto, where) : [where];
   const conteos = await Promise.all(grupos.map(where => prisma.order.count({ where })));
   const total = conteos.reduce((suma, n) => suma + n, 0);
@@ -825,6 +828,110 @@ export async function listarOrdenes(
     pagina,
     porPagina: filtros.porPagina,
     totalPaginas: Math.max(1, Math.ceil(total / filtros.porPagina)),
+  };
+}
+
+type FilaOrdenTextoCompleto = {
+  id: string;
+  orderNumber: string;
+  issueDate: Date | null;
+  description: string | null;
+  amount: string | null;
+  ruc: string;
+  isCancelled: boolean;
+  tipo: string | null;
+  estado: string | null;
+  proveedor: string;
+  proveedorSlug: string;
+};
+
+/**
+ * Búsqueda híbrida indexada para órdenes.
+ *
+ * Full Text Search resuelve conceptos y frases en `descriptionSearch`; las
+ * coincidencias de identidad (orden, SIAF, RUC y proveedor) conservan prioridad.
+ * Se ejecutan solo un conteo y una consulta de página, en lugar de contar cada
+ * nivel de relevancia por separado.
+ */
+async function listarOrdenesConTextoCompleto(filtros: Filtros): Promise<ResultadoPaginado<FilaOrdenListado>> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const texto = filtros.texto!;
+  const palabras = palabrasBusqueda(texto);
+  const consulta = palabras.join(' ');
+  const normalizado = palabras.join(' ');
+  const digitos = texto.replace(/\D/g, '');
+  const rango = rangoDeFechas(filtros);
+  const condiciones: Prisma.Sql[] = [Prisma.sql`o."municipalityId" = ${municipalityId}`];
+
+  if (rango) condiciones.push(Prisma.sql`o."issueDate" >= ${rango.gte} AND o."issueDate" < ${rango.lt}`);
+  if (filtros.mes !== null && filtros.anio === null) condiciones.push(Prisma.sql`EXTRACT(MONTH FROM o."issueDate") = ${filtros.mes}`);
+  if (filtros.gestionId) condiciones.push(Prisma.sql`o."managementPeriodId" = ${filtros.gestionId}`);
+  if (filtros.tipoOrdenId) condiciones.push(Prisma.sql`o."orderTypeId" = ${filtros.tipoOrdenId}`);
+  if (filtros.estadoId) condiciones.push(Prisma.sql`o."statusId" = ${filtros.estadoId}`);
+  if (filtros.proveedorId) condiciones.push(Prisma.sql`o."supplierId" = ${filtros.proveedorId}`);
+  if (filtros.tipoRuc) condiciones.push(Prisma.sql`s."rucPrefix" = ${filtros.tipoRuc}`);
+
+  const palabrasProveedor = Prisma.sql`NOT EXISTS (
+    SELECT 1 FROM unnest(${palabras}::text[]) AS buscada(palabra)
+    WHERE s."normalizedName" NOT ILIKE '%' || buscada.palabra || '%'
+  )`;
+  const descripcionParcial = Prisma.sql`NOT EXISTS (
+    SELECT 1 FROM unnest(${palabras}::text[]) AS buscada(palabra)
+    WHERE coalesce(o."descriptionSearch", '') NOT ILIKE '%' || buscada.palabra || '%'
+  )`;
+  const coincideTexto = Prisma.sql`(
+    lower(o."orderNumber") = lower(${texto})
+    OR lower(coalesce(o."siafNumber", '')) = lower(${texto})
+    OR o.ruc = ${digitos}
+    OR s."normalizedName" = ${normalizado}
+    OR ${palabrasProveedor}
+    OR to_tsvector('simple', coalesce(o."descriptionSearch", '')) @@ websearch_to_tsquery('simple', ${consulta})
+    OR ${descripcionParcial}
+  )`;
+  condiciones.push(coincideTexto);
+  const donde = Prisma.join(condiciones, ' AND ');
+
+  const totalFilas = await prisma.$queryRaw<Array<{ total: number }>>`
+    SELECT COUNT(*)::int AS total
+    FROM "CurrentOrder" o
+    JOIN "Supplier" s ON s.id = o."supplierId"
+    WHERE ${donde}
+  `;
+  const total = aNumero(totalFilas[0]?.total);
+  const totalPaginas = Math.max(1, Math.ceil(total / filtros.porPagina));
+  const pagina = Math.min(filtros.pagina, totalPaginas);
+  const offset = (pagina - 1) * filtros.porPagina;
+
+  const filas = await prisma.$queryRaw<FilaOrdenTextoCompleto[]>`
+    SELECT o.id, o."orderNumber", o."issueDate", o.description,
+      o.amount::text AS amount, o.ruc, o."isCancelled",
+      ot.code AS tipo, st.label AS estado, s.name AS proveedor,
+      s.slug AS "proveedorSlug"
+    FROM "CurrentOrder" o
+    JOIN "Supplier" s ON s.id = o."supplierId"
+    LEFT JOIN "OrderType" ot ON ot.id = o."orderTypeId"
+    LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE ${donde}
+    ORDER BY
+      CASE
+        WHEN lower(o."orderNumber") = lower(${texto}) OR lower(coalesce(o."siafNumber", '')) = lower(${texto}) OR o.ruc = ${digitos} THEN 0
+        WHEN s."normalizedName" = ${normalizado} THEN 1
+        WHEN ${palabrasProveedor} THEN 2
+        WHEN to_tsvector('simple', coalesce(o."descriptionSearch", '')) @@ websearch_to_tsquery('simple', ${consulta}) THEN 3
+        ELSE 4
+      END,
+      ts_rank_cd(to_tsvector('simple', coalesce(o."descriptionSearch", '')), websearch_to_tsquery('simple', ${consulta})) DESC,
+      similarity(coalesce(o."descriptionSearch", ''), ${normalizado}) DESC,
+      o."issueDate" DESC NULLS LAST, o."sourceRow" ASC NULLS LAST, o.id ASC
+    LIMIT ${filtros.porPagina} OFFSET ${offset}
+  `;
+
+  return {
+    filas,
+    total,
+    pagina,
+    porPagina: filtros.porPagina,
+    totalPaginas,
   };
 }
 
