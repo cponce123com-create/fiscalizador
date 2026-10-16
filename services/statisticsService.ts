@@ -829,8 +829,8 @@ export async function listarOrdenes(
 }
 
 /** Solo gestiones con órdenes vigentes y publicadas; nunca un periodo vacío futuro. */
-export async function periodosDelRanking(filtros?: Pick<Filtros, 'municipalidadSlug'>): Promise<{ id: string; nombre: string }[]> {
-  const municipalityId = await idMunicipalidadDesdeSlug(filtros?.municipalidadSlug);
+export async function periodosDelRanking(filtros?: Partial<Pick<Filtros, 'municipalidadSlug'>> & { municipalityId?: string }): Promise<{ id: string; nombre: string }[]> {
+  const municipalityId = filtros?.municipalityId ?? await idMunicipalidadDesdeSlug(filtros?.municipalidadSlug);
   const filas = await prisma.$queryRaw<Array<{ id: string; nombre: string }>>`
     SELECT g.id, g.name AS nombre FROM "ManagementPeriod" g
     WHERE EXISTS (

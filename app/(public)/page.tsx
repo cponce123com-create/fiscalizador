@@ -27,7 +27,7 @@ import { PeriodoRanking } from '@/components/publico/periodo-ranking';
 import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { datosPortadaInicial, periodosDelRanking } from '@/services/statisticsService';
 import { leerConfiguracionPortal } from '@/services/portalService';
-import { idMunicipalidadDesdeSlug, listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
+import { listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
 import { busquedasPopulares } from '@/services/publicSearchTermsService';
 
 export const dynamic = 'force-dynamic';
@@ -40,22 +40,24 @@ const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text
 export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const parametros = await searchParams;
   const filtrosBase = leerFiltros(parametros);
-  const municipalityId = await idMunicipalidadDesdeSlug(filtrosBase.municipalidadSlug);
-  const periodosRanking = await periodosDelRanking(filtrosBase);
+  const [municipalidad, municipalidades, populares] = await Promise.all([
+    municipalidadActivaDesdeSlug(filtrosBase.municipalidadSlug),
+    listarMunicipalidadesActivas(),
+    busquedasPopulares(),
+  ]);
+  const municipalityId = municipalidad.id;
+  const periodosRanking = await periodosDelRanking({ municipalityId });
   const gestionRanking = seleccionarPeriodoRanking(parametros.gestion, periodosRanking);
   const tipoRucRanking = filtrosBase.tipoRuc;
   const filtrosRanking = { ...filtrosPorDefecto(), municipalidadSlug: filtrosBase.municipalidadSlug, gestionId: gestionRanking, tipoRuc: tipoRucRanking };
   const conMunicipalidad = (href: string) => filtrosBase.municipalidadSlug ? `${href}${href.includes('?') ? '&' : '?'}municipalidad=${filtrosBase.municipalidadSlug}` : href;
   const etiquetaRuc = tipoRucRanking ? `RUC ${tipoRucRanking}` : 'Todos los tipos de RUC';
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
-  const [datos, pendientes, ultimaActualizacion, config, municipalidad, municipalidades, populares] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config] = await Promise.all([
     datosPortadaInicial(gestionRanking, tipoRucRanking, municipalityId),
     prisma.importBatch.count({ where: { municipalityId, requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { municipalityId, isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(municipalityId),
-    municipalidadActivaDesdeSlug(filtrosBase.municipalidadSlug),
-    listarMunicipalidadesActivas(),
-    busquedasPopulares(),
   ]);
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';

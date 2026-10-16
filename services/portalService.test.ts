@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ leer: vi.fn(), municipalidad: vi.fn() }));
-vi.mock('@/lib/prisma', () => ({ prisma: { appSetting: { findUnique: mocks.leer }, municipality: { findUnique: mocks.municipalidad } } }));
-import { leerConfiguracionPortal } from './portalService';
+const mocks = vi.hoisted(() => ({ leer: vi.fn(), leerVarias: vi.fn(), municipalidad: vi.fn() }));
+vi.mock('@/lib/prisma', () => ({ prisma: { appSetting: { findUnique: mocks.leer, findMany: mocks.leerVarias }, municipality: { findUnique: mocks.municipalidad } } }));
+import { configuracionesPorMunicipalidad, leerConfiguracionPortal } from './portalService';
 import { configuracionPorDefecto } from '@/lib/portal-settings';
 describe('lectura pública de la configuración', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -44,5 +44,19 @@ describe('lectura pública de la configuración', () => {
       return null;
     });
     expect(await leerConfiguracionPortal('mun-perene')).toMatchObject({ logo: 'https://res.cloudinary.com/test/image/upload/logo-global.webp', favicon: 'https://res.cloudinary.com/test/image/upload/favicon-global.png', fotoPortada: 'https://res.cloudinary.com/test/image/upload/perene.webp' });
+  });
+  it('carga la identidad de muchas municipalidades en una sola consulta', async () => {
+    mocks.leerVarias.mockResolvedValue([
+      { key: 'portal-ciudadano:mun-perene', value: { ...configuracionPorDefecto(), municipio: 'Perené', titular: 'Titular Perené' } },
+      { key: 'portal-imagen-logo', value: { url: 'https://res.cloudinary.com/test/image/upload/logo.webp', publicId: null, cloud: null, credito: '' } },
+    ]);
+    const municipalidades = [
+      { id: 'mun-san-ramon', slug: 'san-ramon', nombre: 'Municipalidad Distrital de San Ramón', nombreCorto: 'San Ramón', ruc: '20146657142', provincia: 'Chanchamayo', departamento: 'Junín', tipoEntidad: 'DISTRITAL' },
+      { id: 'mun-perene', slug: 'perene', nombre: 'Municipalidad Distrital de Perené', nombreCorto: 'Perené', ruc: '20123456789', provincia: 'Chanchamayo', departamento: 'Junín', tipoEntidad: 'DISTRITAL' },
+    ];
+    const resultado = await configuracionesPorMunicipalidad(municipalidades);
+    expect(mocks.leerVarias).toHaveBeenCalledTimes(1);
+    expect(resultado.perene).toMatchObject({ municipio: 'Perené', titular: 'Titular Perené', logo: 'https://res.cloudinary.com/test/image/upload/logo.webp' });
+    expect(resultado['san-ramon'].municipio).toBe('Municipalidad Distrital de San Ramón');
   });
 });

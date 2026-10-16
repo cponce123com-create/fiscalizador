@@ -3,8 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { slugify } from '@/services/normalization';
 import { registrarAuditoria } from '@/services/auditService';
+import { cache } from 'react';
 
-export async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
+export const municipalidadPorDefecto = cache(async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
   const entidad =
     (await prisma.municipality.findFirst({
       where: { isDefault: true, isActive: true },
@@ -26,9 +27,9 @@ export async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
     departamento: entidad?.department ?? 'Junín',
     tipoEntidad: entidad?.entityType ?? 'DISTRITAL',
   };
-}
+});
 
-export async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiva[]> {
+export const listarMunicipalidadesActivas = cache(async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiva[]> {
   const entidades = await prisma.municipality.findMany({
     where: { isActive: true },
     orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
@@ -47,9 +48,9 @@ export async function listarMunicipalidadesActivas(): Promise<MunicipalidadActiv
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
   }));
-}
+});
 
-export async function municipalidadActivaDesdeSlug(slug: string | null | undefined): Promise<MunicipalidadActiva> {
+export const municipalidadActivaDesdeSlug = cache(async function municipalidadActivaDesdeSlug(slug: string | null | undefined): Promise<MunicipalidadActiva> {
   if (!slug || slug === MUNICIPALIDAD_DEFAULT_SLUG) return municipalidadPorDefecto();
 
   const entidad = await prisma.municipality.findFirst({
@@ -68,7 +69,7 @@ export async function municipalidadActivaDesdeSlug(slug: string | null | undefin
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
   };
-}
+});
 
 export async function idMunicipalidadDesdeSlug(slug: string | null | undefined): Promise<string> {
   if (!slug || slug === MUNICIPALIDAD_DEFAULT_SLUG) return MUNICIPALIDAD_DEFAULT_ID;
