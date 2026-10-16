@@ -19,6 +19,36 @@ type FilaGlobal = {
   considerado: string;
 };
 
+const CACHE_MS = 30_000;
+const CACHE_MAXIMO = 100;
+const cacheBusqueda = new Map<string, { vence: number; resultado: ResultadoBusquedaGlobal }>();
+
+/** Se llama después de una importación o eliminación para no servir agregados anteriores. */
+export function invalidarCacheBusquedaGlobal(): void {
+  cacheBusqueda.clear();
+}
+
+function leerCache(clave: string): ResultadoBusquedaGlobal | null {
+  const entrada = cacheBusqueda.get(clave);
+  if (!entrada) return null;
+  if (entrada.vence <= Date.now()) {
+    cacheBusqueda.delete(clave);
+    return null;
+  }
+  // Refresca el orden de uso para aplicar un LRU pequeño y acotado.
+  cacheBusqueda.delete(clave);
+  cacheBusqueda.set(clave, entrada);
+  return entrada.resultado;
+}
+
+function guardarCache(clave: string, resultado: ResultadoBusquedaGlobal): void {
+  if (cacheBusqueda.size >= CACHE_MAXIMO) {
+    const masAntigua = cacheBusqueda.keys().next().value;
+    if (masAntigua) cacheBusqueda.delete(masAntigua);
+  }
+  cacheBusqueda.set(clave, { vence: Date.now() + CACHE_MS, resultado });
+}
+
 /**
  * Busca sobre Supplier —que sí posee índices trigram— y suma desde el agregado
  * SupplierManagementSummary. Así no recorre CurrentOrder dos veces por cada
@@ -29,6 +59,9 @@ export async function buscarProveedoresGlobal(texto: string): Promise<ResultadoB
   if (termino.length < 3) return { totalProveedores: 0, proveedores: [] };
 
   const normalizado = normalizeSupplierName(termino);
+  const claveCache = normalizado.toLocaleLowerCase('es-PE');
+  const almacenado = leerCache(claveCache);
+  if (almacenado) return almacenado;
   const palabras = palabrasBusqueda(termino).map(palabra => palabra.toUpperCase());
   const digitos = termino.replace(/\D/g, '');
   const contieneFrase = `%${normalizado}%`;
@@ -98,5 +131,7 @@ export async function buscarProveedoresGlobal(texto: string): Promise<ResultadoB
     proveedor.considerado = decimalMonetario(new Prisma.Decimal(proveedor.considerado).plus(fila.considerado));
   }
 
-  return { totalProveedores: filas[0]?.totalCoincidencias ?? 0, proveedores: [...mapa.values()] };
+  const resultado = { totalProveedores: filas[0]?.totalCoincidencias ?? 0, proveedores: [...mapa.values()] };
+  guardarCache(claveCache, resultado);
+  return resultado;
 }

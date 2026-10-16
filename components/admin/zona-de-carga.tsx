@@ -3,6 +3,7 @@
 import { Upload } from 'lucide-react';
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 
+import { MAX_LIBRO_MB } from '@/lib/import-limits';
 import { cn } from '@/lib/utils';
 
 /**
@@ -94,7 +95,7 @@ export function ZonaDeCarga({
       />
 
       <p className="text-xs text-muted-foreground">
-        Hasta {maxArchivos} archivos de 25 MB cada uno. El periodo se comprueba con el título
+        Hasta {maxArchivos} archivos de {MAX_LIBRO_MB} MB cada uno. El periodo se comprueba con el título
         y las fechas del libro; los casos dudosos requieren selección antes de analizar.
       </p>
     </div>

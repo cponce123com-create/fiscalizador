@@ -233,5 +233,5 @@ Para recuperar un despliegue existente con errores `P2022`, columnas `isCurrent`
 - Rotar credenciales expuestas desde los paneles del proveedor. Este PR no cambia contraseñas ni acredita que ya se hayan rotado. No pegar nuevas credenciales en chats, documentos o commits.
 - Comprobar la cadena real de proxies y que no haya acceso directo al origen antes de configurar TRUSTED_PROXY_HOPS. El valor 0 omite la IP para auditoría/bloqueos; el límite por correo sigue funcionando.
 - En Admin → Proveedores, revisar y habilitar cada dato público con su fuente. DNI completo es una opción explícita. Cambiar una foto deshabilita solo su publicación hasta nueva revisión. Los datos y fotos existentes no se borran.
-- Verificar que los libros originales estén en un volumen persistente. Cloudinary atiende fotos; STORAGE_DRIVER=cloudinary aún no atiende libros.
+- En Render Free usar `STORAGE_DRIVER=cloudinary` y configurar las tres credenciales. Los libros se guardan como recursos RAW protegidos; el endpoint público comprueba su SHA-256 antes de entregarlos.
 - Los límites públicos son por proceso: varias instancias necesitan contador distribuido y protección en el proxy. SheetJS sigue síncrono; su aislamiento en workers queda pendiente. CSP con nonces y fijación/revisión de dependencias de scrapers quedan pendientes.

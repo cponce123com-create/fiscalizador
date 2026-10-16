@@ -43,5 +43,7 @@ export async function eliminarTodasImportaciones(input: { userId: string; munici
       if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT')) archivosPendientes++;
     }
   }
+  const { invalidarCacheBusquedaGlobal } = await import('@/services/globalSearchService');
+  invalidarCacheBusquedaGlobal();
   return { lotes: resultado.lotes, ordenes: resultado.ordenes, archivosPendientes };
 }

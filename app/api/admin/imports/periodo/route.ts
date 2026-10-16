@@ -1,6 +1,7 @@
 import { leerFormularioLimitado } from '@/lib/formulario-limitado';
 import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
+import { MAX_LIBRO_BYTES, MAX_LIBRO_MB } from '@/lib/import-limits';
 import { detectarPeriodo } from '@/services/importService';
 
 /**
@@ -17,7 +18,7 @@ import { detectarPeriodo } from '@/services/importService';
 export const runtime = 'nodejs';
 
 /** Mismo límite que el análisis: un libro mensual no llega ni de lejos. */
-const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
+const TAMANO_MAXIMO_BYTES = MAX_LIBRO_BYTES;
 
 export async function POST(request: Request): Promise<Response> {
   try {
@@ -39,8 +40,7 @@ export async function POST(request: Request): Promise<Response> {
       throw new ErrorDeNegocio('El archivo está vacío.');
     }
     if (archivo.size > TAMANO_MAXIMO_BYTES) {
-      const mb = Math.round(TAMANO_MAXIMO_BYTES / 1024 / 1024);
-      throw new ErrorDeNegocio(`El archivo supera el límite de ${mb} MB.`);
+      throw new ErrorDeNegocio(`El archivo supera el límite de ${MAX_LIBRO_MB} MB.`);
     }
 
     const buffer = Buffer.from(await archivo.arrayBuffer());

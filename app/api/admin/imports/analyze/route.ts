@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { ErrorDeNegocio, okJson, respuestaDeError } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
+import { MAX_LIBRO_BYTES, MAX_LIBRO_MB } from '@/lib/import-limits';
 import { analizar } from '@/services/importService';
 import { asegurarMunicipalidadActiva } from '@/services/municipalityService';
 
@@ -19,7 +20,7 @@ export const runtime = 'nodejs';
 /**
  * Límite de tamaño.
  *
- * Un libro mensual del portal ronda 1 MB y 4.400 filas, así que 25 MB es holgado. Pero este
+ * Un libro mensual del portal ronda 1 MB y 4.400 filas, así que 10 MB es holgado. Pero este
  * límite es la ÚNICA protección real que hay, porque `XLSX.read` es **síncrono** y bloquea
  * el hilo de Node mientras dura. Medido en esta máquina: 4.000 filas tardan 0,8 s, 20.000
  * tardan 2,8 s, y 50.000 (33 MB, ya por encima del límite) tardan 6,7 s.
@@ -31,7 +32,7 @@ export const runtime = 'nodejs';
  * Si algún día hacen falta libros más grandes, la salida no es subir este número, sino leer
  * el archivo en un hilo aparte (`node:worker_threads`) para que el portal siga respondiendo.
  */
-const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
+const TAMANO_MAXIMO_BYTES = MAX_LIBRO_BYTES;
 
 const camposSchema = z.object({
   year: z.coerce.number().int().min(2000).max(2100),
@@ -60,8 +61,7 @@ export async function POST(request: Request): Promise<Response> {
       throw new ErrorDeNegocio('El archivo está vacío.');
     }
     if (archivo.size > TAMANO_MAXIMO_BYTES) {
-      const mb = Math.round(TAMANO_MAXIMO_BYTES / 1024 / 1024);
-      throw new ErrorDeNegocio(`El archivo supera el límite de ${mb} MB.`);
+      throw new ErrorDeNegocio(`El archivo supera el límite de ${MAX_LIBRO_MB} MB.`);
     }
 
     const campos = camposSchema.safeParse({

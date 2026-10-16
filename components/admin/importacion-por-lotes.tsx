@@ -52,6 +52,7 @@ import {
   type PeriodoRespuesta,
 } from '@/lib/api/cliente';
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
+import { MAX_ARCHIVOS_IMPORTACION, MAX_LIBRO_BYTES, MAX_LIBRO_MB } from '@/lib/import-limits';
 import { requiereRevisionMonto, resumenConExclusiones } from '@/lib/revision-montos';
 import { formatearCentavos, MESES } from '@/lib/utils';
 
@@ -71,8 +72,8 @@ import { formatearCentavos, MESES } from '@/lib/utils';
 // Permite cargar varios años completos en una sola tanda. Los archivos no se
 // envían juntos: el navegador los analiza y confirma uno por uno, por lo que
 // aumentar la cola no multiplica el tamaño de una petición al servidor.
-const MAX_ARCHIVOS = 200;
-const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
+const MAX_ARCHIVOS = MAX_ARCHIVOS_IMPORTACION;
+const TAMANO_MAXIMO_BYTES = MAX_LIBRO_BYTES;
 const EXTENSIONES = ['.xls', '.xlsx', '.csv'];
 /** Cuántas lecturas de periodo se piden a la vez al soltar los archivos. */
 const CONCURRENCIA_PERIODO = 3;
@@ -233,7 +234,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
         continue;
       }
       if (file.size > TAMANO_MAXIMO_BYTES) {
-        rechazados.push(`${file.name}: supera el límite de 25 MB.`);
+        rechazados.push(`${file.name}: supera el límite de ${MAX_LIBRO_MB} MB.`);
         continue;
       }
 

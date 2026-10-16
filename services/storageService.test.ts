@@ -2,10 +2,11 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   construirClave,
+  crearAlmacenamientoCloudinary,
   crearAlmacenamientoLocal,
   describirFalloDeAlmacenamiento,
   extensionSegura,
@@ -127,5 +128,45 @@ describe('driver de disco local', () => {
   it('valida que el directorio configurado se pueda escribir al arrancar', async () => {
     process.env.STORAGE_LOCAL_DIR = path.join(raiz, 'arranque');
     await expect(validarAlmacenamientoConfigurado()).resolves.toBeUndefined();
+  });
+});
+
+describe('driver Cloudinary para originales', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('guarda como RAW autenticado, recupera, verifica y elimina por una clave validada', async () => {
+    const contenido = Buffer.from('libro original protegido');
+    const checksum = await import('node:crypto').then(({ createHash }) => createHash('sha256').update(contenido).digest('hex'));
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const destino = String(url);
+      if (destino.endsWith('/raw/upload')) {
+        const publicId = (init?.body as FormData).get('public_id');
+        expect((init?.body as FormData).get('type')).toBe('authenticated');
+        return Response.json({ asset_id: 'asset_seguro_123', public_id: publicId, resource_type: 'raw', type: 'authenticated', bytes: contenido.byteLength });
+      }
+      if (destino.endsWith('/asset/download')) return new Response(new Uint8Array(contenido));
+      if (destino.endsWith('/raw/destroy')) return Response.json({ result: 'ok' });
+      return new Response(null, { status: 404 });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const driver = crearAlmacenamientoCloudinary({ cloud: 'portal', apiKey: 'key', secret: 'secret' });
+    const guardado = await driver.save({ buffer: contenido, filename: 'Lista-OCOS.xlsx', checksum });
+
+    expect(guardado.key).toMatch(/^cloudinary-raw:v1:portal:[a-f0-9-]{36}:xlsx:asset_seguro_123$/);
+    expect(guardado.url).toMatch(/^cloudinary:\/\/fiscalizador\/originales\//);
+    expect(await driver.read(guardado.key)).toEqual(contenido);
+    expect(await driver.verify(guardado.key, checksum)).toBe(true);
+    await expect(driver.remove(guardado.key)).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('rechaza claves manipuladas sin comunicarse con Cloudinary', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const driver = crearAlmacenamientoCloudinary({ cloud: 'portal', apiKey: 'key', secret: 'secret' });
+
+    await expect(driver.read('cloudinary-raw:v1:otro:../../etc:xlsx:id')).rejects.toThrow(/inválido/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

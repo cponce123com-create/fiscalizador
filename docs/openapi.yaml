@@ -120,7 +120,7 @@ paths:
                 archivo:
                   type: string
                   format: binary
-                  description: Libro `.xls`, `.xlsx` o `.csv`. Máximo 25 MB.
+                  description: Libro `.xls`, `.xlsx` o `.csv`. Máximo 10 MB.
       responses:
         '200':
           description: Periodo deducido.
