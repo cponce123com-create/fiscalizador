@@ -45,11 +45,12 @@ export default async function ComparadorAdmin({ searchParams }: { searchParams: 
       </header>
       <div className="rounded-xl border border-border bg-card p-4"><SelectorMunicipalidad municipalidades={municipalidades} /><p className="mt-2 text-xs text-muted-foreground">Los cruces y montos corresponden únicamente a {municipalidad.nombre}.</p></div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <Tarjeta etiqueta="Personas evaluadas" valor={datos.totales.sujetos} />
         <Tarjeta etiqueta="Proveedores con órdenes" valor={datos.totales.proveedoresConOrdenes} />
         <Tarjeta etiqueta="Cruces por documento" valor={datos.totales.exactos} />
         <Tarjeta etiqueta="Sugerencias por apellidos" valor={datos.totales.sugerencias} />
+        <Tarjeta etiqueta="Posible prensa por contenido" valor={datos.totales.contenidoPrensa} />
         <Tarjeta etiqueta="Pendientes de check" valor={datos.totales.pendientes} />
       </div>
 
@@ -71,6 +72,16 @@ export default async function ComparadorAdmin({ searchParams }: { searchParams: 
       </nav>
 
       <AvisoMetodo />
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-xl font-semibold">Posibles pagos de prensa detectados en las órdenes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Busca publicidad, spots, difusión, comunicados, notas de prensa, cobertura, pautas, servicios radiales, producción audiovisual y términos similares. Resulta especialmente útil en municipalidades nuevas como Villa Rica, Oxapampa y Satipo, donde todavía no existe un listado manual.
+          </p>
+        </div>
+        <TablaCruces cruces={datos.contenidoPrensa} editable={editable} vacio="No se detectaron proveedores nuevos por contenido con este filtro." />
+      </section>
 
       <section className="flex flex-col gap-4">
         <div>
@@ -188,7 +199,7 @@ function TablaCruces({ cruces, editable, vacio }: { cruces: CruceComparador[]; e
               </td>
               <td className="max-w-[18rem] p-3">
                 <Insignia tono={cruce.tipo === 'documento' ? 'exito' : 'advertencia'}>
-                  {cruce.tipo === 'documento' ? 'Coincidencia fuerte' : 'Revisión sugerida'}
+                  {cruce.tipo === 'documento' ? 'Coincidencia fuerte' : cruce.tipo === 'contenido-prensa' ? 'Posible prensa' : 'Revisión sugerida'}
                 </Insignia>
                 <p className="mt-2 text-sm">{cruce.motivo}</p>
                 {cruce.coincidencias.length ? <p className="mt-1 text-xs text-muted-foreground">Coincide: {cruce.coincidencias.join(', ')}</p> : null}
