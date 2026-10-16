@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { catalogoPrensa } from '@/lib/prensa';
 import { dniDesdeRuc } from '@/lib/supplier-profile';
+import { PATRON_CONTENIDO_PRENSA, PATRON_EXCLUSION_PRENSA } from '@/lib/deteccion-prensa';
 
 type Fuente = 'Personas' | 'Electoral' | 'Prensa';
 
@@ -50,7 +51,7 @@ export type CruceComparador = {
     ultima: string | null;
     fotoUrl: string | null;
   };
-  tipo: 'documento' | 'apellidos';
+  tipo: 'documento' | 'apellidos' | 'contenido-prensa';
   motivo: string;
   coincidencias: string[];
   puntaje: number;
@@ -174,6 +175,53 @@ async function proveedoresConOrdenes(municipalityId: string): Promise<ProveedorB
   return filas.map(f => ({ ...f, ordenes: Number(f.ordenes), considerado: decimalMonetario(f.considerado), tieneFoto: Boolean(f.tieneFoto), tokens: tokensNombre(f.nombre) }));
 }
 
+async function candidatosPrensaPorContenido(municipalityId: string): Promise<CruceComparador[]> {
+  const filas = await prisma.$queryRaw<Array<{
+    id: string; ruc: string; nombre: string; slug: string; ordenes: number; considerado: string;
+    primera: string | null; ultima: string | null; tieneFoto: boolean; fotoVersion: string | null; muestra: string | null;
+  }>>`
+    SELECT s.id, s.ruc, s.name AS nombre, s.slug,
+      COUNT(o.id)::int AS ordenes,
+      COALESCE(SUM(o.amount), 0)::text AS considerado,
+      to_char(MIN(o."issueDate"), 'YYYY-MM-DD') AS primera,
+      to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima,
+      EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL) AS "tieneFoto",
+      (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL) AS "fotoVersion",
+      MIN(o.description) AS muestra
+    FROM "Supplier" s
+    JOIN "CurrentOrder" o ON o."supplierId" = s.id
+    LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+    WHERE o."municipalityId" = ${municipalityId}
+      AND o."isCancelled" = false
+      AND COALESCE(st."countsEconomically", true) = true
+      AND o."descriptionSearch" ~ ${PATRON_CONTENIDO_PRENSA}
+      AND o."descriptionSearch" !~ ${PATRON_EXCLUSION_PRENSA}
+    GROUP BY s.id, s.ruc, s.name, s.slug
+    ORDER BY COALESCE(SUM(o.amount), 0) DESC, COUNT(o.id) DESC, s.name ASC
+    LIMIT 150
+  `;
+  return filas.map(fila => ({
+    subjectKey: `contenido-prensa:${municipalityId}:${fila.id}`,
+    supplierId: fila.id,
+    persona: 'Detectado en las descripciones de órdenes',
+    dni: dniDesdeRuc(fila.ruc),
+    ruc: fila.ruc,
+    fuentes: ['Prensa'],
+    detalle: fila.muestra ? [`Ejemplo: ${fila.muestra}`] : ['Descripción compatible con prensa o comunicación'],
+    proveedor: {
+      id: fila.id, nombre: fila.nombre, ruc: fila.ruc, slug: fila.slug,
+      ordenes: Number(fila.ordenes), considerado: decimalMonetario(fila.considerado),
+      primera: fila.primera, ultima: fila.ultima,
+      fotoUrl: fotoUrl({ ...fila, dni: dniDesdeRuc(fila.ruc), tokens: [], tieneFoto: Boolean(fila.tieneFoto), considerado: decimalMonetario(fila.considerado), ordenes: Number(fila.ordenes) }),
+    },
+    tipo: 'contenido-prensa',
+    motivo: 'Las órdenes contienen términos asociados con prensa, publicidad o comunicación',
+    coincidencias: ['descripción de la orden'],
+    puntaje: 70,
+    revisado: false,
+  }));
+}
+
 async function revisionesPara(cruces: Pick<CruceComparador, 'subjectKey' | 'supplierId'>[]) {
   if (!cruces.length) return new Set<string>();
   const sujetos = [...new Set(cruces.map(c => c.subjectKey))];
@@ -186,7 +234,7 @@ async function revisionesPara(cruces: Pick<CruceComparador, 'subjectKey' | 'supp
 }
 
 export async function comparadorAdmin(estado: 'todos' | 'pendientes' | 'revisados' = 'pendientes', municipalityId = MUNICIPALIDAD_DEFAULT_ID) {
-  const [sujetos, proveedores] = await Promise.all([sujetosRegistrados(), proveedoresConOrdenes(municipalityId)]);
+  const [sujetos, proveedores, contenidoPrensa] = await Promise.all([sujetosRegistrados(), proveedoresConOrdenes(municipalityId), candidatosPrensaPorContenido(municipalityId)]);
   const porDni = new Map(proveedores.filter(p => p.dni).map(p => [p.dni!, p]));
   const porRuc = new Map(proveedores.map(p => [p.ruc, p]));
   const exactos: CruceComparador[] = [];
@@ -246,19 +294,24 @@ export async function comparadorAdmin(estado: 'todos' | 'pendientes' | 'revisado
 
   sugerencias.sort((a, b) => b.puntaje - a.puntaje || Number(b.proveedor.considerado) - Number(a.proveedor.considerado));
   const limitadas = sugerencias.slice(0, 120);
-  const revisados = await revisionesPara([...exactos, ...limitadas]);
+  const rucsPrensaConocidos = new Set(catalogoPrensa.map(persona => persona.ruc));
+  const contenidoNuevo = contenidoPrensa.filter(cruce => !rucsPrensaConocidos.has(cruce.proveedor.ruc));
+  const revisados = await revisionesPara([...exactos, ...limitadas, ...contenidoNuevo]);
   const marcar = (cruce: CruceComparador) => ({ ...cruce, revisado: revisados.has(`${cruce.subjectKey}|${cruce.supplierId}`) });
   const filtrar = (cruce: CruceComparador) => estado === 'todos' || (estado === 'revisados' ? cruce.revisado : !cruce.revisado);
   const exactosMarcados = exactos.map(marcar);
   const sugerenciasMarcadas = limitadas.map(marcar);
+  const contenidoPrensaMarcado = contenidoNuevo.map(marcar);
   return {
     exactos: exactosMarcados.filter(filtrar),
     sugerencias: sugerenciasMarcadas.filter(filtrar),
+    contenidoPrensa: contenidoPrensaMarcado.filter(filtrar),
     totales: {
       exactos: exactosMarcados.length,
       sugerencias: sugerenciasMarcadas.length,
-      pendientes: [...exactosMarcados, ...sugerenciasMarcadas].filter(c => !c.revisado).length,
-      revisados: [...exactosMarcados, ...sugerenciasMarcadas].filter(c => c.revisado).length,
+      contenidoPrensa: contenidoPrensaMarcado.length,
+      pendientes: [...exactosMarcados, ...sugerenciasMarcadas, ...contenidoPrensaMarcado].filter(c => !c.revisado).length,
+      revisados: [...exactosMarcados, ...sugerenciasMarcadas, ...contenidoPrensaMarcado].filter(c => c.revisado).length,
       sujetos: sujetos.length,
       proveedoresConOrdenes: proveedores.length,
     },
