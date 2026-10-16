@@ -436,8 +436,8 @@ async function guardarArchivoOriginal(buffer: Buffer, filename: string, checksum
 
     throw new ErrorDeNegocio(
       'No se pudo guardar el archivo original en el almacenamiento ' +
-        `(${describirFalloDeAlmacenamiento(error)}). Revisa STORAGE_LOCAL_DIR: el ` +
-        'directorio tiene que existir y el servicio tiene que poder escribir en él.',
+        `(${describirFalloDeAlmacenamiento(error)}). Revisa la configuración del ` +
+        'driver activo y sus credenciales antes de volver a importar.',
     );
   }
 }
@@ -935,6 +935,8 @@ export async function confirmar(input: ConfirmarInput): Promise<ConfirmarResult>
 
     const huboAdvertencias = validacion.summary.warningRows > 0;
     const estadoFinal = huboAdvertencias ? 'COMPLETED_WITH_WARNINGS' : 'COMPLETED';
+    const { invalidarCacheBusquedaGlobal } = await import('@/services/globalSearchService');
+    invalidarCacheBusquedaGlobal();
 
     return {
       importBatchId: lote.id,
@@ -1199,6 +1201,9 @@ export async function eliminarImportacion(
       console.error('No se pudo borrar el archivo original de la importación:', error);
     }
   }
+
+  const { invalidarCacheBusquedaGlobal } = await import('@/services/globalSearchService');
+  invalidarCacheBusquedaGlobal();
 
   return {
     importBatchId: lote.id,
