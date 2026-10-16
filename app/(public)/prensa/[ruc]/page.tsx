@@ -22,6 +22,7 @@ export default async function PaginaFichaPrensa({ params, searchParams }: { para
   if (!persona) notFound();
   const resumen = await contratacionesPrensa([persona], municipalityId);
   const ficha = resumen.filas[0];
+  if (!ficha) notFound();
   // Una sola ficha contractual: en cuanto hay órdenes, reutiliza el perfil existente.
   if (ficha.perfilUrl.startsWith('/proveedores/')) redirect(`${ficha.perfilUrl}${sufijo}`);
   return <div className="flex flex-col gap-5">
