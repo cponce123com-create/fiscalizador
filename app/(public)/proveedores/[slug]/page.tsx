@@ -46,7 +46,7 @@ export async function generateMetadata({
   const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const perfil = await perfilProveedor(slug, municipalityId);
 
-  if (!perfil) return { title: 'Proveedor no encontrado' };
+  if (!perfil || (filtros.municipalidadSlug && perfil.ordenes === 0)) return { title: 'Proveedor no encontrado' };
 
   const sufijo = filtros.municipalidadSlug ? `?municipalidad=${filtros.municipalidadSlug}` : '';
   return metadataCompartida(perfil.nombre, resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado), `/proveedores/${encodeURIComponent(slug)}${sufijo}`, imagenCompartida('proveedor', slug, filtros.municipalidadSlug));
@@ -64,7 +64,7 @@ export default async function PaginaProveedor({
   const municipalityId = await idMunicipalidadDesdeSlug(filtrosBase.municipalidadSlug);
   const perfil = await perfilProveedor(slug, municipalityId);
 
-  if (!perfil) notFound();
+  if (!perfil || (filtrosBase.municipalidadSlug && perfil.ordenes === 0)) notFound();
 
   const ficha = await prisma.supplierProfile.findUnique({ where: { supplierId: perfil.id }, select: { isPublic: true, publication: true, birthplace: true, publicDistrict: true, birthDate: true, photoKey: true, updatedAt: true } });
   const datos = datosPublicosProveedor(perfil.ruc, ficha, perfil.id);
@@ -104,7 +104,7 @@ export default async function PaginaProveedor({
 
   return (
     <div className="flex flex-col gap-8">
-      <Breadcrumbs items={[{ label: 'Proveedores', href: '/proveedores' }, { label: perfil.nombre }]} />
+      <Breadcrumbs items={[{ label: 'Proveedores', href: `/proveedores${filtrosBase.municipalidadSlug ? `?municipalidad=${filtrosBase.municipalidadSlug}` : ''}` }, { label: perfil.nombre }]} />
 
       <Compartir titulo={perfil.nombre} resumen={resumenProveedor(perfil.nombre, perfil.ordenes, perfil.totalConsiderado)} ruta={`/proveedores/${encodeURIComponent(slug)}${filtrosBase.municipalidadSlug ? `?municipalidad=${filtrosBase.municipalidadSlug}` : ''}`} imagen={imagenCompartida('proveedor', slug, filtrosBase.municipalidadSlug)} />
       <div className="flex flex-col gap-5 rounded-lg border border-border bg-card p-6 sm:flex-row sm:items-center">

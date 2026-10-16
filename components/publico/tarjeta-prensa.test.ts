@@ -20,4 +20,8 @@ describe('tarjetas de prensa', () => {
     expect(html).toContain('Sin coincidencias');
     expect(html).not.toContain('Monto considerado');
   });
+  it('conserva la municipalidad al abrir el perfil desde una tarjeta', () => {
+    const html = renderToStaticMarkup(createElement(TarjetaPrensa, { fila: ficha, municipalidad: 'oxapampa' }));
+    expect(html).toContain('href="/proveedores/mariella-galarza?municipalidad=oxapampa"');
+  });
 });
