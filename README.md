@@ -220,9 +220,11 @@ La portada exige lugar y crédito. Cada tarjeta se publica con su propio botón,
 sin tener que pegar URLs ni configurar un upload preset. Al retirar el logo o
 favicon se recupera el recurso predeterminado. No se requiere migración de datos.
 
-Los **libros originales siguen en almacenamiento local**: el driver Cloudinary
-para libros no está implementado. Un disco efímero pierde esos archivos al desplegar;
-Cloudinary para fotos no sustituye el volumen de originales.
+En Render Free, los **libros originales se conservan en Cloudinary** mediante el
+driver RAW autenticado. El disco local queda limitado al desarrollo. Para realizar
+una comprobación controlada de subida, descarga, SHA-256 y eliminación del único
+recurso temporal creado por la prueba, ejecuta `npm run verify:cloudinary` en un
+entorno con las tres credenciales configuradas.
 
 ## Cómo se procesan los datos
 
