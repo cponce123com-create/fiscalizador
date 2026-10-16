@@ -14,7 +14,6 @@ import { TablaComparativa } from '@/components/publico/tabla-comparativa';
 import { Aviso } from '@/components/ui/data';
 import { Breadcrumbs } from '@/components/ui/breadcrumbs';
 import { Seccion } from '@/components/ui/seccion';
-import { formatearMonto } from '@/lib/utils';
 import { comparativaPorGestion, concentracionGasto } from '@/services/statisticsService';
 import { leerFiltros } from '@/lib/filtros';
 import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
@@ -35,105 +34,25 @@ export default async function PaginaEstadisticas({
 }) {
   const filtros = leerFiltros(await searchParams);
   const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
-  const [gestiones, concentracion] = await Promise.all([
-    comparativaPorGestion(municipalityId),
-    concentracionGasto(municipalityId),
-  ]);
-
-  const sinDatos = gestiones.filter((fila) => fila.ordenes === 0);
-
-  const cortes = concentracion.cortes.map((corte) => ({
-    ...corte,
-    etiqueta:
-      corte.proveedores === 1 ? 'El mayor proveedor' : `Los ${corte.proveedores} mayores`,
-  }));
-
-  const barras: BarraGrafico[] = cortes.map((corte) => ({
-    etiqueta: corte.etiqueta,
-    valor: Number(corte.considerado),
-    exacto: corte.considerado,
-    detalle: `${corte.peso}% del monto considerado`,
-  }));
-
-  const top1 = cortes.find((corte) => corte.proveedores === 1);
-  const top10 = cortes.find((corte) => corte.proveedores === 10);
-
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-7 sm:gap-10">
       <Breadcrumbs items={[{ label: 'Estadísticas' }]} />
       <header className="flex flex-col gap-3">
         <h1 className="text-2xl font-semibold sm:text-3xl">Estadísticas</h1>
-        <p className="max-w-2xl text-sm text-muted-foreground">
+        <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
           ¿En qué se contrata, a quién y cuánto cambia entre gestiones? Explora los libros
-          importados mediante comparaciones y gráficos. El <strong>monto considerado</strong>
+          importados mediante comparaciones y gráficos. El{' '}
+          <strong>monto considerado</strong>{' '}
           excluye órdenes anuladas y estados no económicos. Las órdenes no acreditan pagos.
         </p>
       </header>
 
-      <nav aria-label="Explorar estadísticas" className="flex flex-wrap gap-2">{[['por-ruc', 'RUC 10 y RUC 20'], ['etapas', 'Inicio y cierre'], ['conceptos', '¿En qué se contrata?'], ['evolucion', 'Evolución'], ['concentraci-n-del-gasto', 'Concentración']].map(([id, titulo]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">{titulo}</a>)}</nav>
+      <nav aria-label="Explorar estadísticas" className="desplazamiento-movil -mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">{[['por-ruc', 'RUC 10 y RUC 20'], ['etapas', 'Inicio y cierre'], ['conceptos', '¿En qué se contrata?'], ['evolucion', 'Evolución'], ['concentracion-del-gasto', 'Concentración']].map(([id, titulo]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 shrink-0 snap-start items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">{titulo}</a>)}</nav>
       <Suspense fallback={<CargandoEstadisticas />}><PanelEtapas municipalityId={municipalityId} /></Suspense>
       <Suspense fallback={<CargandoEstadisticas />}><PanelConceptos municipalityId={municipalityId} /></Suspense>
       <Suspense fallback={<CargandoEstadisticas />}><PanelEvolucion municipalityId={municipalityId} /></Suspense>
-
-      <Seccion
-        titulo="Comparación por gestión"
-        descripcion="Órdenes, proveedores y montos de cada periodo de gobierno."
-      >
-        <TablaComparativa filas={gestiones} />
-
-        {sinDatos.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {sinDatos.length === 1 ? 'La gestión' : 'Las gestiones'}{' '}
-            {sinDatos.map((fila) => fila.gestion).join(', ')}{' '}
-            {sinDatos.length === 1 ? 'aparece' : 'aparecen'} en cero porque todavía no se ha
-            importado ningún libro de {sinDatos.length === 1 ? 'ese periodo' : 'esos periodos'}. No
-            es un error de cálculo: el periodo existe y aún no tiene datos.
-          </p>
-        ) : null}
-      </Seccion>
-
-      <Seccion
-        titulo="Concentración del gasto"
-        descripcion="Qué parte del monto considerado se reparte entre los mayores proveedores."
-      >
-        {concentracion.totalProveedores === 0 ? (
-          <Aviso tono="info" titulo="Todavía no hay proveedores con órdenes">
-            La concentración se calcula sobre las órdenes importadas. Aparecerá en cuanto se cargue
-            el primer libro con proveedores.
-          </Aviso>
-        ) : (
-          <>
-            <GraficoBarras barras={barras} etiquetaSerie="Monto considerado acumulado" />
-
-            <p className="text-sm text-muted-foreground">
-              {top1 ? (
-                <>
-                  El mayor proveedor concentra el <strong>{top1.peso}%</strong> del monto
-                  considerado
-                </>
-              ) : null}
-              {top10 ? (
-                <>
-                  {' '}
-                  y los diez mayores, el <strong>{top10.peso}%</strong>.
-                </>
-              ) : (
-                '.'
-              )}{' '}
-              En total hay {concentracion.totalProveedores.toLocaleString('es-PE')} proveedores que
-              suman{' '}
-              <span className="tabular font-medium text-foreground">
-                {formatearMonto(concentracion.totalConsiderado)}
-              </span>
-              . El detalle proveedor a proveedor está en el{' '}
-              <a href={filtros.municipalidadSlug ? `/ranking?municipalidad=${filtros.municipalidadSlug}` : '/ranking'} className="underline underline-offset-2 hover:text-foreground">
-                ranking
-              </a>
-              .
-            </p>
-          </>
-        )}
-      </Seccion>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelComparacion municipalityId={municipalityId} /></Suspense>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelConcentracion municipalityId={municipalityId} municipalitySlug={filtros.municipalidadSlug} /></Suspense>
     </div>
   );
 }
@@ -152,4 +71,19 @@ async function PanelEvolucion({ municipalityId }: { municipalityId: string }) {
   const [mensual, anual] = await Promise.all([evolucionMensual(municipalityId), evolucionAnual(municipalityId)]);
   const puntos = (filas: typeof mensual) => filas.map(f => ({ periodo: f.periodo, ordenes: f.ordenes, valor: Number(f.considerado), exacto: f.considerado }));
   return <section id="evolucion" className="scroll-mt-6 space-y-4"><h2 className="text-xl font-semibold">La evolución de las órdenes</h2><p className="text-sm text-muted-foreground">Todos los periodos importados. Los meses o años ausentes no se muestran como gasto cero.</p><div className="grid min-w-0 gap-6 xl:grid-cols-2"><div className="min-w-0"><h3 className="mb-3 font-semibold">Mes a mes</h3><GraficoEvolucion puntos={puntos(mensual)} etiquetaSerie="Monto considerado" nombrePeriodo="Mes" /></div><div className="min-w-0"><h3 className="mb-3 font-semibold">Año a año</h3><GraficoEvolucion puntos={puntos(anual)} etiquetaSerie="Monto considerado" nombrePeriodo="Año" /></div></div></section>;
+}
+
+async function PanelComparacion({ municipalityId }: { municipalityId: string }) {
+  const gestiones = await comparativaPorGestion(municipalityId);
+  const sinDatos = gestiones.filter((fila) => fila.ordenes === 0);
+  return <Seccion titulo="Comparación por gestión" descripcion="Órdenes, proveedores y montos de cada periodo de gobierno."><TablaComparativa filas={gestiones} />{sinDatos.length > 0 ? <p className="text-xs text-muted-foreground">{sinDatos.length === 1 ? 'La gestión' : 'Las gestiones'} {sinDatos.map((fila) => fila.gestion).join(', ')} {sinDatos.length === 1 ? 'aparece' : 'aparecen'} en cero porque todavía no se ha importado ningún libro de {sinDatos.length === 1 ? 'ese periodo' : 'esos periodos'}.</p> : null}</Seccion>;
+}
+
+async function PanelConcentracion({ municipalityId, municipalitySlug }: { municipalityId: string; municipalitySlug: string | null }) {
+  const concentracion = await concentracionGasto(municipalityId);
+  const cortes = concentracion.cortes.map(corte => ({ ...corte, etiqueta: corte.proveedores === 1 ? 'El mayor proveedor' : `Los ${corte.proveedores} mayores` }));
+  const barras: BarraGrafico[] = cortes.map(corte => ({ etiqueta: corte.etiqueta, valor: Number(corte.considerado), exacto: corte.considerado, detalle: `${corte.peso}% del monto considerado` }));
+  const top1 = cortes.find(corte => corte.proveedores === 1);
+  const top10 = cortes.find(corte => corte.proveedores === 10);
+  return <Seccion titulo="Concentración del gasto" descripcion="Qué parte del monto considerado se reparte entre los mayores proveedores."><div id="concentracion-del-gasto" className="scroll-mt-24">{concentracion.totalProveedores === 0 ? <Aviso tono="info" titulo="Todavía no hay proveedores con órdenes">La concentración aparecerá cuando se cargue el primer libro con proveedores.</Aviso> : <><GraficoBarras barras={barras} etiquetaSerie="Monto considerado acumulado" /><p className="text-sm text-muted-foreground">El mayor proveedor concentra el <strong>{top1?.peso ?? 0}%</strong>{top10 ? <> y los diez mayores, el <strong>{top10.peso}%</strong></> : null}. En total hay {concentracion.totalProveedores.toLocaleString('es-PE')} proveedores. Consulta el <a href={municipalitySlug ? `/ranking?municipalidad=${municipalitySlug}` : '/ranking'} className="underline underline-offset-2 hover:text-foreground">ranking completo</a>.</p></>}</div></Seccion>;
 }
