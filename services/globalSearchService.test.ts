@@ -3,10 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const query = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/prisma', () => ({ prisma: { $queryRaw: query } }));
 
-import { buscarProveedoresGlobal } from './globalSearchService';
+import { buscarProveedoresGlobal, invalidarCacheBusquedaGlobal } from './globalSearchService';
 
 describe('búsqueda global de proveedores', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    invalidarCacheBusquedaGlobal();
+  });
 
   it('no consulta la base con menos de tres caracteres', async () => {
     expect(await buscarProveedoresGlobal('po')).toEqual({ totalProveedores: 0, proveedores: [] });
@@ -25,5 +28,17 @@ describe('búsqueda global de proveedores', () => {
     expect(resultado.proveedores[0]).toMatchObject({ ordenes: 6, considerado: '15.35' });
     expect(resultado.proveedores[0].municipalidades[0]).toMatchObject({ ordenes: 3, considerado: '10.30', periodos: ['2019-2022', '2023-2026'] });
     expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('reutiliza durante unos segundos las búsquedas equivalentes y permite invalidarlas', async () => {
+    query.mockResolvedValue([{ totalCoincidencias: 1, supplierId: 'p1', supplierName: 'POMA GENARO', ruc: '10123456789', supplierSlug: 'poma-genaro', municipalityId: 'm1', municipalitySlug: 'san-ramon', municipalityName: 'San Ramón', periodName: '2023-2026', ordenes: 1, considerado: '5.00' }]);
+
+    await buscarProveedoresGlobal('  Genaro   Poma ');
+    await buscarProveedoresGlobal('genaro poma');
+    expect(query).toHaveBeenCalledTimes(1);
+
+    invalidarCacheBusquedaGlobal();
+    await buscarProveedoresGlobal('genaro poma');
+    expect(query).toHaveBeenCalledTimes(2);
   });
 });
