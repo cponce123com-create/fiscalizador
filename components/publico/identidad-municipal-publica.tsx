@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { ArrowUpRight, BookOpenCheck, Database, Mail, MapPin, ShieldCheck } from 'lucide-react';
 
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
 
@@ -27,7 +28,9 @@ function municipalidadSeleccionada(municipalidades: MunicipalidadActiva[], slug:
 
 function conMunicipalidad(href: string, slug: string | null) {
   if (!slug || slug === 'san-ramon') return href;
-  return `${href}${href.includes('?') ? '&' : '?'}municipalidad=${slug}`;
+  const [ruta, fragmento] = href.split('#', 2);
+  const destino = `${ruta}${ruta.includes('?') ? '&' : '?'}municipalidad=${slug}`;
+  return fragmento ? `${destino}#${fragmento}` : destino;
 }
 
 export function MarcaPublica({ configuraciones, municipalidades }: { configuraciones: ConfiguracionesIdentidad; municipalidades: MunicipalidadActiva[] }) {
@@ -60,26 +63,70 @@ export function PiePublico({ configuraciones, municipalidades }: { configuracion
   const config = configuraciones[municipalidad.slug] ?? configuraciones['san-ramon'];
 
   return (
-    <footer className="mt-6 bg-emerald-950 text-white">
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2 sm:px-6">
-        <div className="flex items-start gap-3">
-          <Image src={config?.logo || '/identidad/escudo-san-ramon.webp'} alt="" width={42} height={44} className="h-11 w-11 shrink-0 object-contain" />
-          <div>
-            <p className="titulo-editorial text-lg font-semibold">Fiscalizador · {municipalidad.nombreCorto}</p>
-            <p className="mt-2 max-w-lg text-xs leading-relaxed text-emerald-100/80">
-              Plataforma ciudadana independiente para fiscalizar compras públicas en la Selva Central. Estás consultando {municipalidad.nombre}. Los datos provienen de sus libros mensuales; las órdenes no acreditan pagos.
-            </p>
+    <footer className="relative mt-10 overflow-hidden border-t border-emerald-800 bg-[#032f29] text-white">
+      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
+      <div aria-hidden="true" className="pointer-events-none absolute -bottom-40 -left-24 h-80 w-80 rounded-full bg-teal-300/5 blur-3xl" />
+
+      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-10 sm:px-6 sm:py-12 lg:grid-cols-[1.35fr_.65fr] lg:gap-16">
+        <section aria-labelledby="pie-marca" className="max-w-2xl">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white p-2 shadow-lg shadow-black/15">
+              <Image src={config?.logo || '/identidad/escudo-san-ramon.webp'} alt="" width={52} height={54} className="h-full w-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[.22em] text-emerald-300">Vigilancia ciudadana · Selva Central</p>
+              <h2 id="pie-marca" className="titulo-editorial mt-1 text-2xl font-bold tracking-tight sm:text-3xl">Fiscalizador</h2>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 items-start gap-x-4 gap-y-3 text-sm text-emerald-100 sm:flex sm:flex-wrap">
-          <Link href="/proyecto" className="hover:underline">Visión y reglas</Link>
-          <Link href="/privacidad" className="hover:underline">Datos personales y privacidad</Link>
-          <Link href={conMunicipalidad('/fuentes', slug)} className="hover:underline">Fuentes y cobertura</Link>
-          <Link href={conMunicipalidad('/metodologia', slug)} className="hover:underline">Metodología</Link>
-          <Link href="/admin" className="hover:underline">Administración</Link>
+
+          <div className="mt-5 inline-flex max-w-full items-center gap-2 rounded-full border border-emerald-300/20 bg-white/[.06] px-3 py-1.5 text-xs font-medium text-emerald-50">
+            <MapPin aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-emerald-300" />
+            <span className="truncate">Consultando: {municipalidad.nombre}</span>
+          </div>
+
+          <p className="mt-4 max-w-xl text-sm leading-6 text-emerald-50/75">
+            Organizamos libros y órdenes municipales para que cualquier vecino pueda consultar, comparar y verificar el uso de los recursos públicos.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-2 text-[11px] font-semibold text-emerald-100/90">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/10 px-3 py-1.5"><Database aria-hidden="true" className="h-3.5 w-3.5 text-emerald-300" />Datos públicos</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/10 px-3 py-1.5"><BookOpenCheck aria-hidden="true" className="h-3.5 w-3.5 text-emerald-300" />Fuentes verificables</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/10 px-3 py-1.5"><ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-emerald-300" />Control ciudadano</span>
+          </div>
+        </section>
+
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8">
+          <nav aria-label="Información del portal">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-emerald-300">Información</p>
+            <ul className="mt-4 space-y-3 text-sm text-emerald-50/80">
+              <li><Link href={conMunicipalidad('/fuentes', slug)} className="transition-colors hover:text-white">Fuentes y cobertura</Link></li>
+              <li><Link href={conMunicipalidad('/metodologia', slug)} className="transition-colors hover:text-white">Metodología</Link></li>
+              <li><Link href="/proyecto" className="transition-colors hover:text-white">Visión y reglas</Link></li>
+            </ul>
+          </nav>
+
+          <nav aria-label="Transparencia y acceso">
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-emerald-300">Transparencia</p>
+            <ul className="mt-4 space-y-3 text-sm text-emerald-50/80">
+              <li><Link href="/privacidad" className="transition-colors hover:text-white">Datos y privacidad</Link></li>
+              <li><Link href={conMunicipalidad('/metodologia#correcciones', slug)} className="transition-colors hover:text-white">Solicitar corrección</Link></li>
+              <li><Link href="/admin" className="inline-flex items-center gap-1.5 transition-colors hover:text-white">Administración <ArrowUpRight aria-hidden="true" className="h-3.5 w-3.5" /></Link></li>
+            </ul>
+          </nav>
+
+          <Link href={conMunicipalidad('/metodologia#correcciones', slug)} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-300/25 bg-emerald-400/10 px-4 py-2.5 text-sm font-semibold text-emerald-50 transition-colors hover:border-emerald-300/50 hover:bg-emerald-400/15">
+            <Mail aria-hidden="true" className="h-4 w-4 text-emerald-300" />
+            Reportar un dato para revisión
+          </Link>
         </div>
       </div>
-      <div className="border-t border-white/10 px-4 py-4 text-center text-xs text-emerald-100/75">Fiscalizador 2026 - Todos los derechos reservados.</div>
+
+      <div className="relative border-t border-white/10 bg-black/10">
+        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-4 text-center text-[11px] text-emerald-100/65 sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-left">
+          <p>© 2026 Fiscalizador. Todos los derechos reservados.</p>
+          <p>Iniciativa ciudadana independiente · Selva Central, Perú</p>
+        </div>
+      </div>
     </footer>
   );
 }
