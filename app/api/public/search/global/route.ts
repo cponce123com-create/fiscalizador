@@ -6,7 +6,9 @@ export const runtime = 'nodejs';
 async function atender(request: Request): Promise<Response> {
   const texto = new URL(request.url).searchParams.get('texto')?.trim() ?? '';
   try {
-    return Response.json(await buscarProveedoresGlobal(texto), { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json(await buscarProveedoresGlobal(texto), {
+      headers: { 'Cache-Control': 'public, max-age=15, s-maxage=60, stale-while-revalidate=300' },
+    });
   } catch {
     return Response.json({ error: 'No se pudo completar la búsqueda global.' }, { status: 503 });
   }

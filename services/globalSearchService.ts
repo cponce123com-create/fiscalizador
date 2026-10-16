@@ -1,10 +1,12 @@
-import { coincideProveedor } from '@/lib/busqueda-nombres-sql';
 import { decimalMonetario } from '@/lib/decimal';
 import { Prisma } from '@/lib/generated/prisma/client';
 import type { ProveedorGlobal, ResultadoBusquedaGlobal } from '@/lib/busqueda-global';
+import { palabrasBusqueda } from '@/lib/busqueda-ordenes';
 import { prisma } from '@/lib/prisma';
+import { normalizeSupplierName } from '@/services/normalization';
 
 type FilaGlobal = {
+  totalCoincidencias: number;
   supplierId: string;
   supplierName: string;
   ruc: string;
@@ -17,47 +19,65 @@ type FilaGlobal = {
   considerado: string;
 };
 
-/** Busca proveedores en todos los libros vigentes, sin limitarse a la municipalidad seleccionada. */
+/**
+ * Busca sobre Supplier —que sí posee índices trigram— y suma desde el agregado
+ * SupplierManagementSummary. Así no recorre CurrentOrder dos veces por cada
+ * tecla escrita. El orden favorece identidad exacta antes que popularidad.
+ */
 export async function buscarProveedoresGlobal(texto: string): Promise<ResultadoBusquedaGlobal> {
-  const termino = texto.trim().slice(0, 120);
+  const termino = texto.trim().replace(/\s+/g, ' ').slice(0, 120);
   if (termino.length < 3) return { totalProveedores: 0, proveedores: [] };
 
-  const [conteo, filas] = await Promise.all([
-    prisma.$queryRaw<Array<{ n: number }>>`
-      SELECT COUNT(DISTINCT s.id)::int AS n
+  const normalizado = normalizeSupplierName(termino);
+  const palabras = palabrasBusqueda(termino).map(palabra => palabra.toUpperCase());
+  const digitos = termino.replace(/\D/g, '');
+  const contieneFrase = `%${normalizado}%`;
+  const empiezaFrase = `${normalizado}%`;
+  const contieneRuc = digitos.length >= 3 ? `%${digitos}%` : '__SIN_RUC__';
+  const todasLasPalabras = palabras.length
+    ? Prisma.sql`(${Prisma.join(palabras.map(palabra => Prisma.sql`s."normalizedName" ILIKE ${`%${palabra}%`}`), ' AND ')})`
+    : Prisma.sql`false`;
+
+  const filas = await prisma.$queryRaw<FilaGlobal[]>`
+    WITH candidatos AS MATERIALIZED (
+      SELECT s.id, s.name,
+        CASE
+          WHEN s.ruc = ${digitos} OR s."normalizedName" = ${normalizado} THEN 0
+          WHEN s."normalizedName" ILIKE ${empiezaFrase} THEN 1
+          WHEN s."normalizedName" ILIKE ${contieneFrase} THEN 2
+          WHEN s.ruc LIKE ${contieneRuc} THEN 3
+          ELSE 4
+        END AS relevancia
       FROM "Supplier" s
-      JOIN "CurrentOrder" o ON o."supplierId" = s.id
-      JOIN "Municipality" m ON m.id = o."municipalityId" AND m."isActive" = true
-      WHERE ${coincideProveedor(termino)}
-    `,
-    prisma.$queryRaw<FilaGlobal[]>`
-      WITH proveedores AS (
-        SELECT s.id
-        FROM "Supplier" s
-        JOIN "CurrentOrder" o ON o."supplierId" = s.id
-        JOIN "Municipality" m ON m.id = o."municipalityId" AND m."isActive" = true
-        WHERE ${coincideProveedor(termino)}
-        GROUP BY s.id, s.name, s.ruc
-        ORDER BY CASE WHEN lower(s.name) = lower(${termino}) OR s.ruc = ${termino} THEN 0 ELSE 1 END,
-                 COUNT(o.id) DESC, s.name ASC
-        LIMIT 8
+      WHERE (
+        s."normalizedName" ILIKE ${contieneFrase}
+        OR s.ruc LIKE ${contieneRuc}
+        OR ${todasLasPalabras}
       )
-      SELECT s.id AS "supplierId", s.name AS "supplierName", s.ruc, s.slug AS "supplierSlug",
-             m.id AS "municipalityId", m.slug AS "municipalitySlug", m."shortName" AS "municipalityName",
-             g.name AS "periodName", COUNT(o.id)::int AS ordenes,
-             COALESCE(SUM(o.amount) FILTER (
-               WHERE o."isCancelled" = false AND st."countsEconomically" = true
-             ), 0)::text AS considerado
-      FROM proveedores p
-      JOIN "Supplier" s ON s.id = p.id
-      JOIN "CurrentOrder" o ON o."supplierId" = s.id
-      JOIN "Municipality" m ON m.id = o."municipalityId" AND m."isActive" = true
-      LEFT JOIN "ManagementPeriod" g ON g.id = o."managementPeriodId"
-      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
-      GROUP BY s.id, s.name, s.ruc, s.slug, m.id, m.slug, m."shortName", g.id, g.name, g."startDate"
-      ORDER BY s.name ASC, m."shortName" ASC, g."startDate" ASC NULLS LAST
-    `,
-  ]);
+      AND EXISTS (
+        SELECT 1
+        FROM "SupplierManagementSummary" resumen
+        JOIN "Municipality" activa ON activa.id = resumen."municipalityId" AND activa."isActive" = true
+        WHERE resumen."supplierId" = s.id
+      )
+    ), seleccionados AS MATERIALIZED (
+      SELECT c.*, COUNT(*) OVER()::int AS "totalCoincidencias"
+      FROM candidatos c
+      ORDER BY c.relevancia, c.name
+      LIMIT 8
+    )
+    SELECT c."totalCoincidencias", s.id AS "supplierId", s.name AS "supplierName",
+           s.ruc, s.slug AS "supplierSlug", m.id AS "municipalityId",
+           m.slug AS "municipalitySlug", m."shortName" AS "municipalityName",
+           g.name AS "periodName", resumen."orderCount"::int AS ordenes,
+           resumen."consideredAmount"::text AS considerado
+    FROM seleccionados c
+    JOIN "Supplier" s ON s.id = c.id
+    JOIN "SupplierManagementSummary" resumen ON resumen."supplierId" = s.id
+    JOIN "Municipality" m ON m.id = resumen."municipalityId" AND m."isActive" = true
+    JOIN "ManagementPeriod" g ON g.id = resumen."managementPeriodId"
+    ORDER BY c.relevancia, s.name, m."shortName", g."startDate"
+  `;
 
   const mapa = new Map<string, ProveedorGlobal>();
   for (const fila of filas) {
@@ -78,5 +98,5 @@ export async function buscarProveedoresGlobal(texto: string): Promise<ResultadoB
     proveedor.considerado = decimalMonetario(new Prisma.Decimal(proveedor.considerado).plus(fila.considerado));
   }
 
-  return { totalProveedores: conteo[0]?.n ?? 0, proveedores: [...mapa.values()] };
+  return { totalProveedores: filas[0]?.totalCoincidencias ?? 0, proveedores: [...mapa.values()] };
 }
