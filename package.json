@@ -25,6 +25,7 @@
     "db:seed": "prisma db seed",
     "postinstall": "prisma generate",
     "verify": "tsx scripts/verificar-importacion.ts",
+    "verify:cloudinary": "node --import tsx scripts/verificar-cloudinary.ts",
     "usuarios": "tsx scripts/gestionar-usuario.ts",
     "usuarios:listar": "tsx scripts/listar-usuarios.ts",
     "usuarios:superadmin": "tsx scripts/gestionar-usuario.ts --desde-env"
