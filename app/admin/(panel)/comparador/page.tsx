@@ -198,10 +198,11 @@ function TablaCruces({ cruces, editable, vacio }: { cruces: CruceComparador[]; e
                 <p className="mt-1 text-xs text-muted-foreground">{formatearFecha(cruce.proveedor.primera)} a {formatearFecha(cruce.proveedor.ultima)}</p>
               </td>
               <td className="max-w-[18rem] p-3">
-                <Insignia tono={cruce.tipo === 'documento' ? 'exito' : 'advertencia'}>
-                  {cruce.tipo === 'documento' ? 'Coincidencia fuerte' : cruce.tipo === 'contenido-prensa' ? 'Posible prensa' : 'Revisión sugerida'}
+                <Insignia tono={cruce.tipo === 'documento' ? 'exito' : cruce.nivelPrensa === 3 ? 'info' : 'advertencia'}>
+                  {cruce.tipo === 'documento' ? 'Coincidencia fuerte' : cruce.tipo === 'contenido-prensa' ? `Nivel ${cruce.nivelPrensa ?? 2} · ${cruce.etiquetaClasificacion ?? 'Revisar'}` : 'Revisión sugerida'}
                 </Insignia>
                 <p className="mt-2 text-sm">{cruce.motivo}</p>
+                {cruce.tipo === 'contenido-prensa' ? <p className="mt-1 text-xs font-medium text-muted-foreground">Confianza orientativa: {cruce.puntaje}%</p> : null}
                 {cruce.coincidencias.length ? <p className="mt-1 text-xs text-muted-foreground">Coincide: {cruce.coincidencias.join(', ')}</p> : null}
               </td>
               <td className="p-3">

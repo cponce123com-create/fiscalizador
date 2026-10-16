@@ -15,5 +15,5 @@ async function atender(request: Request): Promise<Response> {
 }
 
 export async function POST(...args: Parameters<typeof atender>): Promise<Response> {
-  return peticionPublicaLimitada('search', () => atender(...args));
+  return peticionPublicaLimitada('search', args[0], () => atender(...args));
 }
