@@ -15,6 +15,7 @@
  * de metodología mostrará el nuevo plazo.
  */
 export const PLAZO_RESPUESTA_DIAS = 15;
+export const CONTACTO_CORRECCIONES_PREDETERMINADO = 'elprincipemestizosr@gmail.com';
 
 /**
  * Devuelve el correo de contacto o `null` si no está configurado.
@@ -24,5 +25,5 @@ export const PLAZO_RESPUESTA_DIAS = 15;
  */
 export function leerContactoCorrecciones(valor: string | undefined): string | null {
   const correo = valor?.trim();
-  return correo ? correo : null;
+  return correo || CONTACTO_CORRECCIONES_PREDETERMINADO;
 }

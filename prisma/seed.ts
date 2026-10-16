@@ -25,13 +25,16 @@ if (!connectionString) {
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 const MUNICIPALIDAD_SAN_RAMON_ID = 'mun-san-ramon';
-const MUNICIPALIDADES_CHANCHAMAYO = [
-  { id: 'mun-chanchamayo', name: 'Municipalidad Provincial de Chanchamayo', shortName: 'Chanchamayo', slug: 'chanchamayo', ruc: '20146663461', entityType: 'PROVINCIAL', isDefault: false },
-  { id: 'mun-perene', name: 'Municipalidad Distrital de Perené', shortName: 'Perené', slug: 'perene', ruc: '20195238961', entityType: 'DISTRITAL', isDefault: false },
-  { id: 'mun-pichanaqui', name: 'Municipalidad Distrital de Pichanaqui', shortName: 'Pichanaqui', slug: 'pichanaqui', ruc: '20146640843', entityType: 'DISTRITAL', isDefault: false },
-  { id: 'mun-san-luis-de-shuaro', name: 'Municipalidad Distrital de San Luis de Shuaro', shortName: 'San Luis de Shuaro', slug: 'san-luis-de-shuaro', ruc: '20204460648', entityType: 'DISTRITAL', isDefault: false },
-  { id: MUNICIPALIDAD_SAN_RAMON_ID, name: 'Municipalidad Distrital de San Ramón', shortName: 'San Ramón', slug: 'san-ramon', ruc: '20146657142', entityType: 'DISTRITAL', isDefault: true },
-  { id: 'mun-vitoc', name: 'Municipalidad Distrital de Vitoc', shortName: 'Vitoc', slug: 'vitoc', ruc: '20201191280', entityType: 'DISTRITAL', isDefault: false },
+const MUNICIPALIDADES_INICIALES = [
+  { id: 'mun-chanchamayo', name: 'Municipalidad Provincial de Chanchamayo', shortName: 'Chanchamayo', slug: 'chanchamayo', ruc: '20146663461', province: 'Chanchamayo', department: 'Junín', entityType: 'PROVINCIAL', isDefault: false },
+  { id: 'mun-perene', name: 'Municipalidad Distrital de Perené', shortName: 'Perené', slug: 'perene', ruc: '20195238961', province: 'Chanchamayo', department: 'Junín', entityType: 'DISTRITAL', isDefault: false },
+  { id: 'mun-pichanaqui', name: 'Municipalidad Distrital de Pichanaqui', shortName: 'Pichanaqui', slug: 'pichanaqui', ruc: '20146640843', province: 'Chanchamayo', department: 'Junín', entityType: 'DISTRITAL', isDefault: false },
+  { id: 'mun-san-luis-de-shuaro', name: 'Municipalidad Distrital de San Luis de Shuaro', shortName: 'San Luis de Shuaro', slug: 'san-luis-de-shuaro', ruc: '20204460648', province: 'Chanchamayo', department: 'Junín', entityType: 'DISTRITAL', isDefault: false },
+  { id: MUNICIPALIDAD_SAN_RAMON_ID, name: 'Municipalidad Distrital de San Ramón', shortName: 'San Ramón', slug: 'san-ramon', ruc: '20146657142', province: 'Chanchamayo', department: 'Junín', entityType: 'DISTRITAL', isDefault: true },
+  { id: 'mun-vitoc', name: 'Municipalidad Distrital de Vitoc', shortName: 'Vitoc', slug: 'vitoc', ruc: '20201191280', province: 'Chanchamayo', department: 'Junín', entityType: 'DISTRITAL', isDefault: false },
+  { id: 'mun-oxapampa', name: 'Municipalidad Provincial de Oxapampa', shortName: 'Oxapampa', slug: 'oxapampa', ruc: '20190242961', province: 'Oxapampa', department: 'Pasco', entityType: 'PROVINCIAL', isDefault: false },
+  { id: 'mun-satipo', name: 'Municipalidad Provincial de Satipo', shortName: 'Satipo', slug: 'satipo', ruc: '20146674403', province: 'Satipo', department: 'Junín', entityType: 'PROVINCIAL', isDefault: false },
+  { id: 'mun-villa-rica', name: 'Municipalidad Distrital de Villa Rica', shortName: 'Villa Rica', slug: 'villa-rica', ruc: '20204172855', province: 'Oxapampa', department: 'Pasco', entityType: 'DISTRITAL', isDefault: false },
 ] as const;
 
 /** Gestiones de gobierno. Se agregan nuevas sin tocar código. */
@@ -170,9 +173,9 @@ const ETIQUETAS_PERSONAS = [
  * etiquetas y la visibilidad de columnas). Solo crea lo que falte.
  */
 async function sembrarCatalogos() {
-  for (const municipalidad of MUNICIPALIDADES_CHANCHAMAYO) {
+  for (const municipalidad of MUNICIPALIDADES_INICIALES) {
     await prisma.municipality.upsert({ where: { id: municipalidad.id }, update: {}, create: {
-      ...municipalidad, province: 'Chanchamayo', department: 'Junín', isActive: true, primaryColor: '#006b3f',
+      ...municipalidad, isActive: true, primaryColor: '#006b3f',
     } });
   }
 
@@ -209,7 +212,7 @@ async function sembrarCatalogos() {
   }
 
   console.log(
-    `Catálogos: ${MUNICIPALIDADES_CHANCHAMAYO.length} municipalidades, ${GESTIONES.length} gestiones, ${ESTADOS.length} estados, ` +
+    `Catálogos: ${MUNICIPALIDADES_INICIALES.length} municipalidades, ${GESTIONES.length} gestiones, ${ESTADOS.length} estados, ` +
       `${TIPOS_ORDEN.length} tipos de orden, ${TIPOS_CONTRATO.length} tipos de contratación.`,
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
@@ -10,10 +10,7 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const seleccionada = searchParams.get('municipalidad') ?? 'san-ramon';
-  const [seleccionVisual, setSeleccionVisual] = useState(seleccionada);
   const [cambiando, iniciarCambio] = useTransition();
-
-  useEffect(() => setSeleccionVisual(seleccionada), [seleccionada]);
 
   const destino = (slug: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -36,14 +33,13 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
     <label className="flex min-w-[13rem] flex-col gap-1 text-xs font-medium text-muted-foreground">
       Municipalidad
       <select
-        value={seleccionVisual}
+        value={seleccionada}
         disabled={cambiando}
         aria-busy={cambiando}
         onPointerDown={precargarRecientes}
         onFocus={precargarRecientes}
         onChange={(event) => {
           const slug = event.target.value;
-          setSeleccionVisual(slug);
           const url = destino(slug);
           try {
             const anteriores = JSON.parse(localStorage.getItem('municipalidades-recientes') ?? '[]') as string[];
