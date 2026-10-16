@@ -37,19 +37,17 @@ export function MarcaPublica({ configuraciones, municipalidades }: { configuraci
   const config = configuraciones[municipalidad.slug] ?? configuraciones['san-ramon'];
 
   return (
-    <Link href={conMunicipalidad('/', slug)} className="flex min-w-0 items-center gap-3">
+    <Link href={conMunicipalidad('/', slug)} className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
       <Image
         src={config?.logo || '/identidad/escudo-san-ramon.webp'}
         alt={config?.logo ? `Logo del portal de ${municipalidad.nombreCorto}` : `Escudo de ${municipalidad.nombreCorto}`}
         width={52}
         height={54}
-        className="h-11 w-14 shrink-0 object-contain sm:h-14 sm:w-16"
+        className="h-10 w-11 shrink-0 object-contain sm:h-14 sm:w-16"
       />
-      <span>
-        <span className="titulo-editorial block text-lg font-bold tracking-tight text-emerald-950 sm:text-2xl">
-          Fiscalizador · {municipalidad.nombreCorto}
-        </span>
-        <span className="text-[11px] text-muted-foreground">Vigilancia ciudadana independiente</span>
+      <span className="min-w-0">
+        <span className="titulo-editorial block text-lg font-bold leading-tight tracking-tight text-emerald-950 sm:text-2xl">Fiscalizador</span>
+        <span className="block truncate text-[11px] font-medium text-muted-foreground sm:text-xs">{municipalidad.nombreCorto} · Vigilancia ciudadana</span>
       </span>
     </Link>
   );
@@ -73,7 +71,7 @@ export function PiePublico({ configuraciones, municipalidades }: { configuracion
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap items-start gap-4 text-sm text-emerald-100">
+        <div className="grid grid-cols-2 items-start gap-x-4 gap-y-3 text-sm text-emerald-100 sm:flex sm:flex-wrap">
           <Link href="/proyecto" className="hover:underline">Visión y reglas</Link>
           <Link href="/privacidad" className="hover:underline">Datos personales y privacidad</Link>
           <Link href={conMunicipalidad('/fuentes', slug)} className="hover:underline">Fuentes y cobertura</Link>

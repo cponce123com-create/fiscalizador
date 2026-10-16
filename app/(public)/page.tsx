@@ -70,12 +70,12 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
     <section className="grid items-center gap-7 lg:grid-cols-[1.15fr_1fr]" aria-labelledby="titulo-portada">
       <div>
         <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · {municipalidad.nombreCorto}</p>
-        <h2 id="titulo-portada" className="titulo-editorial max-w-xl text-4xl font-bold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h2>
+        <h2 id="titulo-portada" className="titulo-editorial max-w-xl text-3xl font-bold leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.25rem]">Conoce qué compra tu municipalidad</h2>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {municipalidad.nombre.replace(/^Municipalidad /, 'municipalidad ')}.</p>
         <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-emerald-800">Buscar solo en {municipalidad.nombreCorto}</p>
         <BusquedaPortada municipalidad={filtrosBase.municipalidadSlug} />
       </div>
-      <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
+      <div className="relative flex min-h-56 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-5 text-white sm:min-h-80 sm:p-6">
         {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src={config.logo || "/identidad/escudo-san-ramon.webp"} alt={config.logo ? `Logo del portal de ${municipalidad.nombreCorto}` : `Escudo de ${municipalidad.nombreCorto}`} width={132} height={136} className="relative mx-auto my-4 h-36 w-full max-w-64 object-contain" /></>}
         <div className={`relative mt-auto rounded-xl p-4 ${config.fotoPortada ? 'bg-emerald-950/85' : 'border border-white/15 bg-white/5'}`}><p className="flex items-center gap-2 text-sm font-semibold"><MapPin size={16} className="shrink-0 text-amber-300" aria-hidden="true" />{municipalidad.nombreCorto}, {municipalidad.provincia}</p><p className="mt-1 text-xs text-emerald-100">{config.fotoPortada ? config.creditoFoto : 'Municipalidad consultada · Portal ciudadano independiente'}</p></div>
       </div>

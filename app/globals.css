@@ -147,10 +147,15 @@ body {
 /* Evitar zoom al enfocar campos y facilitar navegación táctil sin ocultar desbordes. */
 .portal-publico main, .portal-publico main > * { min-width: 0; }
 @media (max-width: 767px) {
+  html { scroll-padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
+  body { overflow-x: hidden; }
   .portal-publico :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) { font-size: 16px; min-height: 44px; max-width: 100%; }
   .portal-publico :is(button, summary) { min-height: 44px; }
   .portal-publico .panel-portada { padding: 1rem; }
 }
+.desplazamiento-movil { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.desplazamiento-movil::-webkit-scrollbar { display: none; }
+.barra-movil a { -webkit-tap-highlight-color: transparent; }
 
 /* Marco común para botones nativos y enlaces que representan acciones.
    Fuera de las capas para que los bordes antiguos border-border no lo diluyan.

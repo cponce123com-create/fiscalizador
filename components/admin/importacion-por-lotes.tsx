@@ -988,8 +988,8 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
       ) : null}
 
       {confirmando || resultadoVisible ? (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resultado-importacion-titulo">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-5 shadow-2xl sm:p-7">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="resultado-importacion-titulo">
+          <div className="max-h-[92dvh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-border bg-card p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-7">
             {confirmando ? (
               <>
                 <div className="flex items-center gap-3"><span className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary" aria-hidden="true" /><div><h2 id="resultado-importacion-titulo" className="text-xl font-semibold">Importando libros</h2><p className="mt-1 text-sm text-muted-foreground">No cierres esta ventana mientras se guarda la tanda.</p></div></div>

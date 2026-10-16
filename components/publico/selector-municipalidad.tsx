@@ -30,7 +30,7 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
   };
 
   return (
-    <label className="flex min-w-[13rem] flex-col gap-1 text-xs font-medium text-muted-foreground">
+    <label className="flex w-full min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground sm:w-auto sm:min-w-[13rem]">
       Municipalidad
       <select
         value={seleccionada}
@@ -48,7 +48,7 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
           router.prefetch(url);
           iniciarCambio(() => router.push(url));
         }}
-        className="h-11 rounded-lg border border-control bg-background px-3 text-sm font-semibold text-foreground shadow-sm disabled:cursor-wait disabled:opacity-70"
+        className="h-11 w-full rounded-lg border border-control bg-background px-3 text-sm font-semibold text-foreground shadow-sm disabled:cursor-wait disabled:opacity-70"
       >
         {municipalidades.map((municipalidad) => (
           <option key={municipalidad.id} value={municipalidad.slug}>
