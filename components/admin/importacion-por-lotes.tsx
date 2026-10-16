@@ -68,7 +68,10 @@ import { formatearCentavos, MESES } from '@/lib/utils';
  * confirma por su cuenta, y lo que falla se queda marcado en su fila.
  */
 
-const MAX_ARCHIVOS = 50;
+// Permite cargar varios años completos en una sola tanda. Los archivos no se
+// envían juntos: el navegador los analiza y confirma uno por uno, por lo que
+// aumentar la cola no multiplica el tamaño de una petición al servidor.
+const MAX_ARCHIVOS = 200;
 const TAMANO_MAXIMO_BYTES = 25 * 1024 * 1024;
 const EXTENSIONES = ['.xls', '.xlsx', '.csv'];
 /** Cuántas lecturas de periodo se piden a la vez al soltar los archivos. */
