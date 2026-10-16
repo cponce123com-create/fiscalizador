@@ -60,7 +60,7 @@ servicio cuando hiciera falta.
 
 | Campo | Tipo | Descripción |
 |---|---|---|
-| `archivo` | File | `.xls`, `.xlsx` o `.csv`. Máximo 25 MB |
+| `archivo` | File | `.xls`, `.xlsx` o `.csv`. Máximo 10 MB |
 | `year` | number | Año del periodo (2000-2100) |
 | `month` | number | Mes del periodo (1-12) |
 | `importType` | string | `ORDENES_COMPRA`, `ORDENES_SERVICIO` o `CONSOLIDADO` |
