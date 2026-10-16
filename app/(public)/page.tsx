@@ -95,7 +95,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
     </div>
 
     <Suspense fallback={<CargaSeccion titulo="Comparaciones de gastos por gestión" />}><ComparacionesGastos municipalityId={municipalityId} /></Suspense>
-    <Suspense fallback={<CargaSeccion titulo="Contrataciones del listado de prensa" />}><SeguimientoPrensa municipalityId={municipalityId} /></Suspense>
+    <Suspense fallback={<CargaSeccion titulo="Contrataciones del listado de prensa" />}><SeguimientoPrensa municipalityId={municipalityId} municipalitySlug={municipalidad.slug} /></Suspense>
 
     <section aria-labelledby="titulo-revision" className="rounded-2xl border border-amber-300 bg-amber-50/70 p-5 sm:p-6">
       <div className="flex items-start gap-3"><TriangleAlert className="mt-1 shrink-0 text-amber-700" size={22} aria-hidden="true" /><div><h2 id="titulo-revision" className="titulo-editorial text-2xl font-bold">Órdenes para revisar</h2><p className="mt-1 text-xs text-amber-950/80">Comienza por consultar el detalle y contrastar el documento de origen.</p></div></div>
@@ -128,4 +128,6 @@ async function ComparacionesGastos({ municipalityId }: { municipalityId: string 
     <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2">{categoriasGasto.filter(c => c.id !== 'combustible').map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={gastos.filter(f => f.categoria === c.id)} />)}</div>
   </section>;
 }
-async function SeguimientoPrensa({ municipalityId }: { municipalityId: string }) { return <PortadaPrensa resumen={await contratacionesPrensa(undefined, municipalityId)} />; }
+async function SeguimientoPrensa({ municipalityId, municipalitySlug }: { municipalityId: string; municipalitySlug: string }) {
+  return <PortadaPrensa resumen={await contratacionesPrensa(undefined, municipalityId)} municipalidad={municipalitySlug} />;
+}
