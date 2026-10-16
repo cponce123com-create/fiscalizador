@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { catalogoPrensa } from '@/lib/prensa';
 import { dniDesdeRuc } from '@/lib/supplier-profile';
-import { PATRON_CONTENIDO_PRENSA, PATRON_EXCLUSION_PRENSA } from '@/lib/deteccion-prensa';
+import { clasificarContenidoPrensa, PATRON_CONTENIDO_PRENSA, PATRON_EXCLUSION_PRENSA, type NivelPrensa } from '@/lib/deteccion-prensa';
 
 type Fuente = 'Personas' | 'Electoral' | 'Prensa';
 
@@ -55,6 +55,8 @@ export type CruceComparador = {
   motivo: string;
   coincidencias: string[];
   puntaje: number;
+  nivelPrensa?: NivelPrensa;
+  etiquetaClasificacion?: string;
   revisado: boolean;
 };
 
@@ -178,7 +180,7 @@ async function proveedoresConOrdenes(municipalityId: string): Promise<ProveedorB
 async function candidatosPrensaPorContenido(municipalityId: string): Promise<CruceComparador[]> {
   const filas = await prisma.$queryRaw<Array<{
     id: string; ruc: string; nombre: string; slug: string; ordenes: number; considerado: string;
-    primera: string | null; ultima: string | null; tieneFoto: boolean; fotoVersion: string | null; muestra: string | null;
+    primera: string | null; ultima: string | null; tieneFoto: boolean; fotoVersion: string | null; muestras: string[];
   }>>`
     SELECT s.id, s.ruc, s.name AS nombre, s.slug,
       COUNT(o.id)::int AS ordenes,
@@ -187,7 +189,7 @@ async function candidatosPrensaPorContenido(municipalityId: string): Promise<Cru
       to_char(MAX(o."issueDate"), 'YYYY-MM-DD') AS ultima,
       EXISTS (SELECT 1 FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL) AS "tieneFoto",
       (SELECT floor(extract(epoch FROM p."updatedAt") * 1000)::bigint::text FROM "SupplierProfile" p WHERE p."supplierId" = s.id AND p."photoKey" IS NOT NULL) AS "fotoVersion",
-      MIN(o.description) AS muestra
+      COALESCE((array_agg(DISTINCT o.description) FILTER (WHERE o.description IS NOT NULL))[1:5], ARRAY[]::text[]) AS muestras
     FROM "Supplier" s
     JOIN "CurrentOrder" o ON o."supplierId" = s.id
     LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
@@ -200,14 +202,16 @@ async function candidatosPrensaPorContenido(municipalityId: string): Promise<Cru
     ORDER BY COALESCE(SUM(o.amount), 0) DESC, COUNT(o.id) DESC, s.name ASC
     LIMIT 150
   `;
-  return filas.map(fila => ({
-    subjectKey: `contenido-prensa:${municipalityId}:${fila.id}`,
+  return filas.map(fila => {
+    const clasificacion = fila.muestras.map(descripcion => clasificarContenidoPrensa(descripcion)).sort((a, b) => a.nivel - b.nivel || b.confianza - a.confianza)[0] ?? clasificarContenidoPrensa('');
+    return {
+      subjectKey: `contenido-prensa:${municipalityId}:${fila.id}`,
     supplierId: fila.id,
     persona: 'Detectado en las descripciones de órdenes',
     dni: dniDesdeRuc(fila.ruc),
     ruc: fila.ruc,
     fuentes: ['Prensa'],
-    detalle: fila.muestra ? [`Ejemplo: ${fila.muestra}`] : ['Descripción compatible con prensa o comunicación'],
+    detalle: [...clasificacion.razones, ...fila.muestras.slice(0, 2).map(muestra => `Ejemplo: ${muestra}`)],
     proveedor: {
       id: fila.id, nombre: fila.nombre, ruc: fila.ruc, slug: fila.slug,
       ordenes: Number(fila.ordenes), considerado: decimalMonetario(fila.considerado),
@@ -215,11 +219,14 @@ async function candidatosPrensaPorContenido(municipalityId: string): Promise<Cru
       fotoUrl: fotoUrl({ ...fila, dni: dniDesdeRuc(fila.ruc), tokens: [], tieneFoto: Boolean(fila.tieneFoto), considerado: decimalMonetario(fila.considerado), ordenes: Number(fila.ordenes) }),
     },
     tipo: 'contenido-prensa',
-    motivo: 'Las órdenes contienen términos asociados con prensa, publicidad o comunicación',
-    coincidencias: ['descripción de la orden'],
-    puntaje: 70,
+    motivo: clasificacion.etiqueta,
+    coincidencias: clasificacion.senales,
+    puntaje: clasificacion.confianza,
+    nivelPrensa: clasificacion.nivel,
+    etiquetaClasificacion: clasificacion.etiqueta,
     revisado: false,
-  }));
+    };
+  });
 }
 
 async function revisionesPara(cruces: Pick<CruceComparador, 'subjectKey' | 'supplierId'>[]) {

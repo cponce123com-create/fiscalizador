@@ -117,5 +117,5 @@ async function atender(
 }
 
 export async function GET(...args: Parameters<typeof atender>): Promise<Response> {
-  return peticionPublicaLimitada('export', () => atender(...args));
+  return peticionPublicaLimitada('export', args[0], () => atender(...args));
 }
