@@ -35,7 +35,7 @@ export function BusquedaGlobal({ populares = [] }: { populares?: string[] }) {
     const timer = setTimeout(async () => {
       setCargando(true);
       try {
-        const response = await fetch(`/api/public/search/global?texto=${encodeURIComponent(termino)}`, { cache: 'no-store', signal: controller.signal });
+        const response = await fetch(`/api/public/search/global?texto=${encodeURIComponent(termino)}`, { signal: controller.signal });
         if (!response.ok) throw new Error();
         const datos: ResultadoBusquedaGlobal = await response.json();
         if (turno === secuencia.current) setResultado(datos);
@@ -44,7 +44,7 @@ export function BusquedaGlobal({ populares = [] }: { populares?: string[] }) {
       } finally {
         if (!controller.signal.aborted && turno === secuencia.current) setCargando(false);
       }
-    }, 350);
+    }, 200);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [termino]);
 
