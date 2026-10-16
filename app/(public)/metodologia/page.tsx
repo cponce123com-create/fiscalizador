@@ -7,7 +7,8 @@ import { PLAZO_RESPUESTA_DIAS, leerContactoCorrecciones } from '@/lib/contacto';
 
 /**
  * Correo para solicitar correcciones, resuelto en el servidor al compilar (es una
- * variable `NEXT_PUBLIC_`). `null` cuando no está configurado.
+ * variable `NEXT_PUBLIC_`). Si falta, `lib/contacto` conserva el correo público
+ * predeterminado para que el canal nunca quede deshabilitado.
  */
 const contactoCorrecciones = leerContactoCorrecciones(
   process.env.NEXT_PUBLIC_CONTACTO_CORRECCIONES,

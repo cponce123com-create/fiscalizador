@@ -69,7 +69,7 @@ export function PiePublico({ configuraciones, municipalidades }: { configuracion
           <div>
             <p className="titulo-editorial text-lg font-semibold">Fiscalizador · {municipalidad.nombreCorto}</p>
             <p className="mt-2 max-w-lg text-xs leading-relaxed text-emerald-100/80">
-              Portal ciudadano independiente. Municipalidad consultada: {municipalidad.nombre}. Datos de libros mensuales publicados por la municipalidad; las órdenes no acreditan pagos.
+              Plataforma ciudadana independiente para fiscalizar compras públicas en la Selva Central. Estás consultando {municipalidad.nombre}. Los datos provienen de sus libros mensuales; las órdenes no acreditan pagos.
             </p>
           </div>
         </div>

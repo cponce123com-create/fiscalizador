@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { PLAZO_RESPUESTA_DIAS, leerContactoCorrecciones } from '@/lib/contacto';
+import { CONTACTO_CORRECCIONES_PREDETERMINADO, PLAZO_RESPUESTA_DIAS, leerContactoCorrecciones } from '@/lib/contacto';
 
 /**
  * Pruebas de la lectura del correo de correcciones.
  *
- * Lo que se comprueba es que **no se inventa un valor**: si la variable falta o
- * está en blanco, la página debe poder distinguirlo para avisar en lugar de
- * mostrar un correo inexistente.
+ * La variable permite reemplazar el correo sin editar código. Si falta, el
+ * canal público acordado sigue disponible y la página nunca queda sin contacto.
  */
 describe('leerContactoCorrecciones', () => {
   it('devuelve el correo cuando está definido', () => {
@@ -20,16 +19,16 @@ describe('leerContactoCorrecciones', () => {
     );
   });
 
-  it('trata la cadena vacía como no configurado', () => {
-    expect(leerContactoCorrecciones('')).toBeNull();
+  it('usa el correo público predeterminado ante una cadena vacía', () => {
+    expect(leerContactoCorrecciones('')).toBe(CONTACTO_CORRECCIONES_PREDETERMINADO);
   });
 
-  it('trata una cadena en blanco como no configurado', () => {
-    expect(leerContactoCorrecciones('   ')).toBeNull();
+  it('usa el correo público predeterminado ante una cadena en blanco', () => {
+    expect(leerContactoCorrecciones('   ')).toBe(CONTACTO_CORRECCIONES_PREDETERMINADO);
   });
 
-  it('trata la variable ausente como no configurado', () => {
-    expect(leerContactoCorrecciones(undefined)).toBeNull();
+  it('usa el correo público predeterminado si la variable está ausente', () => {
+    expect(leerContactoCorrecciones(undefined)).toBe(CONTACTO_CORRECCIONES_PREDETERMINADO);
   });
 });
 

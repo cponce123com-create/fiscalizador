@@ -156,6 +156,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
   const [analizando, setAnalizando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
+  const [resultadoVisible, setResultadoVisible] = useState(false);
   const [soloConHallazgos, setSoloConHallazgos] = useState(false);
 
   const anios = Array.from({ length: ahora.getFullYear() - 1999 }, (_, i) => 2000 + i);
@@ -377,6 +378,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     }
 
     setErrorGlobal(null);
+    setResultadoVisible(false);
     setConfirmando(true);
     setProgreso({ hechos: 0, total: incluidos.length });
 
@@ -422,6 +424,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     }
 
     setConfirmando(false);
+    setResultadoVisible(true);
   }
 
   function quitar(id: string) {
@@ -432,6 +435,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     setArchivos([]);
     setErrorGlobal(null);
     setProgreso(null);
+    setResultadoVisible(false);
   }
 
   return (
@@ -980,82 +984,29 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
         </div>
       ) : null}
 
-      {confirmando ? (
-        <Cargando
-          etiqueta={`Importando los libros (${progreso?.hechos ?? 0} de ${progreso?.total ?? 0})…`}
-        />
-      ) : null}
-
-      {importados.length > 0 && !confirmando ? (
-        <Tarjeta>
-          <TarjetaEncabezado>
-            <TarjetaTitulo>Resultado de la tanda</TarjetaTitulo>
-            <TarjetaDescripcion>
-              {importados.length} libro(s) importado(s) de {enRevision.length} analizado(s).
-            </TarjetaDescripcion>
-          </TarjetaEncabezado>
-
-          <TarjetaContenido className="flex flex-col gap-4">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-              <ResumenCifra
-                etiqueta="Órdenes insertadas"
-                valor={String(
-                  importados.reduce(
-                    (total, archivo) => total + (archivo.resultado?.ordenesInsertadas ?? 0),
-                    0,
-                  ),
-                )}
-              />
-              <ResumenCifra
-                etiqueta="Omitidas por duplicado"
-                valor={String(
-                  importados.reduce(
-                    (total, archivo) =>
-                      total + (archivo.resultado?.ordenesOmitidasPorDuplicado ?? 0),
-                    0,
-                  ),
-                )}
-              />
-              <ResumenCifra
-                etiqueta="Proveedores creados"
-                valor={String(
-                  importados.reduce(
-                    (total, archivo) => total + (archivo.resultado?.proveedoresCreados ?? 0),
-                    0,
-                  ),
-                )}
-              />
-              <ResumenCifra
-                etiqueta="Proveedores ya existentes"
-                valor={String(
-                  importados.reduce(
-                    (total, archivo) => total + (archivo.resultado?.proveedoresExistentes ?? 0),
-                    0,
-                  ),
-                )}
-              />
-              <ResumenCifra
-                etiqueta="Monto considerado"
-                valor={formatearCentavos(
-                  importados.reduce(
-                    (total, archivo) => total + (archivo.resultado?.summary.consideredCents ?? 0),
-                    0,
-                  ),
-                )}
-                destacada
-              />
-            </div>
-
-            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5" aria-hidden="true" />
-              Cada lote queda registrado en{' '}
-              <Link href="/admin/importaciones" className="underline underline-offset-2">
-                Importaciones
-              </Link>
-              , con su archivo original y sus hallazgos.
-            </p>
-          </TarjetaContenido>
-        </Tarjeta>
+      {confirmando || resultadoVisible ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="resultado-importacion-titulo">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-5 shadow-2xl sm:p-7">
+            {confirmando ? (
+              <>
+                <div className="flex items-center gap-3"><span className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary" aria-hidden="true" /><div><h2 id="resultado-importacion-titulo" className="text-xl font-semibold">Importando libros</h2><p className="mt-1 text-sm text-muted-foreground">No cierres esta ventana mientras se guarda la tanda.</p></div></div>
+                <div className="mt-6 h-3 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${progreso?.total ? Math.round((progreso.hechos / progreso.total) * 100) : 0}%` }} /></div>
+                <p className="mt-3 text-center text-sm font-medium tabular-nums">{progreso?.hechos ?? 0} de {progreso?.total ?? incluidos.length} libros procesados</p>
+              </>
+            ) : (
+              <>
+                <div className="flex items-start gap-3"><span className="rounded-full bg-emerald-100 p-2 text-emerald-700"><CheckCircle2 className="h-6 w-6" aria-hidden="true" /></span><div><h2 id="resultado-importacion-titulo" className="text-xl font-semibold">Importación finalizada</h2><p className="mt-1 text-sm text-muted-foreground">{importados.length} de {progreso?.total ?? enRevision.length} libro(s) se importaron correctamente.</p></div></div>
+                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  <ResumenCifra etiqueta="Órdenes insertadas" valor={String(importados.reduce((total, archivo) => total + (archivo.resultado?.ordenesInsertadas ?? 0), 0))} />
+                  <ResumenCifra etiqueta="Duplicados omitidos" valor={String(importados.reduce((total, archivo) => total + (archivo.resultado?.ordenesOmitidasPorDuplicado ?? 0), 0))} />
+                  <ResumenCifra etiqueta="Monto considerado" valor={formatearCentavos(importados.reduce((total, archivo) => total + (archivo.resultado?.summary.consideredCents ?? 0), 0))} destacada />
+                </div>
+                {importados.length < (progreso?.total ?? 0) ? <p className="mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{(progreso?.total ?? 0) - importados.length} libro(s) no se importaron. Conservaremos la tanda para que puedas revisar el error.</p> : null}
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3"><Link href="/admin/importaciones" className="text-sm font-medium text-primary underline underline-offset-2">Ver importaciones</Link>{importados.length < (progreso?.total ?? 0) ? <div className="flex flex-wrap gap-2"><Boton variant="outline" onClick={reiniciar}>Descartar y empezar otra</Boton><Boton onClick={() => setResultadoVisible(false)}>Revisar errores</Boton></div> : <Boton onClick={reiniciar}>OK · preparar otra importación</Boton>}</div>
+              </>
+            )}
+          </div>
+        </div>
       ) : null}
     </div>
   );
