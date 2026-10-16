@@ -53,4 +53,10 @@ describe('cruce de prensa con libros publicados', () => {
     expect(await contratacionesPrensa([])).toEqual({ filas: [], conOrdenes: 0, ordenes: 0, considerado: '0.00' });
     expect(query).toHaveBeenCalledTimes(1);
   });
+  it('fuera de San Ramón oculta fichas vacías y ordena por monto considerado', async () => {
+    query.mockResolvedValue([agregado(uno.ruc, '100.00', 4), agregado(dos.ruc, '900.00', 2)]);
+    const r = await contratacionesPrensa([uno, { ruc: '10999999991', nombre: 'Sin órdenes' }, dos], 'mun-perene');
+    expect(r.filas.map(f => f.ruc)).toEqual([dos.ruc, uno.ruc]);
+    expect(r.filas.every(f => f.ordenes > 0)).toBe(true);
+  });
 });

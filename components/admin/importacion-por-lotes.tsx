@@ -151,7 +151,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
   const [archivos, setArchivos] = useState<ArchivoEnCola[]>([]);
   const [tipo, setTipo] = useState('CONSOLIDADO');
-  const [municipalityId, setMunicipalityId] = useState(municipalidades[0]?.id ?? 'mun-san-ramon');
+  const [municipalityId, setMunicipalityId] = useState('');
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
@@ -205,6 +205,10 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
   function agregarArchivos(nuevos: File[]) {
     setErrorGlobal(null);
+    if (!municipalityId) {
+      setErrorGlobal('Selecciona primero la municipalidad que recibirá esta importación.');
+      return;
+    }
 
     const aceptados: ArchivoEnCola[] = [];
     const rechazados: string[] = [];
@@ -440,20 +444,13 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
       <Tarjeta>
         <TarjetaEncabezado>
-          <TarjetaTitulo>Elige los libros</TarjetaTitulo>
+          <TarjetaTitulo>1. Selecciona la municipalidad</TarjetaTitulo>
           <TarjetaDescripcion>
-            Suelta todos los libros de una vez. El periodo se comprueba con el título del libro y las
-            fechas de emisión. Si hay dudas, selecciona el año y el mes antes de analizar.
+            Esta selección queda bloqueada cuando agregas archivos, para impedir que una tanda termine en otra entidad.
           </TarjetaDescripcion>
         </TarjetaEncabezado>
 
         <TarjetaContenido className="flex flex-col gap-5">
-          <ZonaDeCarga
-            onArchivos={agregarArchivos}
-            deshabilitada={ocupado || archivos.length >= MAX_ARCHIVOS}
-            maxArchivos={MAX_ARCHIVOS}
-          />
-
           <GrupoCampo
             etiqueta="Municipalidad"
             htmlFor="municipalityId"
@@ -466,6 +463,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
               onChange={(evento: ChangeEvent<HTMLSelectElement>) => setMunicipalityId(evento.target.value)}
               disabled={ocupado || archivos.length > 0}
             >
+              <option value="">Selecciona una municipalidad…</option>
               {municipalidades.map((municipalidad) => (
                 <option key={municipalidad.id} value={municipalidad.id}>
                   {municipalidad.nombreCorto} · {municipalidad.ruc}
@@ -473,6 +471,17 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
               ))}
             </Selector>
           </GrupoCampo>
+
+          {municipalityId ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"><strong>Destino confirmado:</strong> {municipalidades.find(m => m.id === municipalityId)?.nombre}. Todos los archivos de esta tanda quedarán asociados a esta entidad.</div> : <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Antes de continuar:</strong> elige la municipalidad correcta.</div>}
+
+          <div className={!municipalityId ? 'pointer-events-none opacity-50' : ''}>
+            <p className="mb-3 font-semibold">2. Agrega los libros</p>
+            <ZonaDeCarga
+              onArchivos={agregarArchivos}
+              deshabilitada={ocupado || !municipalityId || archivos.length >= MAX_ARCHIVOS}
+              maxArchivos={MAX_ARCHIVOS}
+            />
+          </div>
 
           <GrupoCampo
             etiqueta="Tipo de información"

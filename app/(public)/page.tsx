@@ -10,6 +10,7 @@ import { PortadaPrensa } from '@/components/publico/portada-prensa';
 import { contratacionesPrensa } from '@/services/pressService';
 import { BusquedaPortada } from '@/components/publico/busqueda-portada';
 import { BusquedaGlobal } from '@/components/publico/busqueda-global';
+import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -26,7 +27,8 @@ import { PeriodoRanking } from '@/components/publico/periodo-ranking';
 import { seleccionarPeriodoRanking } from '@/lib/periodo-ranking';
 import { datosPortadaInicial, periodosDelRanking } from '@/services/statisticsService';
 import { leerConfiguracionPortal } from '@/services/portalService';
-import { idMunicipalidadDesdeSlug, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
+import { idMunicipalidadDesdeSlug, listarMunicipalidadesActivas, municipalidadActivaDesdeSlug } from '@/services/municipalityService';
+import { busquedasPopulares } from '@/services/publicSearchTermsService';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
@@ -46,17 +48,23 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const conMunicipalidad = (href: string) => filtrosBase.municipalidadSlug ? `${href}${href.includes('?') ? '&' : '?'}municipalidad=${filtrosBase.municipalidadSlug}` : href;
   const etiquetaRuc = tipoRucRanking ? `RUC ${tipoRucRanking}` : 'Todos los tipos de RUC';
   const nombreRanking = periodosRanking.find(p => p.id === gestionRanking)?.nombre ?? 'Todos los periodos';
-  const [datos, pendientes, ultimaActualizacion, config, municipalidad] = await Promise.all([
+  const [datos, pendientes, ultimaActualizacion, config, municipalidad, municipalidades, populares] = await Promise.all([
     datosPortadaInicial(gestionRanking, tipoRucRanking, municipalityId),
     prisma.importBatch.count({ where: { municipalityId, requiresReview: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } } }),
     prisma.importBatch.findFirst({ where: { municipalityId, isCurrent: true, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } }, orderBy: { processingFinishedAt: 'desc' }, select: { processingFinishedAt: true } }),
     leerConfiguracionPortal(municipalityId),
     municipalidadActivaDesdeSlug(filtrosBase.municipalidadSlug),
+    listarMunicipalidadesActivas(),
+    busquedasPopulares(),
   ]);
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
   return <div className="flex flex-col gap-5 sm:gap-7">
-    <BusquedaGlobal />
+    <BusquedaGlobal populares={populares} />
+    <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5" aria-label="Municipalidad consultada">
+      <div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Explorar por entidad</p><p className="mt-1 text-sm text-muted-foreground">El contenido que aparece debajo corresponde a la municipalidad seleccionada.</p></div>
+      <SelectorMunicipalidad municipalidades={municipalidades} />
+    </section>
     <section className="grid items-center gap-7 lg:grid-cols-[1.15fr_1fr]" aria-labelledby="titulo-portada">
       <div>
         <p className="mb-4 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[.16em] text-primary"><ShieldCheck size={15} aria-hidden="true" />Observatorio ciudadano · {municipalidad.nombreCorto}</p>
@@ -64,7 +72,6 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">Explora órdenes, proveedores y documentos de origen de la {municipalidad.nombre.replace(/^Municipalidad /, 'municipalidad ')}.</p>
         <p className="mt-6 text-xs font-semibold uppercase tracking-wide text-emerald-800">Buscar solo en {municipalidad.nombreCorto}</p>
         <BusquedaPortada municipalidad={filtrosBase.municipalidadSlug} />
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground"><span>Búsquedas frecuentes:</span>{['Combustible', 'Obras', 'Limpieza'].map(texto => <Link key={texto} href={conMunicipalidad(`/ordenes?texto=${texto.toLowerCase()}`)} className="boton-enlace rounded-full border border-border bg-muted px-3 py-1.5 hover:border-primary hover:text-primary">{texto}</Link>)}</div>
       </div>
       <div className="relative flex min-h-64 flex-col justify-between overflow-hidden rounded-2xl bg-emerald-950 p-6 text-white sm:min-h-80">
         {config.fotoPortada ? <Image src={config.fotoPortada} alt={config.creditoFoto} fill sizes="(max-width: 1024px) 100vw, 500px" className="object-cover" /> : <><div aria-hidden="true" className="absolute -right-20 -top-20 h-80 w-80 rounded-full border-[35px] border-emerald-800/35" /><div aria-hidden="true" className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full border-[35px] border-amber-300/10" /><Image src={config.logo || "/identidad/escudo-san-ramon.webp"} alt={config.logo ? `Logo del portal de ${municipalidad.nombreCorto}` : `Escudo de ${municipalidad.nombreCorto}`} width={132} height={136} className="relative mx-auto my-4 h-36 w-full max-w-64 object-contain" /></>}

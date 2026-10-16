@@ -30,7 +30,7 @@ export async function contratacionesPrensa(catalogo: readonly { ruc: string; nom
   `;
   const porRuc = new Map(agregados.map(f => [f.ruc, f]));
   const unicos = [...new Map(catalogo.map(p => [p.ruc, p])).values()];
-  const filas = unicos.map(persona => {
+  const todas = unicos.map(persona => {
     const fila = porRuc.get(persona.ruc);
     return {
       ruc: persona.ruc,
@@ -47,10 +47,16 @@ export async function contratacionesPrensa(catalogo: readonly { ruc: string; nom
       fotoUrl: fila?.fotoUrl ?? null,
       perfilUrl: fila ? `/proveedores/${fila.slug}` : `/prensa/${persona.ruc}`,
     };
-  }).sort((a, b) => posicionPrensa(a.ruc) - posicionPrensa(b.ruc)
-    || Number(b.ordenes > 0) - Number(a.ordenes > 0)
-    || new Prisma.Decimal(b.considerado).comparedTo(a.considerado)
-    || a.nombre.localeCompare(b.nombre, 'es'));
+  });
+  const filas = municipalityId === MUNICIPALIDAD_DEFAULT_ID
+    ? todas.sort((a, b) => posicionPrensa(a.ruc) - posicionPrensa(b.ruc)
+      || Number(b.ordenes > 0) - Number(a.ordenes > 0)
+      || new Prisma.Decimal(b.considerado).comparedTo(a.considerado)
+      || a.nombre.localeCompare(b.nombre, 'es'))
+    : todas.filter(fila => fila.ordenes > 0).sort((a, b) =>
+      new Prisma.Decimal(b.considerado).comparedTo(a.considerado)
+      || b.ordenes - a.ordenes
+      || a.nombre.localeCompare(b.nombre, 'es'));
   return {
     filas,
     conOrdenes: filas.filter(f => f.ordenes > 0).length,
