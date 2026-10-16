@@ -184,9 +184,9 @@ ni credenciales en el repositorio.
 | `DIRECT_URL` | Conexión directa que utiliza la CLI de Prisma. |
 | `AUTH_SECRET` | Secreto de al menos 32 caracteres para sesiones y cifrado del secreto TOTP. |
 | `SEED_SUPERADMIN_EMAIL`, `SEED_SUPERADMIN_PASSWORD` | Alta inicial de la cuenta administrativa. |
-| `STORAGE_DRIVER` | Mantener en `local` para los libros originales. |
-| `STORAGE_LOCAL_DIR` | Directorio escribible; en Render debe estar en un disco persistente. |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Credenciales de servidor para subir y consultar fotografías. |
+| `STORAGE_DRIVER` | `cloudinary` en Render Free; `local` solo para desarrollo. |
+| `STORAGE_LOCAL_DIR` | Directorio usado únicamente con almacenamiento local. |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Credenciales de servidor para fotografías y libros originales protegidos. |
 | `NEXT_PUBLIC_SITE_URL` | URL pública para enlaces canónicos y metadatos. |
 | `NEXT_PUBLIC_MUNICIPALIDAD` | Nombre de la municipalidad mostrado en el portal. |
 | `NEXT_PUBLIC_CONTACTO_CORRECCIONES` | Correo público para solicitar correcciones. |
@@ -201,6 +201,11 @@ la compilación. **Nunca deben contener secretos.**
 Las fotografías nuevas usan Cloudinary de manera independiente de `STORAGE_DRIVER`.
 No necesitan un upload preset. Se procesan con Sharp, se convierten a WebP y se
 retiran los metadatos EXIF; se admiten JPEG, PNG y WebP de hasta 2 MB.
+
+Con `STORAGE_DRIVER=cloudinary`, los `.xls`, `.xlsx` y `.csv` originales se
+almacenan como recursos `raw` con entrega `authenticated`. La API pública nunca
+expone las credenciales ni una URL permanente: recupera el archivo desde el
+servidor y comprueba nuevamente su SHA-256 antes de entregarlo.
 
 Los recursos se guardan como `authenticated`. El portal los sirve mediante rutas
 que comprueban permisos o la política de publicación de la ficha, sin revelar las
@@ -288,7 +293,7 @@ se muestran separados del resultado oficial y requieren su fuente.
   minuto; búsqueda: 3 activas y 180 por minuto, por proceso. El exceso devuelve
   `429` con `Retry-After`. Varias instancias requieren un contador distribuido.
 - **Importaciones acotadas.** Se limitan los bytes reales del formulario antes del
-  análisis multipart: 25 MB por archivo más 64 KB de sobrecarga. La lectura de
+  análisis multipart: 10 MB por archivo más 64 KB de sobrecarga. La lectura de
   Excel se ejecuta en un worker local de Node para no bloquear el hilo principal;
   no requiere Redis ni servicios de pago.
 - **Operación verificable.** La rotación de credenciales, recuperación de 2FA y
