@@ -19,8 +19,8 @@ describe('resumen de la importación después de revisar los montos', () => {
 
   it('distingue alertas de monto de otras advertencias', () => {
     expect(requiereRevisionMonto([{ code: 'MONTO_ALTO' }])).toBe(true);
-    expect(requiereRevisionMonto([{ code: 'MONTO_ATIPICO' }])).toBe(true);
-    expect(requiereRevisionMonto([{ code: 'MONTO_COINCIDE_RUC' }])).toBe(true);
+    expect(requiereRevisionMonto([{ code: 'MONTO_ATIPICO' }])).toBe(false);
+    expect(requiereRevisionMonto([{ code: 'MONTO_COINCIDE_RUC' }])).toBe(false);
     expect(requiereRevisionMonto([{ code: 'RUC_DIGITO_VERIFICADOR' }])).toBe(false);
   });
 });

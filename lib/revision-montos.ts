@@ -1,10 +1,8 @@
 /** Señales de revisión, no límites legales ni pruebas de sobrevaloración. */
 export const MONTO_ALTO_SOLES = 2_000_000;
-export const MONTO_ATIPICO_MINIMO_SOLES = 100_000;
-export const FACTOR_MONTO_ATIPICO = 50;
 
 export function requiereRevisionMonto(issues: readonly { code: string }[]): boolean {
-  return issues.some(issue => ['MONTO_ALTO', 'MONTO_ATIPICO', 'MONTO_COINCIDE_RUC'].includes(issue.code));
+  return issues.some(issue => issue.code === 'MONTO_ALTO');
 }
 
 export type MontoPorFila = {

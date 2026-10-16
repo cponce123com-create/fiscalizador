@@ -1,4 +1,4 @@
-import { MONTO_ALTO_SOLES, MONTO_ATIPICO_MINIMO_SOLES, FACTOR_MONTO_ATIPICO } from '@/lib/revision-montos';
+import { MONTO_ALTO_SOLES } from '@/lib/revision-montos';
 import {
   buildDedupeKey,
   normalizeKey,
@@ -474,16 +474,9 @@ export function validateRows(input: ValidateInput): ValidationResult {
     });
   });
 
-  // Segunda pasada: compara únicamente órdenes válidas, vigentes y con monto positivo.
-  // Las anuladas o no económicas quedan para trazabilidad, pero no deben bloquear
-  // la importación por umbrales que solo afectan al monto considerado.
-  // La mediana resiste una cifra enorme aislada mejor que el promedio.
-  const positivos = orders.filter(o => o.amount !== null && !o.isCancelled && o.countsEconomically && Number(o.amount) > 0)
-    .map(o => Number(o.amount)).sort((a, b) => a - b);
-  const mitad = Math.floor(positivos.length / 2);
-  const mediana = positivos.length >= 5
-    ? positivos.length % 2 ? positivos[mitad]! : (positivos[mitad - 1]! + positivos[mitad]!) / 2
-    : null;
+  // Segunda pasada: solo exige revisión por el umbral absoluto acordado. No usa
+  // medias ni medianas: una orden normal puede ser muy superior al resto del libro.
+  // Las anuladas o no económicas se conservan, pero no activan esta revisión.
   const moneda = (n: number) => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   for (const orden of orders) {
     if (orden.amount === null) continue;
@@ -495,14 +488,8 @@ export function validateRows(input: ValidateInput): ValidationResult {
       columnName: headers[indices.amount ?? -1] || 'Monto',
       rawValue: toText(orden.rawData[headers[indices.amount ?? -1] ?? '']),
     });
-    if (orden.ruc && monto === Number(orden.ruc)) {
-      advertir('MONTO_COINCIDE_RUC', `El monto ${moneda(monto)} coincide con el RUC del proveedor. Revisa la celda y el mapeo de columnas.`);
-    }
     if (monto > MONTO_ALTO_SOLES) {
       advertir('MONTO_ALTO', `Monto elevado: ${moneda(monto)}. Al superar ${moneda(MONTO_ALTO_SOLES)} se exige revisión; es una alerta de calidad, no un límite legal.`);
-    }
-    if (mediana !== null && monto >= MONTO_ATIPICO_MINIMO_SOLES && monto > mediana * FACTOR_MONTO_ATIPICO) {
-      advertir('MONTO_ATIPICO', `El monto ${moneda(monto)} supera ${FACTOR_MONTO_ATIPICO} veces la mediana del libro (${moneda(mediana)}). Revisa posibles errores de digitación, separadores o columnas.`);
     }
     if (!hallazgos.length) continue;
     if (!orden.hasWarning) warningRows++;

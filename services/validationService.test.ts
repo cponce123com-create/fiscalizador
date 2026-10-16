@@ -374,7 +374,7 @@ describe('montos desproporcionados antes de importar', () => {
   it('detecta una cifra de miles de millones que sí cabe en Decimal(14,2)', () => {
     const r = validar([100, 150, 200, 300, '61726647029.20'], undefined, [2, 5, 9, 12, 389]);
     expect(r.summary.warningRows).toBe(1);
-    expect(r.issues.filter(i => i.code.startsWith('MONTO_')).map(i => i.code)).toEqual(['MONTO_ALTO', 'MONTO_ATIPICO']);
+    expect(r.issues.filter(i => i.code.startsWith('MONTO_')).map(i => i.code)).toEqual(['MONTO_ALTO']);
     expect(r.issues.find(i => i.code === 'MONTO_ALTO')).toMatchObject({ sourceRow: 389, rawValue: '61726647029.20', severity: 'WARNING' });
     expect(r.orders[4]?.amount).toBe('61726647029.20'); // Nunca corrige el original.
   });
@@ -391,10 +391,9 @@ describe('montos desproporcionados antes de importar', () => {
     expect(r.orders.map(o => o.amount)).toEqual(['1000000.00', '2000000.00', '2000000.01']);
   });
 
-  it('detecta un atípico inferior a un millón sin usar un promedio contaminado', () => {
+  it('no alerta montos atípicos si no superan dos millones', () => {
     const r = validar([100, 200, 300, 400, 500, 125_000]);
-    expect(r.issues.filter(i => i.code === 'MONTO_ATIPICO')).toHaveLength(1);
-    expect(r.issues.some(i => i.code === 'MONTO_ALTO')).toBe(false);
+    expect(r.issues.filter(i => i.code.startsWith('MONTO_'))).toHaveLength(0);
   });
 
   it('no confunde variaciones normales, libros pequeños ni ceros con errores', () => {

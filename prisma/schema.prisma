@@ -292,6 +292,19 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Conteo anónimo agregado para ordenar sugerencias por búsquedas reales.
+/// No guarda IP, usuario, sesión ni historial individual.
+model PublicSearchTerm {
+  id             String   @id @default(cuid())
+  normalizedTerm String   @unique
+  displayTerm    String
+  uses           Int      @default(1)
+  createdAt      DateTime @default(now())
+  lastUsedAt     DateTime @default(now())
+
+  @@index([uses, lastUsedAt])
+}
+
 model Municipality {
   id           String   @id @default(cuid())
   name         String
