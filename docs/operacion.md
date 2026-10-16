@@ -93,10 +93,11 @@ Se restaura **en una rama nueva** y se verifica antes de apuntar el portal a ell
 
 ### Nota sobre los archivos originales
 
-Las copias de Neon cubren **la base de datos**, no el disco de Render
-(`/var/data/uploads`). Los libros originales importados viven ahí y **no** están en la
-copia. Para una recuperación completa hay que conservar también ese volumen (o migrar a
-Cloudinary, que es la Fase 11 del plan).
+Las copias de Neon cubren **la base de datos**, mientras que los libros originales
+de producción se conservan como recursos RAW autenticados en Cloudinary. Una
+recuperación completa requiere ambas cuentas: restaurar Neon y mantener las mismas
+credenciales de Cloudinary. `npm run verify:cloudinary` comprueba el circuito con un
+archivo temporal aislado y lo elimina al finalizar.
 
 ---
 
