@@ -15,7 +15,7 @@ services:
   - type: web
     name: fiscalizador
     runtime: node
-    plan: starter
+    plan: free
     # Ohio (us-east-2) porque el proyecto de Neon está en esa misma región
     # por consulta, y aquí se hacen muchas.
     region: ohio
@@ -27,11 +27,9 @@ services:
     # cliente queda listo para el build.
     buildCommand: npm ci && npm run build
 
-    # Las migraciones se aplican ANTES de arrancar. Si se hiciera en el arranque,
-    # cada reinicio intentaría migrar y varias instancias competirían entre sí.
-    # Requiere plan de pago. En el plan gratuito, ver la nota al final.
-    preDeployCommand: npx prisma migrate deploy
-
+    # En Render Free no existe preDeployCommand. `npm start` aplica las migraciones
+    # pendientes antes de iniciar Next.js. El plan gratuito mantiene una sola
+    # instancia, y Prisma registra cada migración aplicada en PostgreSQL.
     startCommand: npm start
 
     # Comprueba la base de datos de verdad (ver app/api/health/route.ts).
@@ -58,14 +56,19 @@ services:
         generateValue: true
 
       # --- Almacenamiento de archivos originales --------------------------------
-      # Apunta al disco persistente declarado más abajo. Sin disco, el disco del
-      # servicio es efímero y los archivos originales se perderían en cada
-      # despliegue: son la evidencia de la que salió cada dato.
+      # Los libros se guardan como recursos RAW protegidos. El disco de Render
+      # Free es efímero y no se usa para conservar evidencia.
       - key: STORAGE_DRIVER
-        value: local
+        value: cloudinary
 
-      - key: STORAGE_LOCAL_DIR
-        value: /var/data/uploads
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+
+      - key: CLOUDINARY_API_KEY
+        sync: false
+
+      - key: CLOUDINARY_API_SECRET
+        sync: false
 
       # --- Sitio -----------------------------------------------------------------
       # URL pública del portal. La usan el canónico, OpenGraph, el sitemap y
@@ -89,26 +92,15 @@ services:
       - key: SEED_SUPERADMIN_PASSWORD
         sync: false
 
-    disk:
-      name: archivos-originales
-      mountPath: /var/data
-      sizeGB: 1
-
 # =============================================================================
 # Notas
 # =============================================================================
 #
 # PLAN GRATUITO
-#   `preDeployCommand` y los discos persistentes requieren plan de pago.
-#   En el plan gratuito:
-#     - Quita el bloque `disk` y las dos variables de STORAGE_*, o asume que los
-#       archivos originales se pierden en cada despliegue.
-#     - Sustituye el preDeployCommand moviéndolo al arranque:
-#           startCommand: npx prisma migrate deploy && npm start
-#       Es menos limpio (varias instancias podrían migrar a la vez), pero con una
-#       sola instancia es aceptable.
-#     - El servicio se suspende tras 15 minutos de inactividad y tarda en
-#       despertar, así que el primer acceso del día será lento.
+#   El Blueprint usa `plan: free`, no declara discos ni preDeployCommand.
+#   Los originales persisten en Cloudinary y las migraciones se ejecutan al
+#   arrancar mediante el script `npm start`. El servicio se suspende tras un
+#   periodo de inactividad, por lo que el primer acceso puede ser más lento.
 #
 # APLICAR EL SEED UNA VEZ
 #   En una base vacía hay que ejecutar `npm run db:seed` una vez (Shell de Render
