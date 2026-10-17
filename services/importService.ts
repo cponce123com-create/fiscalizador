@@ -1,11 +1,13 @@
 import { requiereRevisionMonto, resumenConExclusiones, type MontoPorFila } from '@/lib/revision-montos';
 import { procesoCaducado, PROCESO_CADUCADO_MS } from '@/lib/import-process';
 import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
+import { asegurarMunicipalidadActiva } from '@/services/municipalityService';
 import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { Prisma } from '@/lib/generated/prisma/client';
 import { contextoDePeticion, registrarAuditoria, type ClienteDb } from '@/services/auditService';
 import {
+  CAMPOS_INTERNOS,
   camposObligatoriosFaltantes,
   indicesPorCampo,
   mapColumns,
@@ -570,6 +572,71 @@ export async function analizar(input: AnalizarInput): Promise<AnalizarResult> {
     lotesMismoPeriodo,
     loteMismoChecksum,
     duplicadoContenido,
+  };
+}
+
+/**
+ * Reconstruye la revisión de un original ya guardado sin crear otra versión.
+ * Permite recuperar un análisis tras cerrar el navegador; las decisiones humanas
+ * (exclusiones, montos confirmados y reemplazo) deben revisarse de nuevo.
+ */
+export async function reanalizarLote(importBatchId: string): Promise<AnalizarResult> {
+  const lote = await prisma.importBatch.findUnique({
+    where: { id: importBatchId },
+    include: { columns: { orderBy: { position: 'asc' } } },
+  });
+  if (!lote) throw new NoEncontrado('No existe el análisis que intentas recuperar.');
+  const procesoInterrumpido = lote.status === 'PROCESSING' && procesoCaducado(lote.processingStartedAt, new Date());
+  if ((!['VALIDATING', 'FAILED'].includes(lote.status) && !procesoInterrumpido) || !lote.storageKey) {
+    throw new ErrorDeNegocio('Este análisis ya no está pendiente de revisión o no conserva su archivo original.');
+  }
+  await asegurarMunicipalidadActiva(lote.municipalityId);
+
+  const buffer = await getStorage().read(lote.storageKey);
+  const checksum = computeChecksum(buffer);
+  if (checksum !== lote.checksum) throw new ErrorDeNegocio('La huella del archivo no coincide con el original. No se puede recuperar el análisis.');
+  const catalogos = await cargarCatalogos();
+  const mappingOverride = lote.columns.map(columna => ({
+    position: columna.position,
+    field: columna.internalField === null
+      ? null
+      : CAMPOS_INTERNOS.find(campo => campo.field === columna.internalField)?.field ?? null,
+    isPublic: columna.isPublic,
+  }));
+  const { hoja, mappings, validacion } = await procesarBuffer(buffer, catalogos, mappingOverride);
+  const claves = validacion.orders.map(orden => orden.dedupeKey ?? '');
+  const [lotesMismoPeriodo, loteMismoChecksum, duplicadoContenido] = await Promise.all([
+    prisma.importBatch.findMany({
+      where: { municipalityId: lote.municipalityId, year: lote.year, month: lote.month, importType: lote.importType, id: { not: lote.id } },
+      orderBy: { version: 'desc' },
+      select: { id: true, originalFilename: true, period: true, version: true, status: true, uploadedAt: true, totalRows: true },
+    }),
+    prisma.importBatch.findFirst({
+      where: { municipalityId: lote.municipalityId, checksum, status: { in: ['COMPLETED', 'COMPLETED_WITH_WARNINGS'] } },
+      select: { id: true, originalFilename: true, period: true, version: true, status: true, uploadedAt: true, totalRows: true },
+    }),
+    analizarDuplicadosDeContenido(claves, lote.municipalityId),
+  ]);
+
+  return {
+    importBatchId: lote.id,
+    checksum,
+    sheetName: hoja.sheetName,
+    sheetNames: hoja.sheetNames,
+    headerRowIndex: hoja.headerRowIndex,
+    version: lote.version,
+    columns: mappings,
+    camposFaltantes: camposObligatoriosFaltantes(mappings),
+    preview: validacion.orders.slice(0, LIMITE_PREVIEW).map(aPreview),
+    summary: validacion.summary,
+    issues: validacion.issues,
+    lotesMismoPeriodo,
+    loteMismoChecksum,
+    duplicadoContenido,
+    filasConHallazgos: validacion.orders.filter(orden => orden.issues.length > 0)
+      .sort((a, b) => Number(requiereRevisionMonto(b.issues)) - Number(requiereRevisionMonto(a.issues)))
+      .slice(0, LIMITE_FILAS_CON_HALLAZGOS).map(aPreview),
+    montosPorFila: montosDeOrdenes(validacion.orders),
   };
 }
 

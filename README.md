@@ -26,9 +26,9 @@ con fuentes, historial y cruces documentados.
 
 ## El proyecto
 
-Fiscalizador organiza las compras publicadas de la Municipalidad Distrital de San Ramón
-para consultar quién contrata, por cuánto, en qué periodo y con qué respaldo documental.
-Es una herramienta de **vigilancia ciudadana independiente**.
+Fiscalizador organiza las compras públicas de municipalidades de la Selva Central,
+con San Ramón como ámbito inicial, para consultar quién contrata, por cuánto, en qué
+periodo y con qué respaldo documental. Es una herramienta de **vigilancia ciudadana independiente**.
 
 Los archivos Excel son la fuente de importación. PostgreSQL conserva los registros
 normalizados y alimenta las consultas, los rankings y las estadísticas. Cada importación
@@ -42,7 +42,7 @@ mantiene su procedencia y el archivo original para revisar los datos.
 
 | Portal ciudadano | Panel administrativo |
 | :--- | :--- |
-| Buscar órdenes y proveedores en vivo desde tres caracteres. | Analizar hasta **50 libros** por tanda y revisar cada uno antes de importar. |
+| Buscar órdenes y proveedores en vivo desde tres caracteres. | Analizar hasta **200 libros** por tanda y revisar cada uno antes de importar. |
 | Consultar montos, ranking, historial por gestión y estadísticas. | Detectar duplicados, corregir columnas y excluir filas observadas. |
 | Revisar libros, versiones y cobertura mensual de las fuentes. | Gestionar catálogos, importaciones y eliminación individual o masiva. |
 | Descargar extractos Excel/CSV y originales autorizados. | Mantener perfiles de proveedores y fotografías en Cloudinary. |
@@ -254,6 +254,12 @@ El análisis marca órdenes que superan **S/ 2 000 000**, montos desde **S/ 100 
 Las filas señaladas quedan excluidas por defecto, con el detalle abierto para revisar la fila física, la orden, el proveedor y el valor original. Para conservar una, activa **«Confirmar monto e incluir»** después de verificar la fuente y el mapeo. Los totales descuentan las filas excluidas; el servidor repite las comprobaciones y registra las decisiones al confirmar. Un libro donde todas las filas válidas tengan montos sospechosos también queda excluido de la tanda inicialmente.
 
 No se corrigen importes automáticamente. El análisis previo permanece como preparación privada: no aparece en Fuentes y cobertura, en el historial de importaciones ni en sus contadores. Solo se incorporan los libros cuando el administrador pulsa «Importar» y el proceso termina correctamente.
+
+Los análisis que quedaron pendientes se pueden recuperar desde el importador,
+seleccionando la misma municipalidad. El sistema vuelve a leer el original
+guardado y verifica su SHA-256; no duplica el lote. Por seguridad, las decisiones
+de mapeo, montos sospechosos y filas excluidas deben revisarse y confirmarse de
+nuevo.
 
 Las importaciones existentes conservan sus datos; para aplicar la revisión a un libro anterior, vuelve a analizar su archivo original.
 
