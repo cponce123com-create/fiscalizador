@@ -13,9 +13,12 @@ tamaño actual del proyecto.
 
 ## Límites
 
-- No es una cola distribuida: si el proceso se apaga durante el análisis, el
-  usuario debe volver a subir el libro.
-- Sigue existiendo el límite de 25 MB por archivo.
+- No es una cola distribuida: si el proceso se apaga antes de terminar el análisis
+  y guardar el original, el usuario debe volver a subir el libro. Una vez creado el
+  lote `VALIDATING`, el panel permite recuperar el análisis desde el original
+  guardado; las decisiones de revisión se deben repetir.
+- Se admiten hasta 200 libros por tanda y 10 MB por archivo. La tanda la orquesta
+  el navegador y cada libro se analiza/confirma de manera independiente.
 - Si algún día hay varias importaciones simultáneas o archivos mucho mayores,
   recién conviene evaluar una cola persistente.
 

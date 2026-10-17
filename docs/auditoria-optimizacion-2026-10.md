@@ -94,7 +94,7 @@ servicios externos.
 | PostgreSQL | 8.5 | Índices trigram/FTS; falta medir planes en una copia grande. |
 | Búsqueda global | 8.7 | Prioridad por identidad y caché acotada. |
 | Búsqueda de órdenes | 9.0 | Búsqueda híbrida e índice GIN. |
-| Importación masiva | 8.6 | 200 archivos, worker y recuperación por lote. |
+| Importación masiva | 8.8 | 200 archivos, worker y recuperación del análisis original; requiere volver a revisar decisiones manuales. |
 | Almacenamiento | 8.8 | Persistencia remota y prueba controlada preparadas; falta ejecutar con credenciales y reconciliar históricos. |
 | Seguridad | 8.7 | Roles, 2FA, validaciones y límites; rate limit es por proceso. |
 | Autenticación | 9.0 | Controles sólidos y pruebas. |
@@ -106,7 +106,7 @@ servicios externos.
 | Prensa | 8.5 | Cruce por RUC y clasificación por contenido con filtro municipal. |
 | Estadísticas | 8.7 | Paneles pesados se transmiten progresivamente; falta medición con volúmenes extremos. |
 | Rankings | 8.6 | Segmentación municipal, gestión y tipo de RUC. |
-| Exportaciones | 8.4 | CSV paginado/streaming y protección de fórmulas; XLSX aún se construye en memoria. |
+| Exportaciones | 8.6 | CSV paginado/streaming; XLSX consulta por páginas pero conserva la hoja y buffer final en memoria. |
 | Interfaz móvil | 8.7 | Navegación estadística táctil, carga estable y cambio municipal optimista; falta matriz visual completa. |
 | Accesibilidad | 8.3 | Etiquetas y foco visibles; Lighthouse debe ejecutarse desplegado. |
 | Rendimiento | 8.2 | Mejoras SQL/caché; faltan datos p50/p95 de una base aislada. |
@@ -128,6 +128,39 @@ falten mediciones contra una base aislada grande y la ejecución externa control
    ofrece escritura progresiva; el CSV ya usa páginas y streaming.
 3. Añadir reconciliación administrativa de metadatos contra Cloudinary y mostrar
    originales faltantes o corruptos.
+
+## Continuación V5 — recuperación del importador y XLSX paginado
+
+Se verificó el código vigente de `origin/main` (incluido el PR #105). No se creó
+una segunda cola: los lotes y originales ya se guardaban antes de confirmar, pero
+la pantalla no permitía volver a abrir análisis `VALIDATING`/`FAILED` tras cerrar
+el navegador. Se añadió un listado privado por municipalidad y la acción de
+reanalizar el original existente. La huella SHA-256 se vuelve a comprobar; no se
+crea una nueva versión ni se publican órdenes. El administrador debe repetir la
+revisión explícita de montos y mapeo, porque las decisiones de interfaz aún no se
+persisten como borrador. Se pueden recuperar también lotes `PROCESSING` caducos,
+no los que siguen activos.
+
+La descarga XLSX ahora consulta en páginas de 500 y escribe esas páginas en la
+hoja conforme avanza. Se evita retener además todas las filas Prisma y varias
+copias de los objetos de exportación. SheetJS conserva las celdas y el buffer final
+en memoria: no se declara escritura streaming real y se conserva el límite de
+20.000 filas. Se comprueba que el total leído coincida con el conteo inicial antes
+de devolver el archivo.
+
+| Área | Evidencia V5 | Estado |
+| --- | --- | --- |
+| Recuperación de análisis | Rutas autenticadas filtran por municipalidad; relectura del original, checksum y revisión fresca | Implementado; no conserva decisiones manuales previas |
+| CSV | Cursor y `ReadableStream` en bloques de 500 (PR #105) | Implementado |
+| XLSX | Consulta paginada de 500; no materializa el arreglo completo de órdenes y sus clones | Implementado; el libro final sigue en RAM |
+| Integridad | Comparación entre filas exportadas y conteo inicial; textos siguen siendo celdas literales | Pruebas de 100, 1.000, 10.000 y 20.000 filas |
+| Prensa | Detector por reglas explicables y exclusiones, cruce por RUC exacto y ámbito municipal | Ya existía; no se atribuyen pagos ni parentescos automáticos |
+| Buscador global | Índices trigram, resúmenes por gestión y caché LRU acotada | Sin cambios: falta `EXPLAIN ANALYZE` en copia de datos representativa |
+
+La suite, typecheck y lint se ejecutaron sobre esta continuación. No se generaron
+métricas de p50/p95, no se usó una base de producción y no se ejecutó la
+integración real de Cloudinary. Por ello la puntuación general se mantiene en
+**8.7/10**; no hay evidencia para elevarla a 9.0.
 4. Ejecutar Playwright y Lighthouse con Chromium en CI o en un entorno de prueba.
 5. Si algún día se usan varias instancias, mover el rate limiting a una capa
    compartida; no es necesario ni gratuito para la instancia actual.

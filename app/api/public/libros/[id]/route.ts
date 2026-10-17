@@ -1,7 +1,7 @@
 import { peticionPublicaLimitada } from '@/lib/public-request-limit';
 import { prisma } from '@/lib/prisma';
 import { camposOcultos, celdaCsv, celdaMontoCsv } from '@/lib/public-evidence';
-import { cabeceraDescarga, extractoExcel, nombreDescargaLibro } from '@/lib/book-download';
+import { cabeceraDescarga, extractoExcelDesdePaginas, nombreDescargaLibro } from '@/lib/book-download';
 import { leerConfiguracionPortal } from '@/services/portalService';
 export const runtime = 'nodejs';
 async function atender(
@@ -96,13 +96,24 @@ async function atender(
   const config = await leerConfiguracionPortal(batch.municipalityId);
   const excel = new URL(request.url).searchParams.get('formato') === 'xlsx';
   if (excel) {
-    const filas = await prisma.order.findMany({
-      where: { importBatchId: id },
-      orderBy: [{ sourceRow: 'asc' }, { id: 'asc' }],
-      select: seleccion,
-    });
-    const registros = filas.map(valoresDe);
-    return new Response(Buffer.from(extractoExcel(campos, registros)), {
+    async function* leerPaginasXlsx() {
+      let cursor: string | undefined;
+      while (true) {
+        const filas = await prisma.order.findMany({
+          where: { importBatchId: id },
+          orderBy: [{ sourceRow: 'asc' }, { id: 'asc' }],
+          select: seleccion,
+          take: 500,
+          ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        });
+        if (!filas.length) return;
+        cursor = filas.at(-1)?.id;
+        yield filas.map(valoresDe);
+        if (filas.length < 500) return;
+      }
+    }
+    const xlsx = await extractoExcelDesdePaginas(campos, leerPaginasXlsx(), total);
+    return new Response(Buffer.from(xlsx), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': cabeceraDescarga(nombreDescargaLibro(batch, config.municipio, 'xlsx', true)),

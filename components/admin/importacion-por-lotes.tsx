@@ -11,7 +11,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
+import { z } from 'zod';
 
 import {
   DetalleAnalisis,
@@ -89,7 +90,8 @@ type EstadoArchivo =
 
 type ArchivoEnCola = {
   id: string;
-  file: File;
+  file: File | null;
+  nombreArchivo: string;
   estado: EstadoArchivo;
   error: string | null;
   /** Motivo por el que llega excluido de la importación (duplicado, sin columnas…). */
@@ -112,6 +114,12 @@ type ArchivoEnCola = {
   resultado: ConfirmarRespuesta | null;
   detalleAbierto: boolean;
 };
+
+const pendientesSchema = z.object({ lotes: z.array(z.object({
+  id: z.string(), originalFilename: z.string(), period: z.string(), year: z.number(), month: z.number(),
+  importType: z.string(), version: z.number(), sourceUrl: z.string().nullable(), coverageComplete: z.boolean(),
+})) });
+type LotePendiente = z.infer<typeof pendientesSchema>['lotes'][number];
 
 function extensionDe(nombre: string): string {
   const punto = nombre.lastIndexOf('.');
@@ -157,15 +165,39 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
   const [tipo, setTipo] = useState('CONSOLIDADO');
   const [municipalityId, setMunicipalityId] = useState('');
   const [errorGlobal, setErrorGlobal] = useState<string | null>(null);
+  const [mensajeRecuperacion, setMensajeRecuperacion] = useState<string | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [confirmando, setConfirmando] = useState(false);
   const [progreso, setProgreso] = useState<{ hechos: number; total: number } | null>(null);
   const [resultadoVisible, setResultadoVisible] = useState(false);
   const [soloConHallazgos, setSoloConHallazgos] = useState(false);
+  const [lotesPendientes, setLotesPendientes] = useState<LotePendiente[]>([]);
+  const [cargandoPendientes, setCargandoPendientes] = useState(false);
+  const [errorPendientes, setErrorPendientes] = useState<string | null>(null);
+  const [revisionPendientes, setRevisionPendientes] = useState(0);
 
   const anios = Array.from({ length: ahora.getFullYear() - 1999 }, (_, i) => 2000 + i);
 
   const ocupado = analizando || confirmando;
+
+  useEffect(() => {
+    if (!municipalityId) return;
+    let cancelado = false;
+    void Promise.resolve().then(async () => {
+      if (cancelado) return;
+      setCargandoPendientes(true);
+      setErrorPendientes(null);
+      try {
+        const resultado = await pedirJson(`/api/admin/imports/pending?municipalityId=${encodeURIComponent(municipalityId)}`, { cache: 'no-store' }, pendientesSchema);
+        if (!cancelado) setLotesPendientes(resultado.lotes);
+      } catch (error) {
+        if (!cancelado) setErrorPendientes(error instanceof Error ? error.message : 'No se pudieron cargar los análisis pendientes.');
+      } finally {
+        if (!cancelado) setCargandoPendientes(false);
+      }
+    });
+    return () => { cancelado = true; };
+  }, [municipalityId, revisionPendientes]);
 
   const enCola = archivos.filter((archivo) => archivo.analisis === null);
   const enRevision = archivos.filter((archivo) => archivo.analisis !== null);
@@ -210,6 +242,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
   function agregarArchivos(nuevos: File[]) {
     setErrorGlobal(null);
+    setMensajeRecuperacion(null);
     if (!municipalityId) {
       setErrorGlobal('Selecciona primero la municipalidad que recibirá esta importación.');
       return;
@@ -217,7 +250,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
     const aceptados: ArchivoEnCola[] = [];
     const rechazados: string[] = [];
-    const conocidos = archivos.map((archivo) => archivo.file);
+    const conocidos = archivos.flatMap((archivo) => archivo.file ? [archivo.file] : []);
 
     for (const file of nuevos) {
       if (archivos.length + aceptados.length >= MAX_ARCHIVOS) {
@@ -238,13 +271,14 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
         continue;
       }
 
-      const duplicado = [...conocidos, ...aceptados.map((archivo) => archivo.file)].find(
+      const duplicado = [...conocidos, ...aceptados.flatMap((archivo) => archivo.file ? [archivo.file] : [])].find(
         (otro) => otro.name === file.name && otro.size === file.size,
       );
 
       aceptados.push({
         id: `${file.name}-${file.size}-${file.lastModified}-${aceptados.length}`,
         file,
+        nombreArchivo: file.name,
         estado: 'detectando',
         error: null,
         motivoExclusion: null,
@@ -274,6 +308,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     const tareas = nuevos.map((archivo) => async () => {
       try {
         const formulario = new FormData();
+        if (!archivo.file) return;
         formulario.set('archivo', archivo.file);
 
         const datos = await pedirJson(
@@ -297,6 +332,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     });
 
     await enParalelo(tareas, CONCURRENCIA_PERIODO);
+    setRevisionPendientes(valor => valor + 1);
   }
 
   async function analizarTanda() {
@@ -306,6 +342,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     }
 
     setErrorGlobal(null);
+    setMensajeRecuperacion(null);
     setAnalizando(true);
     setProgreso({ hechos: 0, total: listosParaAnalizar.length });
 
@@ -316,6 +353,12 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
       try {
         const formulario = new FormData();
+        if (!archivo.file) {
+          actualizar(archivo.id, { estado: 'error', error: 'El original no está en esta sesión. Recupera el análisis guardado.' });
+          hechos++;
+          setProgreso({ hechos, total: listosParaAnalizar.length });
+          continue;
+        }
         formulario.set('archivo', archivo.file);
         formulario.set('year', String(anioDePeriodo(archivo.periodo)));
         formulario.set('month', String(mesDePeriodo(archivo.periodo)));
@@ -373,6 +416,42 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     }
 
     setAnalizando(false);
+    setRevisionPendientes(valor => valor + 1);
+  }
+
+  async function recuperarAnalisis(lote: LotePendiente) {
+    if (archivos.length || !municipalityId) return;
+    setErrorGlobal(null);
+    setAnalizando(true);
+    try {
+      const datos = await pedirJson(
+        `/api/admin/imports/pending/${encodeURIComponent(lote.id)}/reanalyze`,
+        { method: 'POST' },
+        analizarRespuestaSchema,
+      );
+      const filasMontoSospechoso = [...new Set(datos.issues.filter(i => requiereRevisionMonto([i])).map(i => i.sourceRow))];
+      const sinColumnas = datos.camposFaltantes.length > 0;
+      const sinFilas = datos.summary.successfulRows === 0;
+      const sinFilasSeguras = !sinFilas && filasMontoSospechoso.length === datos.summary.successfulRows;
+      const mismoArchivo = datos.loteMismoChecksum !== null;
+      const yaImportado = datos.duplicadoContenido.filasRepetidas > 0 && datos.duplicadoContenido.filasNuevas === 0;
+      setTipo(lote.importType);
+      setArchivos([{
+        id: lote.id, file: null, nombreArchivo: lote.originalFilename, estado: 'analizado', error: null,
+        motivoExclusion: mismoArchivo ? 'Ya se importó un archivo con este mismo contenido.' : yaImportado ? 'Todas las filas ya existen en el portal.' : sinColumnas ? 'Faltan columnas obligatorias.' : sinFilas ? 'No hay ninguna fila válida.' : sinFilasSeguras ? 'Todas las filas válidas tienen montos sospechosos.' : null,
+        duplicadoDe: null, periodo: lote.period, deteccion: null, analisis: datos, mapeo: mapeoDesdeAnalisis(datos),
+        excluidas: filasMontoSospechoso, incluido: !(mismoArchivo || yaImportado || sinColumnas || sinFilas || sinFilasSeguras),
+        reemplazar: false, sourceUrl: lote.sourceUrl ?? '', coverageComplete: lote.coverageComplete,
+        resultado: null, detalleAbierto: filasMontoSospechoso.length > 0,
+      }]);
+      setResultadoVisible(false);
+      setMensajeRecuperacion('Análisis recuperado desde el original guardado. Vuelve a revisar el mapeo, los montos y las filas excluidas antes de confirmar.');
+    } catch (error) {
+      setErrorPendientes(error instanceof Error ? error.message : 'No se pudo recuperar el análisis.');
+    } finally {
+      setAnalizando(false);
+      setRevisionPendientes(valor => valor + 1);
+    }
   }
 
   async function confirmarTanda() {
@@ -382,6 +461,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     }
 
     setErrorGlobal(null);
+    setMensajeRecuperacion(null);
     setResultadoVisible(false);
     setConfirmando(true);
     setProgreso({ hechos: 0, total: incluidos.length });
@@ -440,6 +520,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     setErrorGlobal(null);
     setProgreso(null);
     setResultadoVisible(false);
+    setRevisionPendientes(valor => valor + 1);
   }
 
   return (
@@ -449,6 +530,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
           {errorGlobal}
         </Aviso>
       ) : null}
+      {mensajeRecuperacion ? <Aviso tono="info" titulo="Revisión recuperada" icono={<Info className="h-4 w-4" />}>{mensajeRecuperacion}</Aviso> : null}
 
       <Tarjeta>
         <TarjetaEncabezado>
@@ -481,6 +563,18 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
           </GrupoCampo>
 
           {municipalityId ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"><strong>Destino confirmado:</strong> {municipalidades.find(m => m.id === municipalityId)?.nombre}. Todos los archivos de esta tanda quedarán asociados a esta entidad.</div> : <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Antes de continuar:</strong> elige la municipalidad correcta.</div>}
+
+          {municipalityId && archivos.length === 0 ? (
+            <Tarjeta className="border-sky-200 bg-sky-50/60">
+              <TarjetaEncabezado>
+                <TarjetaTitulo>Continuar un análisis guardado</TarjetaTitulo>
+                <TarjetaDescripcion>Los originales pendientes se conservaron en el servidor. Al recuperarlos se vuelve a analizar el libro y debes confirmar nuevamente cualquier decisión humana.</TarjetaDescripcion>
+              </TarjetaEncabezado>
+              <TarjetaContenido>
+                {cargandoPendientes ? <Cargando etiqueta="Buscando análisis recuperables…" /> : errorPendientes ? <Aviso tono="error" titulo="No se pudieron consultar los análisis pendientes">{errorPendientes}</Aviso> : lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).length === 0 ? <p className="text-sm text-muted-foreground">No hay análisis pendientes para esta municipalidad.</p> : <ul className="flex flex-col gap-2">{lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).map(lote => <li key={lote.id} className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center"><div className="min-w-0"><p className="truncate font-medium">{lote.originalFilename}</p><p className="text-sm text-muted-foreground">{lote.period} · versión {lote.version} · pendiente de confirmación</p></div><Boton type="button" variant="outline" disabled={ocupado || archivos.length > 0} onClick={() => void recuperarAnalisis(lote)}><RotateCcw className="mr-2 h-4 w-4" /> Recuperar análisis</Boton></li>)}</ul>}
+              </TarjetaContenido>
+            </Tarjeta>
+          ) : null}
 
           <div className={!municipalityId ? 'pointer-events-none opacity-50' : ''}>
             <p className="mb-3 font-semibold">2. Agrega los libros</p>
@@ -545,8 +639,8 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                   return (
                     <TablaFila key={archivo.id}>
                       <TablaCelda className="max-w-[20rem]">
-                        <span className="block truncate font-medium" title={archivo.file.name}>
-                          {archivo.file.name}
+                        <span className="block truncate font-medium" title={archivo.nombreArchivo}>
+                          {archivo.nombreArchivo}
                         </span>
                         {archivo.duplicadoDe ? (
                           <span className="mt-1 flex items-center gap-1 text-xs text-warning">
@@ -561,12 +655,12 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                           </span>
                         ) : null}
                         {detectado?.aviso ? <span className="mt-1 block text-xs text-warning">{detectado.aviso}</span> : null}
-                        {repetido ? <span className="mt-1 block text-xs text-warning">Contenido idéntico a «{repetido.file.name}». No representa otro mes aunque tenga otro nombre; comprueba las descargas antes de importar.</span> : null}
+                        {repetido ? <span className="mt-1 block text-xs text-warning">Contenido idéntico a «{repetido.nombreArchivo}». No representa otro mes aunque tenga otro nombre; comprueba las descargas antes de importar.</span> : null}
                       </TablaCelda>
 
                       <TablaCelda>
                         <Selector
-                          aria-label={`Año de ${archivo.file.name}`}
+                          aria-label={`Año de ${archivo.nombreArchivo}`}
                           value={anio ? String(anio) : ''}
                           disabled={ocupado || archivo.estado === 'detectando'}
                           onChange={(evento) =>
@@ -586,7 +680,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
                       <TablaCelda>
                         <Selector
-                          aria-label={`Mes de ${archivo.file.name}`}
+                          aria-label={`Mes de ${archivo.nombreArchivo}`}
                           value={mes ? String(mes) : ''}
                           disabled={ocupado || archivo.estado === 'detectando' || !anio}
                           onChange={(evento) =>
@@ -628,7 +722,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                           type="button"
                           onClick={() => quitar(archivo.id)}
                           disabled={ocupado}
-                          aria-label={`Quitar ${archivo.file.name} de la cola`}
+                          aria-label={`Quitar ${archivo.nombreArchivo} de la cola`}
                           className="rounded-md border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -719,7 +813,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                   <TarjetaEncabezado>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex flex-col gap-1">
-                        <TarjetaTitulo>{archivo.file.name}</TarjetaTitulo>
+                        <TarjetaTitulo>{archivo.nombreArchivo}</TarjetaTitulo>
                         <TarjetaDescripcion>
                           Periodo {archivo.periodo} · {analisis.summary.successfulRows} filas
                           válidas de {analisis.summary.totalRows} · considerado{' '}
@@ -785,7 +879,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                           type="button"
                           onClick={() => quitar(archivo.id)}
                           disabled={ocupado || archivo.estado === 'importado'}
-                          aria-label={`Quitar ${archivo.file.name} de la tanda`}
+                          aria-label={`Quitar ${archivo.nombreArchivo} de la tanda`}
                           className="rounded-md border border-border p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
