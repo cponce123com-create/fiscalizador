@@ -36,6 +36,18 @@ export const metadata: Metadata = {
   title: { absolute: 'Fiscalizador · Transparencia en la Selva Central' },
   description: 'Explora órdenes de compra, proveedores y gastos municipales de la Selva Central. Conecta información pública y compara gestiones.',
   alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website', locale: 'es_PE', siteName: 'Fiscalizador', url: '/',
+    title: 'Fiscalizador · Transparencia en la Selva Central',
+    description: 'Explora órdenes de compra, proveedores y gastos municipales de la Selva Central. Conecta información pública y compara gestiones.',
+    images: [{ url: '/compartir/fiscalizador-portada-20261018.jpg', width: 1536, height: 959, type: 'image/jpeg', alt: 'Fiscalizador · Los datos no mienten. Consulta órdenes, proveedores y municipalidades.' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fiscalizador · Transparencia en la Selva Central',
+    description: 'Explora proveedores, órdenes y gastos municipales de la Selva Central.',
+    images: ['/compartir/fiscalizador-portada-20261018.jpg'],
+  },
 };
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 

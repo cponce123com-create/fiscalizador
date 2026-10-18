@@ -65,3 +65,7 @@ El flujo nuevo cubre perfiles, comparaciones de categorías de gastos y las tarj
 La configuración social usa una caché por proceso de 60 segundos y comparte una lectura pendiente. El HTML espera como máximo 800 ms por esa configuración y utiliza la última válida o la portada institucional de respaldo. Esto no cancela la consulta SQL; la consulta compartida continúa y actualiza la caché al terminar.
 
 La portada y el layout público separan sus consultas municipales mediante Suspense. No se cambian las tarjetas específicas de proveedores y gastos ni la configuración del dominio. La imagen institucional usa `v=3`. Verificar después del despliegue el HTML con agente WhatsApp y el acceso a su `og:image`; las pruebas locales no sustituyen la comprobación de la vista previa real.
+
+### Portada elegida el 18 de octubre de 2026
+
+La página principal declara explícitamente `/compartir/fiscalizador-portada-20261018.jpg` en Open Graph y Twitter, por encima de la configuración heredada. Se conserva el adjunto original sin recortarlo: JPEG de 1536 × 959 y 331869 bytes (aunque el nombre del archivo recibido terminaba en PNG). Es un recurso público estático, sin consultas SQL, rasterización ni autenticación. Las páginas de proveedores y categorías conservan sus imágenes específicas. La imagen social del admin sigue siendo el valor heredado para las demás páginas; la portada principal usa esta pieza elegida expresamente.
