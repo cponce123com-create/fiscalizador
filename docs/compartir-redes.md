@@ -50,3 +50,12 @@ El flujo nuevo cubre perfiles, comparaciones de categorías de gastos y las tarj
 - Web Share API y archivos/activación: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/share
 - Open Graph / Facebook: https://developers.facebook.com/docs/sharing/webmasters/
 - Sharing Debugger: https://developers.facebook.com/tools/debug/
+
+### Portada institucional y dominio propio
+
+- La portada usa el título «Fiscalizador · Transparencia en la Selva Central».
+- Si el admin tiene una imagen social configurada, se respeta. Si falta, `/api/public/portada-social?v=1` genera un PNG de 1200 × 630 con el logo global. El logo WebP se convierte a PNG antes de componerlo; si falla Cloudinary se muestra una F de respaldo.
+- La pieza se guarda cinco minutos en memoria y las solicitudes simultáneas comparten la generación. Se aplica el límite público de imágenes. Los cambios del logo pueden tardar cinco minutos en aparecer en este endpoint; las redes tienen su propia caché.
+- En Render, definir `NEXT_PUBLIC_SITE_URL=https://www.fiscalizador.org` y volver a desplegar. El blueprint también usa esa URL. La variable de un servicio existente debe comprobarse en su panel.
+- Verificar el HTML entregado al agente WhatsApp: `og:image` absoluto, PNG accesible sin sesión, título y descripción regionales. Revisar además un perfil y una categoría, que conservan sus tarjetas propias.
+- Los mensajes ya enviados no se actualizan necesariamente. Probar con un mensaje nuevo; durante la verificación puede usarse `https://www.fiscalizador.org/?vista=2` para solicitar otra URL.
