@@ -19,13 +19,13 @@ const geistMono = Geist_Mono({
 });
 
 const DESCRIPCION =
-  'Consulta y análisis de las órdenes de compra y de servicio registradas en el Portal de Transparencia.';
+  'Explora órdenes de compra, proveedores y gastos municipales de la Selva Central. Conecta información pública y compara gestiones.';
 
 const metadataPorDefecto: Metadata = {
   // Hace absolutas las URLs de OpenGraph y el canónico; sin él, Next avisa en desarrollo.
   metadataBase: METADATA_BASE,
   title: {
-    default: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
+    default: 'Fiscalizador · Transparencia en la Selva Central',
     template: '%s | Fiscalizador',
   },
   description: DESCRIPCION,
@@ -36,12 +36,12 @@ const metadataPorDefecto: Metadata = {
     type: 'website',
     locale: 'es_PE',
     siteName: 'Fiscalizador',
-    title: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
+    title: 'Fiscalizador · Transparencia en la Selva Central',
     description: DESCRIPCION,
   },
   twitter: {
     card: 'summary',
-    title: 'Fiscalizador · San Ramón — Vigilancia ciudadana',
+    title: 'Fiscalizador · Transparencia en la Selva Central',
     description: DESCRIPCION,
   },
 };
@@ -49,15 +49,15 @@ const metadataPorDefecto: Metadata = {
 export async function generateMetadata(): Promise<Metadata> {
   const config = await leerConfiguracionPortal();
   // La pieza social está compuesta para el recorte 1.91:1 de WhatsApp/Facebook.
-  // Solo si falta se utiliza la fotografía de portada como respaldo.
-  const imagen = config.imagenSocial || config.fotoPortada || config.logo;
+  // Si falta, generamos una pieza institucional con el logo global del admin.
+  const imagen = config.imagenSocial || '/api/public/portada-social?v=1';
   return {
     ...metadataPorDefecto,
     icons: {
       icon: config.favicon ? { url: config.favicon, type: 'image/png', sizes: '256x256' } : '/favicon.ico',
       ...(config.favicon ? { apple: { url: config.favicon, type: 'image/png', sizes: '256x256' } } : {}),
     },
-    openGraph: { ...metadataPorDefecto.openGraph, ...(imagen ? { images: [{ url: imagen, alt: `Fiscalizador · ${config.municipio}` }] } : {}) },
+    openGraph: { ...metadataPorDefecto.openGraph, ...(imagen ? { images: [{ url: imagen, width: 1200, height: 630, alt: 'Fiscalizador · Transparencia en la Selva Central' }] } : {}) },
     twitter: { ...metadataPorDefecto.twitter, card: imagen ? 'summary_large_image' : 'summary', ...(imagen ? { images: [imagen] } : {}) },
   };
 }

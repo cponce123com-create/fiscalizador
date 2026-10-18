@@ -33,8 +33,9 @@ import { busquedasPopulares } from '@/services/publicSearchTermsService';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
-  title: 'Inicio',
-  description: 'Vigilancia ciudadana: consulta órdenes, proveedores y documentos de origen de la municipalidad.',
+  title: { absolute: 'Fiscalizador · Transparencia en la Selva Central' },
+  description: 'Explora órdenes de compra, proveedores y gastos municipales de la Selva Central. Conecta información pública y compara gestiones.',
+  alternates: { canonical: '/' },
 };
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
