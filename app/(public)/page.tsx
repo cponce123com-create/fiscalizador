@@ -39,7 +39,11 @@ export const metadata: Metadata = {
 };
 const enlaceSeccion = 'inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline underline-offset-4';
 
-export default async function PortadaPublica({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+export default function PortadaPublica(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return <Suspense fallback={<div role="status" className="min-h-48 animate-pulse rounded-2xl bg-muted p-6">Cargando información municipal…</div>}><ContenidoPortada {...props} /></Suspense>;
+}
+
+async function ContenidoPortada({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const parametros = await searchParams;
   const filtrosBase = leerFiltros(parametros);
   const [municipalidad, municipalidades, populares] = await Promise.all([

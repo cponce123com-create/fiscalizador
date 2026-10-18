@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { NavPublica } from '@/components/publico/nav-publica';
 import { CintaTitulares } from '@/components/publico/cinta-titulares';
@@ -8,7 +9,11 @@ import { listarMunicipalidadesActivas } from '@/services/municipalityService';
 import { MarcaPublica, PiePublico } from '@/components/publico/identidad-municipal-publica';
 
 export const dynamic = 'force-dynamic';
-export default async function LayoutPublico({ children }: { children: React.ReactNode }) {
+export default function LayoutPublico({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<div className="p-6"><p className="text-2xl font-bold">Fiscalizador</p><p role="status">Cargando portal ciudadano…</p></div>}><ContenidoPublico>{children}</ContenidoPublico></Suspense>;
+}
+
+async function ContenidoPublico({ children }: { children: React.ReactNode }) {
   const municipalidades = await listarMunicipalidadesActivas();
   const configuraciones = await configuracionesPorMunicipalidad(municipalidades);
   return <div className="portal-publico flex min-h-full flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
