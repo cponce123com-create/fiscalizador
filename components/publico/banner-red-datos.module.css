@@ -1,0 +1,57 @@
+.banner { container-type: inline-size; min-width: 0; overflow: hidden; border: 1px solid #295446; border-radius: 24px; background: #04151b; box-shadow: 0 16px 48px -24px #05291f70; }
+.escena {
+  position: relative; isolation: isolate; aspect-ratio: 1000 / 480; overflow: hidden; touch-action: pan-y;
+  background: radial-gradient(ellipse at 36% 45%, #0c59434f, transparent 42%), radial-gradient(ellipse at 88% 33%, #123d394a, transparent 40%), linear-gradient(120deg, #04121d, #061f22 60%, #05181b);
+}
+.rejilla { position: absolute; inset: 0; pointer-events: none; background-image: radial-gradient(#a2e5cf38 .8px, transparent 1px); background-size: 26px 26px; mask-image: radial-gradient(ellipse at center, black, transparent 80%); }
+.red { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.conexion { transition: opacity 180ms ease; }
+.conexion[data-atenuado='true'] { opacity: .14; }
+.carril { fill: none; stroke: currentColor; stroke-width: 1.15; opacity: .29; }
+.estela { fill: none; stroke: currentColor; stroke-width: 2.5; opacity: .7; stroke-linecap: round; }
+.banner .nodo {
+  position: absolute; z-index: 1; display: grid; place-items: center; width: 60px; height: 60px; min-width: 48px; min-height: 48px; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--acento) 42%, transparent); border-radius: 50%; color: var(--acento);
+  background: radial-gradient(circle at 35% 20%, #17423f, #071b24 75%);
+  box-shadow: 0 0 0 6px #8df5ce04, inset 0 1px 0 #c3ffe51a, 0 8px 18px #0004;
+  transform: translate(-50%, -50%); transition: opacity 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  cursor: grab; touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.banner .nodo:hover, .banner .nodo[data-activo='true'] {
+  border-color: var(--acento); box-shadow: 0 0 0 6px #8df5ce0c, 0 0 32px color-mix(in srgb, var(--acento) 18%, transparent), inset 0 0 15px #7fffd40a;
+}
+.banner .nodo:focus-visible, .controles button:focus-visible { outline: 2px solid #d6ffef; outline-offset: 6px; }
+.banner .nodo[data-arrastrando='true'] { cursor: grabbing; z-index: 3; }
+.banner .nodo[data-atenuado='true'] { opacity: .36; }
+.banner .motor { width: 88px; height: 88px; background: radial-gradient(circle at 45% 25%, #20614f, #092a2d 65%); box-shadow: 0 0 0 8px #5fffc407, 0 0 75px #51f5bb20, inset 0 1px 0 #c3ffe54d; }
+.orbita { position: absolute; inset: -8px; border: 1px solid #95fbd00b; border-radius: 50%; pointer-events: none; }
+.motor .orbita { inset: -15px; border: 1px solid #72ffcc19; border-top-color: #8dffd9b3; border-bottom-color: #8dffd94d; animation: orbitar 16s linear infinite; }
+.motor .orbita::after { content: ''; position: absolute; inset: -10px; border: 1px dashed #77ffd22b; border-radius: 50%; }
+.testigo { position: absolute; right: 3px; bottom: 4px; width: 5px; height: 5px; border-radius: 50%; background: var(--acento); box-shadow: 0 0 8px var(--acento); }
+.motor .testigo { right: 9px; bottom: 8px; animation: respirar 3s ease-in-out infinite; }
+.escena[data-running='false'] .orbita, .escena[data-running='false'] .testigo { animation-play-state: paused; }
+.controles { position: absolute; z-index: 4; top: 12px; right: 12px; display: flex; gap: 6px; }
+.banner .controles button { display: grid; place-items: center; width: 44px; height: 44px; min-width: 44px; padding: 0; color: #b8d9ce; border: 1px solid #95e0c520; border-radius: 50%; background: #081d23d9; box-shadow: none; }
+.banner .controles button:hover { color: #e1fff4; border-color: #85ffd280; background: #10352f; }
+.banner .controles button:disabled { opacity: .35; cursor: default; }
+.detalle { position: absolute; z-index: 5; left: 20px; bottom: 18px; max-width: min(260px, calc(100% - 40px)); color: #b6d5c8; pointer-events: none; font-family: inherit; font-size: 11px; line-height: 1.5; }
+.detalle:not(:empty) { border-left: 2px solid #78efc8; padding: 8px 12px; background: #04171bf2; border-radius: 0 8px 8px 0; }
+.detalle strong { display: block; font-size: 12px; color: #e5fff3; margin-bottom: 3px; }
+.detalle span { display: block; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@keyframes orbitar { to { transform: rotate(360deg); } }
+@keyframes respirar { 50% { opacity: .45; } }
+@container (max-width: 640px) {
+  .escena { aspect-ratio: 480 / 540; }
+  .banner .nodo { width: 48px; height: 48px; }
+  .banner .motor { width: 68px; height: 68px; }
+  .motor .orbita { inset: -10px; }
+  .controles { top: 7px; right: 7px; gap: 4px; }
+  .detalle { left: 12px; bottom: 10px; max-width: calc(100% - 24px); font-size: 10px; }
+  .detalle strong { font-size: 11px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .motor .orbita, .motor .testigo { animation: none; }
+  .conexion, .banner .nodo { transition: none; }
+  .pulso, .estela { display: none; }
+}
