@@ -10,6 +10,7 @@ import { PortadaPrensa } from '@/components/publico/portada-prensa';
 import { contratacionesPrensa } from '@/services/pressService';
 import { BusquedaPortada } from '@/components/publico/busqueda-portada';
 import { BusquedaGlobal } from '@/components/publico/busqueda-global';
+import { BannerRedDatos } from '@/components/publico/banner-red-datos';
 import { SelectorMunicipalidad } from '@/components/publico/selector-municipalidad';
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -62,6 +63,7 @@ export default async function PortadaPublica({ searchParams }: { searchParams: P
   const { resumen } = datos;
   const periodo = resumen.primerPeriodo ? resumen.primerPeriodo === resumen.ultimoPeriodo ? resumen.primerPeriodo : `${resumen.primerPeriodo} a ${resumen.ultimoPeriodo}` : 'Sin libros publicados';
   return <div className="flex flex-col gap-5 sm:gap-7">
+    <BannerRedDatos />
     <BusquedaGlobal populares={populares} />
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5" aria-label="Municipalidad consultada">
       <div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Explorar por entidad</p><p className="mt-1 text-sm text-muted-foreground">El contenido que aparece debajo corresponde a la municipalidad seleccionada.</p></div>
