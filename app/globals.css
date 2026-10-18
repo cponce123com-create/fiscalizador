@@ -137,54 +137,6 @@ body {
 @media (min-width: 640px) { .panel-portada { padding: 1.5rem; } }
 
 
-/* Banner visual de conexiones; la animación es ambiental y no representa actividad en vivo. */
-.banner-red-datos {
-  isolation: isolate;
-  aspect-ratio: 1400 / 636;
-  min-height: 150px;
-  background: #031726;
-}
-.banner-red-datos__imagen { object-fit: cover; object-position: center; }
-.banner-red-datos__flujo {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-.banner-red-datos__ruta {
-  fill: none;
-  stroke: #8dfce1;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-dasharray: 2 27;
-  filter: drop-shadow(0 0 4px #32f5ce);
-  animation: banner-red-datos-recorrido 4.2s linear infinite;
-}
-.banner-red-datos__ruta:nth-of-type(2n) { animation-duration: 5.6s; animation-direction: reverse; }
-.banner-red-datos__ruta:nth-of-type(3n) { animation-duration: 6.8s; }
-.banner-red-datos__nodo {
-  fill: #b8ffef;
-  filter: drop-shadow(0 0 6px #25f4ca);
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: banner-red-datos-pulso 2.4s ease-in-out infinite;
-}
-.banner-red-datos__nodo:nth-of-type(3n) { animation-delay: -1.2s; }
-@keyframes banner-red-datos-recorrido { to { stroke-dashoffset: -116px; } }
-@keyframes banner-red-datos-pulso {
-  0%, 100% { opacity: .45; transform: scale(.72); }
-  50% { opacity: 1; transform: scale(1.35); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .banner-red-datos__ruta,
-  .banner-red-datos__nodo { animation: none; }
-  .banner-red-datos__ruta { stroke-dasharray: 3 22; }
-}
-@media (max-width: 639px) {
-  .banner-red-datos { min-height: 132px; }
-}
-
 :where(a, button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
 .cinta-texto { display: inline-block; min-width: 100%; white-space: nowrap; font-size: .875rem; animation: titular 40s linear infinite; }
 .cinta-lenta { animation-duration: 60s; }
