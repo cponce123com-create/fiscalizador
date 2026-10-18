@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import { METADATA_BASE } from '@/lib/site';
-import { leerConfiguracionPortal } from '@/services/portalService';
+import { configuracionSocialRapida } from '@/services/socialSettingsService';
 
 import './globals.css';
 
@@ -47,14 +47,14 @@ const metadataPorDefecto: Metadata = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const config = await leerConfiguracionPortal();
+  const config = await configuracionSocialRapida();
   // La pieza social está compuesta para el recorte 1.91:1 de WhatsApp/Facebook.
   // El escudo municipal legado no es la portada institucional de Fiscalizador.
   // Conservamos otras portadas personalizadas que se suban desde el admin.
   const esEscudoLegado = config.imagenSocial?.includes(
     '/fiscalizador/portal/443bf2e7-f7b8-439f-aef3-b0ebdaeb6f9b',
   );
-  const imagen = (!esEscudoLegado && config.imagenSocial) || '/api/public/portada-social?v=2';
+  const imagen = (!esEscudoLegado && config.imagenSocial) || '/api/public/portada-social?v=3';
   return {
     ...metadataPorDefecto,
     icons: {

@@ -59,3 +59,9 @@ El flujo nuevo cubre perfiles, comparaciones de categorías de gastos y las tarj
 - En Render, definir `NEXT_PUBLIC_SITE_URL=https://www.fiscalizador.org` y volver a desplegar. El blueprint también usa esa URL. La variable de un servicio existente debe comprobarse en su panel.
 - Verificar el HTML entregado al agente WhatsApp: `og:image` absoluto, PNG accesible sin sesión, título y descripción regionales. Revisar además un perfil y una categoría, que conservan sus tarjetas propias.
 - Los mensajes ya enviados no se actualizan necesariamente. Probar con un mensaje nuevo; durante la verificación puede usarse `https://www.fiscalizador.org/?vista=2` para solicitar otra URL.
+
+### Evitar esperas largas antes de entregar metadatos
+
+La configuración social usa una caché por proceso de 60 segundos y comparte una lectura pendiente. El HTML espera como máximo 800 ms por esa configuración y utiliza la última válida o la portada institucional de respaldo. Esto no cancela la consulta SQL; la consulta compartida continúa y actualiza la caché al terminar.
+
+La portada y el layout público separan sus consultas municipales mediante Suspense. No se cambian las tarjetas específicas de proveedores y gastos ni la configuración del dominio. La imagen institucional usa `v=3`. Verificar después del despliegue el HTML con agente WhatsApp y el acceso a su `og:image`; las pruebas locales no sustituyen la comprobación de la vista previa real.
