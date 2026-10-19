@@ -7,7 +7,7 @@
 # Lo de abajo solo hace falta para salir a la red.
 
 # --- Portal de Transparencia -------------------------------------------------
-requests>=2.31
+requests>=2.34.2
 
 # Lectura de los libros descargados. El portal publica .xls clásico, que openpyxl NO
 # abre: hacen falta los dos.
