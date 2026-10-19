@@ -317,6 +317,14 @@ model Municipality {
   /// Tipo de entidad contratante; se conserva Municipality como nombre legado
   /// del modelo para no romper relaciones de órdenes/importaciones.
   entityCategory String  @default("MUNICIPALIDAD")
+  /// Identificador del padrón SEACE/OECE cuando la entidad figura en él.
+  officialCode   String?  @unique
+  /// Última vez que los metadatos oficiales de esta entidad fueron cotejados.
+  catalogUpdatedAt DateTime?
+  /// Permite modelar redes, unidades ejecutoras y establecimientos dependientes.
+  parentEntityId String?
+  parentEntity   Municipality?  @relation("PublicEntityHierarchy", fields: [parentEntityId], references: [id], onDelete: SetNull)
+  childEntities  Municipality[] @relation("PublicEntityHierarchy")
   isDefault    Boolean  @default(false)
   isActive     Boolean  @default(true)
   logoUrl      String?
@@ -333,6 +341,8 @@ model Municipality {
   @@index([isActive])
   @@index([province])
   @@index([entityCategory, isActive])
+  @@index([catalogUpdatedAt])
+  @@index([parentEntityId])
 }
 
 // =============================================================================
