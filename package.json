@@ -23,6 +23,7 @@
     "db:status": "prisma migrate status",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
+    "catalogo:oece": "tsx scripts/sincronizar-catalogo-oece.ts",
     "postinstall": "prisma generate",
     "verify": "tsx scripts/verificar-importacion.ts",
     "verify:cloudinary": "node --import tsx scripts/verificar-cloudinary.ts",
