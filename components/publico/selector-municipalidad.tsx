@@ -4,6 +4,7 @@ import { useOptimistic, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
+import { nombreCategoriaEntidadPublica } from '@/lib/entidad-publica';
 
 export function SelectorMunicipalidad({ municipalidades }: { municipalidades: MunicipalidadActiva[] }) {
   const router = useRouter();
@@ -32,7 +33,7 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
 
   return (
     <label className="flex w-full min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground sm:w-auto sm:min-w-[13rem]">
-      Municipalidad
+      Entidad pública
       <select
         value={seleccionOptimista}
         disabled={cambiando}
@@ -56,7 +57,7 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
       >
         {municipalidades.map((municipalidad) => (
           <option key={municipalidad.id} value={municipalidad.slug}>
-            {municipalidad.nombreCorto}
+            {municipalidad.nombreCorto} · {nombreCategoriaEntidadPublica(municipalidad.categoria ?? 'MUNICIPALIDAD')}
           </option>
         ))}
       </select>

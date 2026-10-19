@@ -7,6 +7,7 @@ import { Boton } from '@/components/ui/button';
 import { enlacesAnualesSeace, MUNICIPIO_SEACE, RUC_SEACE } from '@/lib/descargas-seace';
 import { SEACE_EXTENSION_ID } from '@/lib/seace-extension-id';
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
+import { nombreCategoriaEntidadPublica } from '@/lib/entidad-publica';
 
 type ChromeRuntime = {
   lastError?: { message?: string };
@@ -50,11 +51,11 @@ export function DescargasSeace({ anioActual, municipalidades }: { anioActual: nu
       <p className="mt-2 text-sm text-muted-foreground">Selecciona el año. El descargador consulta los doce meses en orden, exporta cada Excel original y espera a que Chrome termine de guardarlo antes de continuar.</p>
     </div>
     <section className="flex flex-col gap-4 rounded-xl border border-control bg-card p-4 sm:p-5">
-      <p className="break-words font-medium">{municipio.trim() || 'Municipalidad'}<span className="block text-sm font-normal text-muted-foreground">RUC {ruc}</span></p>
+      <p className="break-words font-medium">{municipio.trim() || 'Entidad pública'}<span className="block text-sm font-normal text-muted-foreground">{nombreCategoriaEntidadPublica(seleccionada.categoria ?? 'MUNICIPALIDAD')} · RUC {ruc}</span></p>
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex min-w-[18rem] flex-col gap-2 text-sm font-medium">Municipalidad
+        <label className="flex min-w-[18rem] flex-col gap-2 text-sm font-medium">Entidad pública
           <select value={municipalityId} disabled={iniciando} onChange={e => { setMunicipalityId(e.target.value); setMensaje(''); }} className="min-h-11 rounded-lg border border-control bg-background px-4">
-            {municipalidades.map(m => <option key={m.id} value={m.id}>{m.nombreCorto} · {m.ruc}</option>)}
+            {municipalidades.map(m => <option key={m.id} value={m.id}>{m.nombreCorto} · {nombreCategoriaEntidadPublica(m.categoria ?? 'MUNICIPALIDAD')} · {m.ruc}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-2 text-sm font-medium">Año
@@ -65,8 +66,8 @@ export function DescargasSeace({ anioActual, municipalidades }: { anioActual: nu
         <Boton disabled={!rucValido || iniciando} onClick={descargarAnio}><Download className="h-4 w-4" aria-hidden="true" />{iniciando ? 'Abriendo descargador…' : 'Descargar los 12 Excel'}</Boton>
         <Boton variant="outline" onClick={() => setInstalacion(v => !v)}>Instalar descargador gratuito</Boton>
       </div>
-      <p className="text-sm text-muted-foreground">La descarga trabaja en tu Chrome usando el RUC registrado en Municipalidades. Cierra otras pestañas de SEACE antes de empezar. Para agregar otra entidad, primero créala en <Link href="/admin/municipalidades" className="underline">Municipalidades</Link>.</p>
-      {!rucValido && <p role="alert" className="text-sm text-destructive">La municipalidad seleccionada no tiene un RUC válido de once dígitos.</p>}
+      <p className="text-sm text-muted-foreground">La descarga trabaja en tu Chrome usando el RUC registrado en Entidades públicas. Cierra otras pestañas de SEACE antes de empezar. Para agregar otra entidad, primero créala en <Link href="/admin/municipalidades" className="underline">Entidades públicas</Link>.</p>
+      {!rucValido && <p role="alert" className="text-sm text-destructive">La entidad seleccionada no tiene un RUC válido de once dígitos.</p>}
     </section>
     {mensaje && <p role="status" className="rounded-lg border border-control p-3 text-sm">{mensaje}</p>}
     {instalacion && <section className="flex flex-col gap-3 rounded-xl border border-control bg-card p-4 sm:p-5">
