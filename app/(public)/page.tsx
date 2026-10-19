@@ -1,3 +1,4 @@
+import { AsistenteIA } from '@/components/publico/asistente-ia';
 import { TipoRucRanking } from '@/components/publico/tipo-ruc-ranking';
 import { leerFiltros, filtrosPorDefecto, serializarFiltros } from '@/lib/filtros';
 import { Suspense } from 'react';
@@ -82,6 +83,7 @@ async function ContenidoPortada({ searchParams }: { searchParams: Promise<Record
   return <div className="flex flex-col gap-5 sm:gap-7">
     <BannerRedDatos />
     <BusquedaGlobal populares={populares} />
+    <AsistenteIA />
     <section className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5" aria-label="Municipalidad consultada">
       <div><p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Explorar por entidad</p><p className="mt-1 text-sm text-muted-foreground">El contenido que aparece debajo corresponde a la municipalidad seleccionada.</p></div>
       <SelectorMunicipalidad municipalidades={municipalidades} />
