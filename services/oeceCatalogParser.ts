@@ -57,6 +57,8 @@ export function parsearPadronOece(texto: string): OeceCatalogRow[] {
     const officialCode = valor(6);
     if (!/^\d{11}$/.test(ruc) || !name || !officialCode) throw new Error(`Fila ${filaIndex + 2}: faltan RUC, nombre o código oficial válido.`);
     const sourceDate = valor(8);
+    const sourceUpdatedAt = sourceDate ? fechaOrigen(sourceDate) : null;
+    if (sourceDate && !sourceUpdatedAt) throw new Error(`Fila ${filaIndex + 2}: fecha de actualización del padrón inválida.`);
     return {
       ruc, name,
       department: valor(2) || null,
@@ -65,7 +67,7 @@ export function parsearPadronOece(texto: string): OeceCatalogRow[] {
       siafCode: valor(5) || null,
       officialCode,
       status: valor(7) || null,
-      sourceUpdatedAt: sourceDate ? fechaOrigen(sourceDate) : null,
+      sourceUpdatedAt,
     } satisfies OeceCatalogRow;
   });
 
