@@ -7,6 +7,7 @@ import type { EstadoFormulario } from '@/components/admin/formulario-accion';
 import { mensajeDeErrorDeAccion } from '@/lib/api/responses';
 import { requierePermiso } from '@/lib/auth/session';
 import { guardarMunicipalidad } from '@/services/municipalityService';
+import { CATEGORIAS_ENTIDAD_PUBLICA, type CategoriaEntidadPublica } from '@/lib/entidad-publica';
 
 function texto(valor: FormDataEntryValue | null): string {
   return typeof valor === 'string' ? valor.trim() : '';
@@ -20,6 +21,7 @@ const esquema = z.object({
   provincia: z.string().trim().min(2).max(80),
   departamento: z.string().trim().min(2).max(80),
   tipoEntidad: z.string().trim().min(2).max(40),
+  categoria: z.string().refine((id) => CATEGORIAS_ENTIDAD_PUBLICA.some((categoria) => categoria.id === id), 'Selecciona una categoría válida.'),
   slug: z.string().trim().max(80).optional(),
   colorPrincipal: z.string().trim().max(20).optional(),
   activa: z.boolean(),
@@ -40,17 +42,18 @@ export async function accionGuardarMunicipalidad(
       provincia: texto(formData.get('provincia')),
       departamento: texto(formData.get('departamento')),
       tipoEntidad: texto(formData.get('tipoEntidad')) || 'DISTRITAL',
+      categoria: texto(formData.get('categoria')) || 'MUNICIPALIDAD',
       slug: texto(formData.get('slug')) || undefined,
       colorPrincipal: texto(formData.get('colorPrincipal')) || undefined,
       activa: formData.get('activa') !== null,
       predeterminada: formData.get('predeterminada') !== null,
     });
 
-    await guardarMunicipalidad({ ...datos, userId: usuario.id });
+    await guardarMunicipalidad({ ...datos, categoria: datos.categoria as CategoriaEntidadPublica, userId: usuario.id });
     revalidatePath('/', 'layout');
     revalidatePath('/admin/municipalidades');
     revalidatePath('/admin/importar');
-    return { error: null, ok: datos.id ? 'Municipalidad actualizada.' : 'Municipalidad creada.' };
+    return { error: null, ok: datos.id ? 'Entidad actualizada.' : 'Entidad creada.' };
   } catch (error) {
     return { error: mensajeDeErrorDeAccion(error), ok: null };
   }

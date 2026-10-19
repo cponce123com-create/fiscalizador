@@ -10,4 +10,6 @@ export type MunicipalidadActiva = {
   provincia: string;
   departamento: string;
   tipoEntidad: string;
+  /** Categoría general; opcional en contratos legacy para no romper consumidores existentes. */
+  categoria?: string;
 };
