@@ -59,8 +59,9 @@ export default async function PaginaMunicipalidades() {
                 <div>
                   <h3 className="font-semibold">{municipalidad.nombre}</h3>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {nombreCategoriaEntidadPublica(municipalidad.categoria)} · {municipalidad.departamento} · {municipalidad.provincia} · RUC {municipalidad.ruc}
+                    {nombreCategoriaEntidadPublica(municipalidad.categoria)} · {municipalidad.departamento} · {municipalidad.provincia} · RUC {municipalidad.ruc}{municipalidad.codigoOficial ? ` · Código SEACE ${municipalidad.codigoOficial}` : ''}
                   </p>
+                  {municipalidad.entidadSuperiorNombre ? <p className="mt-1 text-xs text-muted-foreground">Depende de: {municipalidad.entidadSuperiorNombre}</p> : null}
                   <p className="mt-1 text-xs text-muted-foreground">Slug público: {municipalidad.slug}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -106,6 +107,12 @@ function CamposMunicipalidad({ municipalidad }: { municipalidad?: Awaited<Return
       </GrupoCampo>
       <GrupoCampo etiqueta="RUC" htmlFor={`ruc-${municipalidad?.id ?? 'nuevo'}`} obligatorio>
         <Campo id={`ruc-${municipalidad?.id ?? 'nuevo'}`} name="ruc" defaultValue={municipalidad?.ruc ?? ''} inputMode="numeric" pattern="\d{11}" required />
+      </GrupoCampo>
+      <GrupoCampo etiqueta="Código oficial SEACE" htmlFor={`codigoOficial-${municipalidad?.id ?? 'nuevo'}`} ayuda="Opcional. Se usará para sincronizar esta entidad con el padrón del OECE.">
+        <Campo id={`codigoOficial-${municipalidad?.id ?? 'nuevo'}`} name="codigoOficial" defaultValue={municipalidad?.codigoOficial ?? ''} maxLength={40} />
+      </GrupoCampo>
+      <GrupoCampo etiqueta="RUC de entidad superior" htmlFor={`entidadSuperiorRuc-${municipalidad?.id ?? 'nuevo'}`} ayuda="Opcional. Registra primero la entidad superior. Ej.: red de salud para un hospital.">
+        <Campo id={`entidadSuperiorRuc-${municipalidad?.id ?? 'nuevo'}`} name="entidadSuperiorRuc" defaultValue={municipalidad?.entidadSuperiorRuc ?? ''} inputMode="numeric" pattern="\d{11}" maxLength={11} />
       </GrupoCampo>
       <GrupoCampo etiqueta="Slug público" htmlFor={`slug-${municipalidad?.id ?? 'nuevo'}`} ayuda="Opcional. Si lo dejas vacío, se genera desde el nombre corto.">
         <Campo id={`slug-${municipalidad?.id ?? 'nuevo'}`} name="slug" defaultValue={municipalidad?.slug ?? ''} placeholder="san-ramon" />
