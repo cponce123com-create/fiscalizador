@@ -12,7 +12,7 @@ AI_API_KEY=clave_nueva_del_proveedor
 AI_MODEL=identificador_exacto_del_modelo
 ```
 
-Elegir un modelo de chat sin razonamiento extendido, con salida JSON y soporte de `max_tokens`: el límite de 500 incluye razonamiento y puede dejar una respuesta vacía en modelos que lo utilizan. Verificar el catálogo real de la cuenta. No se configura una clave ni se activa públicamente de forma automática. Una clave publicada en un chat debe sustituirse. No copiarla al repo.
+Elegir un modelo de chat sin razonamiento extendido, con salida JSON y soporte de `max_tokens`: el límite de 1000 incluye razonamiento y puede dejar una respuesta vacía en modelos que lo utilizan. Verificar el catálogo real de la cuenta. No se configura una clave ni se activa públicamente de forma automática. Una clave publicada en un chat debe sustituirse. No copiarla al repo.
 
 Documentación consultada: https://radoxai.com/docs y https://radoxai.com/ (19/10/2026). La compatibilidad declarada es con Chat Completions. La conexión real no se probó sin credenciales. El cupo del proveedor y los tokens de este panel son contadores distintos: comprobar el presupuesto disponible si la misma clave se usa en otros proyectos.
 
@@ -26,14 +26,15 @@ Se reutilizan interpretaciones siete días, mediante hash de pregunta/modelo/cat
 
 ## Límites
 
-Reservas de 12000 tokens antes de cada llamada, transacción con bloqueo asesor y contadores persistentes por día/mes en horario de Lima. Se reserva de forma conservadora y no se devuelve por fallos. Presupuesto por defecto 120000 diarios / 1000000 mensuales. Prompt limitado a 10500 bytes + salida 500 tokens; sin herramientas ni razonamiento solicitado. Verificar compatibilidad y contabilidad del modelo antes de activación pública.
+Reservas de 12000 tokens antes de cada llamada, transacción con bloqueo asesor y contadores persistentes por día/mes en horario de Lima. Se reserva de forma conservadora y no se devuelve por fallos. Presupuesto por defecto 120000 diarios / 1000000 mensuales. Prompt limitado a 101000 bytes + salida 1000 tokens; sin herramientas ni razonamiento solicitado. Verificar compatibilidad y contabilidad del modelo antes de activación pública.
 
 4 solicitudes/minuto por cliente y 30 globales por proceso; máximo dos simultáneas. Los límites locales no son distribuidos; el presupuesto sí es compartido por Neon. Una IP no disponible agrupa clientes por señal de cabeceras, como el límite público existente. SQL con timeout de 7 segundos por sentencia. Clave solo en servidor. Sin reintentos automáticos que dupliquen costes.
 
 ## Activación y pruebas de aceptación
 
 1. Configurar variables y desplegar.
-2. Activar para pruebas administrativas, manteniendo visitantes desactivados.
+2. En Admin → IA marcar «Activar asistente» y guardar. Las variables de Render no activan este interruptor. Mantener visitantes desactivados.
+3. Pulsar «Probar conexión de IA»: verifica autenticación, modelo y salida JSON, consumiendo una reserva. Los errores diferencian clave rechazada, modelo/ruta, parámetros, cuota, timeout y respuesta truncada. No se muestran secretos ni respuestas internas del proveedor.
 3. Probar un proveedor conocido, un año, dos municipios y una categoría. Contrastar montos y órdenes con sus fuentes.
 4. Probar una pregunta sobre familiares/delitos y una municipalidad inexistente: no deben inventarse resultados.
 5. Verificar fallo del proveedor, límite de presupuesto y desactivación. El buscador normal debe seguir funcionando.

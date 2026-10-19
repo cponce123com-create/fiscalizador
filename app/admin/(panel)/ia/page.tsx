@@ -2,7 +2,7 @@ import { requierePermiso } from '@/lib/auth/session';
 import { prisma } from '@/lib/prisma';
 import { clavesUso, leerIA, proveedorListo, RESERVA_TOKENS } from '@/services/ai/settings';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
-import { guardarIA } from '@/app/admin/ia/actions';
+import { guardarIA, probarConexionIA } from '@/app/admin/ia/actions';
 import { AsistenteIA } from '@/components/publico/asistente-ia';
 
 export default async function PanelIA() {
@@ -18,6 +18,7 @@ export default async function PanelIA() {
       <label className="flex flex-col gap-2">Presupuesto mensual de tokens reservados<input className="rounded-lg border p-3" name="monthlyTokens" type="number" min={12000} max={9000000} required defaultValue={config.monthlyTokens} /></label>
     </FormularioAccion>
     <section className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Consumo reservado · horario de Perú</h2><p className="mt-2 text-sm">Cada interpretación nueva reserva {RESERVA_TOKENS.toLocaleString('es-PE')} tokens, incluso si el proveedor falla. Es un tope conservador, no el consumo facturado. Las preguntas reutilizadas no llaman a la IA; las cifras se consultan nuevamente.</p><ul className="mt-3 space-y-2">{clavesUso().map(key => { const uso = usos.find(u => u.key === key)?.value as { reservado?: number; llamadas?: number } | undefined; return <li key={key}>{key.replace('ia:uso:', '')}: {uso?.reservado ?? 0} tokens reservados · {uso?.llamadas ?? 0} llamadas</li>; })}</ul></section>
+    <section className="rounded-xl border bg-card p-4"><h2 className="font-semibold">Prueba de conexión</h2><p className="my-3 text-sm">Primero marca «Activar asistente» y guarda. Este botón verifica la clave, el modelo y su respuesta JSON con una pregunta de prueba. Consume una reserva del presupuesto; no envía datos de proveedores.</p><FormularioAccion accion={probarConexionIA} etiqueta="Probar conexión de IA"><p className="text-sm text-muted-foreground">Después de una prueba correcta, usa el formulario de abajo para comprobar la consulta de órdenes.</p></FormularioAccion></section>
     <AsistenteIA />
   </div>;
 }

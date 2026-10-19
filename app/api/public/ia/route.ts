@@ -1,3 +1,4 @@
+import { errorIA } from '@/services/ai/errors';
 import { z } from 'zod';
 import { leerFormularioLimitado } from '@/lib/formulario-limitado';
 import { peticionPublicaLimitada } from '@/lib/public-request-limit';
@@ -16,9 +17,13 @@ export async function POST(request: Request) {
   return peticionPublicaLimitada('ai', request, async () => {
     try {
       const origin = request.headers.get('origin');
-      if (origin && origin !== new URL(request.url).origin) return Response.json({ error: 'Consulta desde el portal.' }, { status: 403, headers });
+      const origenes = new Set([new URL(request.url).origin]);
+      // Render puede exponer una URL interna al servidor. Solo confiar además en la URL configurada.
+      try { if (process.env.NEXT_PUBLIC_SITE_URL) origenes.add(new URL(process.env.NEXT_PUBLIC_SITE_URL).origin); } catch { /* no ampliar con una URL inválida */ }
+      if (origin && !origenes.has(origin)) return Response.json({ error: 'Consulta desde el portal.' }, { status: 403, headers });
       const config = await leerIA();
-      if (!config.enabled || !proveedorListo()) return Response.json({ error: 'El asistente todavía no está habilitado. Puedes usar el buscador global.' }, { status: 503, headers });
+      if (!proveedorListo()) return Response.json({ error: 'Falta configurar AI_API_KEY o AI_MODEL en Render y desplegar los cambios.', code: 'IA_CONFIG' }, { status: 503, headers });
+      if (!config.enabled) return Response.json({ error: 'El asistente está desactivado. En Admin → IA marca Activar asistente y guarda la configuración.', code: 'IA_DESACTIVADA' }, { status: 503, headers });
       let publico = true;
       if (!config.publicEnabled) {
         try { await requierePermiso('settings:manage'); publico = false; }
@@ -28,11 +33,8 @@ export async function POST(request: Request) {
       const pregunta = z.string().trim().min(8).max(400).parse(form.get('pregunta'));
       return Response.json(await responderPregunta(pregunta, publico), { headers });
     } catch (error) {
-      const code = error instanceof Error ? error.message : '';
-      const mensaje = code === 'IA_LIMITE' ? 'Se alcanzó el presupuesto del asistente. El buscador global sigue disponible.'
-        : code === 'IA_NO_ADMITIDA' ? 'Puedo consultar proveedores, categorías, municipalidades y años. Reformula la pregunta con esos datos.'
-        : 'No se pudo completar la consulta. Intenta una pregunta más concreta o utiliza el buscador global.';
-      return Response.json({ error: mensaje }, { status: code === 'IA_LIMITE' ? 429 : 400, headers });
+      const detalle = errorIA(error);
+      return Response.json({ error: detalle.mensaje, code: detalle.code }, { status: detalle.status, headers });
     }
   });
 }

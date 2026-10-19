@@ -11,7 +11,7 @@ describe('interpretación controlada', () => {
     mock(correcto);
     expect(await interpretarPregunta('Contratos de Poma en 2025', [{ slug: 'san-ramon', name: 'San Ramón' }])).toEqual(correcto);
     const body = JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string);
-    expect(body.max_tokens).toBe(500);
+    expect(body.max_tokens).toBe(1000);
     expect(body.messages).toHaveLength(2);
     expect(body.tools).toBeUndefined();
   });
@@ -31,4 +31,21 @@ describe('interpretación controlada', () => {
     mock(correcto); vi.mocked(fetch).mockResolvedValue(new Response('internal secret', { status: 500 }));
     await expect(interpretarPregunta('Consulta fechas', [])).rejects.toThrow('IA_PROVEEDOR');
   });
+});
+
+it.each([[401, 'IA_AUTH'], [403, 'IA_AUTH'], [404, 'IA_MODELO'], [429, 'IA_CUOTA'], [400, 'IA_PARAMETROS']])('distingue HTTP %i sin revelar el cuerpo', async (status, code) => {
+  mock(correcto); vi.mocked(fetch).mockResolvedValue(new Response('secret from upstream', { status }));
+  await expect(interpretarPregunta('Consulta de prueba', [])).rejects.toThrow(code);
+});
+it('detecta salida consumida por razonamiento', async () => {
+  mock(correcto); vi.mocked(fetch).mockResolvedValue(Response.json({ choices: [{ finish_reason: 'length', message: { content: '' } }] }));
+  await expect(interpretarPregunta('Consulta de prueba', [])).rejects.toThrow('IA_TRUNCADA');
+});
+it('acepta JSON envuelto en markdown sin aceptar propiedades extra', async () => {
+  mock(correcto); vi.mocked(fetch).mockResolvedValue(Response.json({ choices: [{ message: { content: '```json\n' + JSON.stringify({ ...correcto, municipalidades: [] }) + '\n```' } }] }));
+  expect((await interpretarPregunta('Consulta de prueba', [])).accion).toBe('consultar');
+});
+it('detecta timeout sin filtrar detalles de red', async () => {
+  mock(correcto); vi.mocked(fetch).mockRejectedValue(new DOMException('internal URL', 'TimeoutError'));
+  await expect(interpretarPregunta('Consulta de prueba', [])).rejects.toThrow('IA_TIEMPO');
 });

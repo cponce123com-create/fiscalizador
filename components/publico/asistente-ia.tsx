@@ -18,8 +18,8 @@ export function AsistenteIA() {
     setCargando(true); setError(''); setDatos(null);
     const form = new FormData(); form.set('pregunta', pregunta);
     try {
-      const r = await fetch('/api/public/ia', { method: 'POST', body: form, signal: AbortSignal.timeout(45000) });
-      const json = await r.json();
+      const r = await fetch('/api/public/ia', { method: 'POST', body: form, signal: AbortSignal.timeout(65000) });
+      const json = await r.json().catch(() => { throw new Error('El servidor no devolvió una respuesta válida. Intenta nuevamente en un momento.'); });
       if (!r.ok) throw new Error(json.error || 'Consulta no disponible.');
       setDatos(json);
     } catch (e) { setError(e instanceof Error && e.name !== 'TimeoutError' ? e.message : 'La consulta tardó demasiado. Puedes utilizar el buscador global.'); }

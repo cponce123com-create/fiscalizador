@@ -9,7 +9,7 @@ function request(origin = 'https://fiscalizador.org') {
   const body = new FormData(); body.set('pregunta', 'Contratos de Genaro Poma');
   return new Request('https://fiscalizador.org/api/public/ia', { method: 'POST', headers: { origin }, body });
 }
-beforeEach(() => { vi.resetAllMocks(); mocks.config.mockResolvedValue({ enabled: true, publicEnabled: true }); mocks.listo.mockReturnValue(true); mocks.responder.mockResolvedValue({ filas: [] }); });
+beforeEach(() => { vi.unstubAllEnvs(); vi.resetAllMocks(); mocks.config.mockResolvedValue({ enabled: true, publicEnabled: true }); mocks.listo.mockReturnValue(true); mocks.responder.mockResolvedValue({ filas: [] }); });
 it('impide consultar cuando está desactivado', async () => {
   mocks.config.mockResolvedValue({ enabled: false }); expect((await POST(request())).status).toBe(503); expect(mocks.responder).not.toHaveBeenCalled();
 });
@@ -27,4 +27,11 @@ it('rechaza origen externo antes de consumir presupuesto', async () => {
 it('comunica presupuesto agotado sin detalles internos', async () => {
   mocks.responder.mockRejectedValue(new Error('IA_LIMITE'));
   const response = await POST(request()); expect(response.status).toBe(429); expect(response.headers.get('cache-control')).toBe('no-store');
+});
+
+it('acepta el dominio configurado detrás del proxy sin confiar en cabeceras arbitrarias', async () => {
+  vi.stubEnv('NEXT_PUBLIC_SITE_URL', 'https://fiscalizador.org');
+  const body = new FormData(); body.set('pregunta', 'Contratos de Genaro Poma');
+  const req = new Request('http://localhost:3000/api/public/ia', { method: 'POST', headers: { origin: 'https://fiscalizador.org' }, body });
+  expect((await POST(req)).status).toBe(200);
 });
