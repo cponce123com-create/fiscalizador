@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { ErrorDeNegocio, NoEncontrado } from '@/lib/errors';
 import { slugify } from '@/services/normalization';
 import { registrarAuditoria } from '@/services/auditService';
+import { CATEGORIAS_ENTIDAD_PUBLICA, type CategoriaEntidadPublica } from '@/lib/entidad-publica';
 import { cache } from 'react';
 
 export const municipalidadPorDefecto = cache(async function municipalidadPorDefecto(): Promise<MunicipalidadActiva> {
@@ -10,11 +11,11 @@ export const municipalidadPorDefecto = cache(async function municipalidadPorDefe
     (await prisma.municipality.findFirst({
       where: { isDefault: true, isActive: true },
       orderBy: { createdAt: 'asc' },
-      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
+      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true, entityCategory: true },
     })) ??
     (await prisma.municipality.findUnique({
       where: { id: MUNICIPALIDAD_DEFAULT_ID },
-      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
+      select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true, entityCategory: true },
     }));
 
   return {
@@ -26,6 +27,7 @@ export const municipalidadPorDefecto = cache(async function municipalidadPorDefe
     provincia: entidad?.province ?? 'Chanchamayo',
     departamento: entidad?.department ?? 'Junín',
     tipoEntidad: entidad?.entityType ?? 'DISTRITAL',
+    categoria: entidad?.entityCategory ?? 'MUNICIPALIDAD',
   };
 });
 
@@ -33,7 +35,7 @@ export const listarMunicipalidadesActivas = cache(async function listarMunicipal
   const entidades = await prisma.municipality.findMany({
     where: { isActive: true },
     orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
+    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true, entityCategory: true },
   });
 
   if (entidades.length === 0) return [await municipalidadPorDefecto()];
@@ -47,6 +49,7 @@ export const listarMunicipalidadesActivas = cache(async function listarMunicipal
     provincia: entidad.province,
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
+    categoria: entidad.entityCategory,
   }));
 });
 
@@ -55,7 +58,7 @@ export const municipalidadActivaDesdeSlug = cache(async function municipalidadAc
 
   const entidad = await prisma.municipality.findFirst({
     where: { slug, isActive: true },
-    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true },
+    select: { id: true, slug: true, name: true, shortName: true, ruc: true, province: true, department: true, entityType: true, entityCategory: true },
   });
 
   if (!entidad) return municipalidadPorDefecto();
@@ -68,6 +71,7 @@ export const municipalidadActivaDesdeSlug = cache(async function municipalidadAc
     provincia: entidad.province,
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
+    categoria: entidad.entityCategory,
   };
 });
 
@@ -97,6 +101,7 @@ export type MunicipalidadAdmin = MunicipalidadActiva & {
   provincia: string;
   departamento: string;
   tipoEntidad: string;
+  categoria: CategoriaEntidadPublica;
   activa: boolean;
   predeterminada: boolean;
   colorPrincipal: string | null;
@@ -112,6 +117,7 @@ export type DatosMunicipalidad = {
   provincia: string;
   departamento: string;
   tipoEntidad: string;
+  categoria: CategoriaEntidadPublica;
   slug?: string;
   activa: boolean;
   predeterminada: boolean;
@@ -130,6 +136,7 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
       province: true,
       department: true,
       entityType: true,
+      entityCategory: true,
       isActive: true,
       isDefault: true,
       primaryColor: true,
@@ -146,6 +153,7 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
     provincia: entidad.province,
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
+    categoria: entidad.entityCategory as CategoriaEntidadPublica,
     activa: entidad.isActive,
     predeterminada: entidad.isDefault,
     colorPrincipal: entidad.primaryColor,
@@ -159,6 +167,7 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
   if (!slug) throw new ErrorDeNegocio('No se pudo generar un slug válido para la municipalidad.');
   if (!/^\d{11}$/.test(input.ruc)) throw new ErrorDeNegocio('El RUC debe tener 11 dígitos.');
   if (input.predeterminada && !input.activa) throw new ErrorDeNegocio('La municipalidad predeterminada debe estar activa.');
+  if (!CATEGORIAS_ENTIDAD_PUBLICA.some((categoria) => categoria.id === input.categoria)) throw new ErrorDeNegocio('Selecciona una categoría de entidad pública válida.');
 
   const existente = input.id
     ? await prisma.municipality.findUnique({ where: { id: input.id }, select: { id: true, isDefault: true, isActive: true, _count: { select: { importBatches: true, orders: true } } } })
@@ -188,6 +197,7 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
       province: input.provincia,
       department: input.departamento,
       entityType: input.tipoEntidad,
+      entityCategory: input.categoria,
       isActive: input.activa,
       isDefault: input.predeterminada,
       primaryColor: input.colorPrincipal || null,

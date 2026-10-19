@@ -314,6 +314,9 @@ model Municipality {
   province     String   @default("Chanchamayo")
   department   String   @default("Junín")
   entityType   String   @default("DISTRITAL")
+  /// Tipo de entidad contratante; se conserva Municipality como nombre legado
+  /// del modelo para no romper relaciones de órdenes/importaciones.
+  entityCategory String  @default("MUNICIPALIDAD")
   isDefault    Boolean  @default(false)
   isActive     Boolean  @default(true)
   logoUrl      String?
@@ -329,6 +332,7 @@ model Municipality {
   @@index([isDefault])
   @@index([isActive])
   @@index([province])
+  @@index([entityCategory, isActive])
 }
 
 // =============================================================================
