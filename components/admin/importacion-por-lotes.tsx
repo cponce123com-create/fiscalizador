@@ -53,6 +53,7 @@ import {
   type PeriodoRespuesta,
 } from '@/lib/api/cliente';
 import type { MunicipalidadActiva } from '@/lib/municipalidad';
+import { nombreCategoriaEntidadPublica } from '@/lib/entidad-publica';
 import { MAX_ARCHIVOS_IMPORTACION, MAX_LIBRO_BYTES, MAX_LIBRO_MB } from '@/lib/import-limits';
 import { requiereRevisionMonto, resumenConExclusiones } from '@/lib/revision-montos';
 import { formatearCentavos, MESES } from '@/lib/utils';
@@ -244,7 +245,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
     setErrorGlobal(null);
     setMensajeRecuperacion(null);
     if (!municipalityId) {
-      setErrorGlobal('Selecciona primero la municipalidad que recibirá esta importación.');
+      setErrorGlobal('Selecciona primero la entidad pública que recibirá esta importación.');
       return;
     }
 
@@ -534,7 +535,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
       <Tarjeta>
         <TarjetaEncabezado>
-          <TarjetaTitulo>1. Selecciona la municipalidad</TarjetaTitulo>
+          <TarjetaTitulo>1. Selecciona la entidad pública</TarjetaTitulo>
           <TarjetaDescripcion>
             Esta selección queda bloqueada cuando agregas archivos, para impedir que una tanda termine en otra entidad.
           </TarjetaDescripcion>
@@ -542,7 +543,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
 
         <TarjetaContenido className="flex flex-col gap-5">
           <GrupoCampo
-            etiqueta="Municipalidad"
+            etiqueta="Entidad pública"
             htmlFor="municipalityId"
             obligatorio
             ayuda="Todos los libros de esta tanda se importarán para esta entidad."
@@ -553,16 +554,16 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
               onChange={(evento: ChangeEvent<HTMLSelectElement>) => setMunicipalityId(evento.target.value)}
               disabled={ocupado || archivos.length > 0}
             >
-              <option value="">Selecciona una municipalidad…</option>
+              <option value="">Selecciona una entidad…</option>
               {municipalidades.map((municipalidad) => (
                 <option key={municipalidad.id} value={municipalidad.id}>
-                  {municipalidad.nombreCorto} · {municipalidad.ruc}
+                  {municipalidad.nombreCorto} · {nombreCategoriaEntidadPublica(municipalidad.categoria ?? 'MUNICIPALIDAD')} · RUC {municipalidad.ruc}
                 </option>
               ))}
             </Selector>
           </GrupoCampo>
 
-          {municipalityId ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"><strong>Destino confirmado:</strong> {municipalidades.find(m => m.id === municipalityId)?.nombre}. Todos los archivos de esta tanda quedarán asociados a esta entidad.</div> : <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Antes de continuar:</strong> elige la municipalidad correcta.</div>}
+          {municipalityId ? <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"><strong>Destino confirmado:</strong> {municipalidades.find(m => m.id === municipalityId)?.nombre}. Todos los archivos de esta tanda quedarán asociados a esta entidad.</div> : <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>Antes de continuar:</strong> elige la entidad correcta.</div>}
 
           {municipalityId && archivos.length === 0 ? (
             <Tarjeta className="border-sky-200 bg-sky-50/60">
@@ -571,7 +572,7 @@ export function ImportacionPorLotes({ municipalidades }: { municipalidades: Muni
                 <TarjetaDescripcion>Los originales pendientes se conservaron en el servidor. Al recuperarlos se vuelve a analizar el libro y debes confirmar nuevamente cualquier decisión humana.</TarjetaDescripcion>
               </TarjetaEncabezado>
               <TarjetaContenido>
-                {cargandoPendientes ? <Cargando etiqueta="Buscando análisis recuperables…" /> : errorPendientes ? <Aviso tono="error" titulo="No se pudieron consultar los análisis pendientes">{errorPendientes}</Aviso> : lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).length === 0 ? <p className="text-sm text-muted-foreground">No hay análisis pendientes para esta municipalidad.</p> : <ul className="flex flex-col gap-2">{lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).map(lote => <li key={lote.id} className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center"><div className="min-w-0"><p className="truncate font-medium">{lote.originalFilename}</p><p className="text-sm text-muted-foreground">{lote.period} · versión {lote.version} · pendiente de confirmación</p></div><Boton type="button" variant="outline" disabled={ocupado || archivos.length > 0} onClick={() => void recuperarAnalisis(lote)}><RotateCcw className="mr-2 h-4 w-4" /> Recuperar análisis</Boton></li>)}</ul>}
+                {cargandoPendientes ? <Cargando etiqueta="Buscando análisis recuperables…" /> : errorPendientes ? <Aviso tono="error" titulo="No se pudieron consultar los análisis pendientes">{errorPendientes}</Aviso> : lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).length === 0 ? <p className="text-sm text-muted-foreground">No hay análisis pendientes para esta entidad.</p> : <ul className="flex flex-col gap-2">{lotesPendientes.filter(lote => !archivos.some(archivo => archivo.id === lote.id)).map(lote => <li key={lote.id} className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center"><div className="min-w-0"><p className="truncate font-medium">{lote.originalFilename}</p><p className="text-sm text-muted-foreground">{lote.period} · versión {lote.version} · pendiente de confirmación</p></div><Boton type="button" variant="outline" disabled={ocupado || archivos.length > 0} onClick={() => void recuperarAnalisis(lote)}><RotateCcw className="mr-2 h-4 w-4" /> Recuperar análisis</Boton></li>)}</ul>}
               </TarjetaContenido>
             </Tarjeta>
           ) : null}
