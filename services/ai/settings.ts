@@ -12,7 +12,7 @@ export async function leerIA() {
   const parsed = configuracionIA.safeParse(setting?.value);
   return parsed.success ? parsed.data : configuracionIA.parse({});
 }
-export function proveedorListo() { return Boolean(process.env.AI_API_KEY && process.env.AI_MODEL); }
+export function proveedorListo() { return Boolean(process.env.AI_API_KEY?.trim() && process.env.AI_MODEL?.trim()); }
 
 /** Reservas conservadoras, sin devolución: sobreviven reinicios y concurrencia entre instancias. */
 export async function reservarUso(publico: boolean) {
