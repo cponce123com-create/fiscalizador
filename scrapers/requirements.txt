@@ -19,7 +19,7 @@ pdfplumber>=0.11.0
 # --- SEACE (JavaServer Faces con captcha) ------------------------------------
 # Hace falta un navegador real: el buscador responde 403 a un cliente HTTP simple y su
 # paginación son postbacks de JavaScript.
-playwright>=1.44.0
+playwright>=1.63.0
 # Después de instalar: `playwright install chromium`
 
 # Resolutor del captcha tipo gimpy de SEACE. Licencia GPL: revísala si vas a distribuir
