@@ -102,6 +102,10 @@ export type MunicipalidadAdmin = MunicipalidadActiva & {
   departamento: string;
   tipoEntidad: string;
   categoria: CategoriaEntidadPublica;
+  codigoOficial: string | null;
+  actualizadoCatalogo: Date | null;
+  entidadSuperiorRuc: string | null;
+  entidadSuperiorNombre: string | null;
   activa: boolean;
   predeterminada: boolean;
   colorPrincipal: string | null;
@@ -118,6 +122,8 @@ export type DatosMunicipalidad = {
   departamento: string;
   tipoEntidad: string;
   categoria: CategoriaEntidadPublica;
+  codigoOficial?: string | null;
+  entidadSuperiorRuc?: string | null;
   slug?: string;
   activa: boolean;
   predeterminada: boolean;
@@ -137,6 +143,9 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
       department: true,
       entityType: true,
       entityCategory: true,
+      officialCode: true,
+      catalogUpdatedAt: true,
+      parentEntity: { select: { ruc: true, name: true } },
       isActive: true,
       isDefault: true,
       primaryColor: true,
@@ -154,6 +163,10 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
     departamento: entidad.department,
     tipoEntidad: entidad.entityType,
     categoria: entidad.entityCategory as CategoriaEntidadPublica,
+    codigoOficial: entidad.officialCode,
+    actualizadoCatalogo: entidad.catalogUpdatedAt,
+    entidadSuperiorRuc: entidad.parentEntity?.ruc ?? null,
+    entidadSuperiorNombre: entidad.parentEntity?.name ?? null,
     activa: entidad.isActive,
     predeterminada: entidad.isDefault,
     colorPrincipal: entidad.primaryColor,
@@ -164,6 +177,7 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
 
 export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId: string | null }) {
   const slug = slugify(input.slug || input.nombreCorto || input.nombre);
+  const codigoOficial = input.codigoOficial?.trim() || null;
   if (!slug) throw new ErrorDeNegocio('No se pudo generar un slug válido para la municipalidad.');
   if (!/^\d{11}$/.test(input.ruc)) throw new ErrorDeNegocio('El RUC debe tener 11 dígitos.');
   if (input.predeterminada && !input.activa) throw new ErrorDeNegocio('La municipalidad predeterminada debe estar activa.');
@@ -176,15 +190,32 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
   if (input.id && !existente) throw new NoEncontrado('No existe la municipalidad que quieres actualizar.');
   if (existente?.isDefault && !input.activa) throw new ErrorDeNegocio('No puedes desactivar la municipalidad predeterminada.');
 
+  const rucSuperior = input.entidadSuperiorRuc?.trim() || null;
+  const entidadSuperior = rucSuperior
+    ? await prisma.municipality.findUnique({ where: { ruc: rucSuperior }, select: { id: true, parentEntityId: true } })
+    : null;
+  if (rucSuperior && !entidadSuperior) throw new ErrorDeNegocio('No existe una entidad registrada con ese RUC superior. Regístrala primero.');
+  if (entidadSuperior && input.id) {
+    let ancestroId: string | null = entidadSuperior.id;
+    let profundidad = 0;
+    while (ancestroId) {
+      if (ancestroId === input.id) throw new ErrorDeNegocio('La jerarquía generaría un ciclo entre entidades.');
+      if (++profundidad > 32) throw new ErrorDeNegocio('La jerarquía supera el máximo permitido de 32 niveles.');
+      const ancestro: { parentEntityId: string | null } | null = await prisma.municipality.findUnique({ where: { id: ancestroId }, select: { parentEntityId: true } });
+      ancestroId = ancestro?.parentEntityId ?? null;
+    }
+  }
+
   const repetida = await prisma.municipality.findFirst({
     where: {
-      OR: [{ slug }, { ruc: input.ruc }],
+      OR: [{ slug }, { ruc: input.ruc }, ...(codigoOficial ? [{ officialCode: codigoOficial }] : [])],
       ...(input.id ? { id: { not: input.id } } : {}),
     },
-    select: { id: true, slug: true, ruc: true },
+    select: { id: true, slug: true, ruc: true, officialCode: true },
   });
   if (repetida?.slug === slug) throw new ErrorDeNegocio('Ya existe una municipalidad con ese slug.');
   if (repetida?.ruc === input.ruc) throw new ErrorDeNegocio('Ya existe una municipalidad con ese RUC.');
+  if (codigoOficial && repetida?.officialCode === codigoOficial) throw new ErrorDeNegocio('Ya existe una entidad con ese código oficial.');
 
   return prisma.$transaction(async (tx) => {
     if (input.predeterminada) await tx.municipality.updateMany({ where: { isDefault: true }, data: { isDefault: false } });
@@ -198,6 +229,8 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
       department: input.departamento,
       entityType: input.tipoEntidad,
       entityCategory: input.categoria,
+      officialCode: codigoOficial,
+      parentEntityId: entidadSuperior?.id ?? null,
       isActive: input.activa,
       isDefault: input.predeterminada,
       primaryColor: input.colorPrincipal || null,
@@ -212,7 +245,7 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
       action: input.id ? 'UPDATE' : 'CREATE',
       entity: 'Municipality',
       entityId: entidad.id,
-      metadata: { slug: entidad.slug, name: entidad.name, default: input.predeterminada, active: input.activa },
+      metadata: { slug: entidad.slug, name: entidad.name, category: input.categoria, officialCode: codigoOficial, parentEntityId: entidadSuperior?.id ?? null, default: input.predeterminada, active: input.activa },
     });
 
     return entidad;
