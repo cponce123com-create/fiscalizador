@@ -36,6 +36,7 @@ type Enlace = {
 };
 
 const ENLACES: readonly Enlace[] = [
+  { href: '/admin/ia', etiqueta: 'Inteligencia artificial', icono: SearchCheck, permiso: 'settings:manage' },
   { href: '/admin/apariencia', etiqueta: 'Apariencia y titulares', icono: Settings2, permiso: 'settings:manage' },
   { href: '/admin/municipalidades', etiqueta: 'Municipalidades', icono: Building2, permiso: 'settings:manage' },
   { href: '/admin', etiqueta: 'Panel', icono: LayoutDashboard, permiso: null },
