@@ -6,6 +6,7 @@ import { categoriasGasto, type CategoriaGasto } from '@/lib/categorias-gasto';
 import type { Filtros } from '@/lib/filtros';
 import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
+import { configuracionComparacion } from '@/services/statisticsModeService';
 import type { FilaOrdenListado, ResultadoPaginado } from './statisticsService';
 
 // Normaliza la descripción de la vista: PostgreSQL fija las columnas de una vista
@@ -21,6 +22,35 @@ export async function gastosPorCategoriaGestion(
   municipalityId = MUNICIPALIDAD_DEFAULT_ID,
 ): Promise<GastoCategoriaGestion[]> {
   const valores = Prisma.join(categoriasGasto.map(c => Prisma.sql`(${c.id}, ${c.patrones[0]}, ${c.patrones[1]}, ${c.excluir})`));
+  const configuracion = await configuracionComparacion(municipalityId);
+  if (configuracion.modo === 'ROLLING_YEARS') {
+    const filas = await prisma.$queryRaw<GastoCategoriaGestion[]>`
+      WITH categorias(categoria, patron1, patron2, excluir) AS (VALUES ${valores}), anios AS (
+        SELECT y::int AS anio FROM generate_series(
+          EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1,
+          EXTRACT(YEAR FROM CURRENT_DATE)::int
+        ) y
+      ), ordenes AS MATERIALIZED (
+        SELECT o.id, o."issueDate", o."statusId", o."isCancelled", o.amount, ${descripcion} AS normalizada
+        FROM "CurrentOrder" o WHERE o."municipalityId" = ${municipalityId}
+          AND o."issueDate" >= make_date((EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1), 1, 1)
+          AND o."issueDate" < make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1, 1, 1)
+      )
+      SELECT a.anio::text AS id, a.anio::text AS gestion, c.categoria,
+        (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
+          WHERE b.year = a.anio AND b."isCurrent" = true AND b."municipalityId" = ${municipalityId}
+            AND b.status IN ('COMPLETED', 'COMPLETED_WITH_WARNINGS')) AS meses,
+        COUNT(o.id)::int AS ordenes,
+        COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS considerado
+      FROM anios a CROSS JOIN categorias c
+      LEFT JOIN ordenes o ON o."issueDate" >= make_date(a.anio, 1, 1) AND o."issueDate" < make_date(a.anio + 1, 1, 1)
+        AND o.normalizada ~ c.patron1 AND o.normalizada ~ c.patron2 AND o.normalizada !~ c.excluir
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      GROUP BY a.anio, c.categoria ORDER BY c.categoria, a.anio
+    `;
+    return filas.map(f => ({ ...f, considerado: decimalMonetario(f.considerado) }));
+  }
   const filas = await prisma.$queryRaw<GastoCategoriaGestion[]>`
     WITH categorias(categoria, patron1, patron2, excluir) AS (VALUES ${valores}), gestiones AS (
       SELECT id, name, "startDate" FROM "ManagementPeriod"
@@ -50,7 +80,8 @@ export async function gastosPorCategoriaGestion(
 export async function listarOrdenesCategoria(categoria: CategoriaGasto, filtros: Filtros): Promise<ResultadoPaginado<FilaOrdenListado>> {
   const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
   const gestion = filtros.gestionId ?? '';
-  const where = Prisma.sql`${coincide(categoria)} AND o."municipalityId" = ${municipalityId} AND (${gestion} = '' OR o."managementPeriodId" = ${gestion})`;
+  const year = /^20\d{2}$/.test(gestion) ? Number(gestion) : null;
+  const where = Prisma.sql`${coincide(categoria)} AND o."municipalityId" = ${municipalityId} AND (${gestion} = '' OR (${year === null ? Prisma.sql`o."managementPeriodId" = ${gestion}` : Prisma.sql`o."issueDate" >= make_date(${year}, 1, 1) AND o."issueDate" < make_date(${year + 1}, 1, 1)`}))`;
   const conteo = await prisma.$queryRaw<Array<{ total: number }>>`SELECT COUNT(*)::int AS total FROM "CurrentOrder" o WHERE ${where}`;
   const total = conteo[0]?.total ?? 0;
   const totalPaginas = Math.max(1, Math.ceil(total / filtros.porPagina));

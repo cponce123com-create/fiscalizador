@@ -17,6 +17,7 @@ import { Seccion } from '@/components/ui/seccion';
 import { comparativaPorGestion, concentracionGasto } from '@/services/statisticsService';
 import { leerFiltros } from '@/lib/filtros';
 import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
+import { configuracionComparacion } from '@/services/statisticsModeService';
 
 /** Exploración ciudadana: cobertura, conceptos, etapas de gobierno y evolución. */
 export const dynamic = 'force-dynamic';
@@ -34,24 +35,25 @@ export default async function PaginaEstadisticas({
 }) {
   const filtros = leerFiltros(await searchParams);
   const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const comparacion = await configuracionComparacion(municipalityId);
   return (
     <div className="flex flex-col gap-7 sm:gap-10">
       <Breadcrumbs items={[{ label: 'Estadísticas' }]} />
       <header className="flex flex-col gap-3">
         <h1 className="text-2xl font-semibold sm:text-3xl">Estadísticas</h1>
         <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-          ¿En qué se contrata, a quién y cuánto cambia entre gestiones? Explora los libros
+          ¿En qué se contrata, a quién y cómo cambia con el tiempo? Explora los libros
           importados mediante comparaciones y gráficos. El{' '}
           <strong>monto considerado</strong>{' '}
           excluye órdenes anuladas y estados no económicos. Las órdenes no acreditan pagos.
         </p>
       </header>
 
-      <nav aria-label="Explorar estadísticas" className="desplazamiento-movil -mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">{[['por-ruc', 'RUC 10 y RUC 20'], ['etapas', 'Inicio y cierre'], ['conceptos', '¿En qué se contrata?'], ['evolucion', 'Evolución'], ['concentracion-del-gasto', 'Concentración']].map(([id, titulo]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 shrink-0 snap-start items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">{titulo}</a>)}</nav>
+      <nav aria-label="Explorar estadísticas" className="desplazamiento-movil -mx-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">{[['por-ruc', 'RUC 10 y RUC 20'], ...(comparacion.modo === 'MANAGEMENT' ? [['etapas', 'Inicio y cierre']] : []), ['conceptos', '¿En qué se contrata?'], ['evolucion', 'Evolución'], ['concentracion-del-gasto', 'Concentración']].map(([id, titulo]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 shrink-0 snap-start items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">{titulo}</a>)}</nav>
       <Suspense fallback={<CargandoEstadisticas />}><PanelEtapas municipalityId={municipalityId} /></Suspense>
       <Suspense fallback={<CargandoEstadisticas />}><PanelConceptos municipalityId={municipalityId} /></Suspense>
       <Suspense fallback={<CargandoEstadisticas />}><PanelEvolucion municipalityId={municipalityId} /></Suspense>
-      <Suspense fallback={<CargandoEstadisticas />}><PanelComparacion municipalityId={municipalityId} /></Suspense>
+      <Suspense fallback={<CargandoEstadisticas />}><PanelComparacion municipalityId={municipalityId} porGestion={comparacion.modo === 'MANAGEMENT'} /></Suspense>
       <Suspense fallback={<CargandoEstadisticas />}><PanelConcentracion municipalityId={municipalityId} municipalitySlug={filtros.municipalidadSlug} /></Suspense>
     </div>
   );
@@ -63,7 +65,7 @@ function CargandoEstadisticas() {
 async function PanelEtapas({ municipalityId }: { municipalityId: string }) { return <EstadisticasExplorables filas={await estadisticasPorEtapa(municipalityId)} />; }
 async function PanelConceptos({ municipalityId }: { municipalityId: string }) {
   const [categorias, alimentacion] = await Promise.all([gastosPorCategoriaGestion(municipalityId), gastoAlimentacionPorGestion(municipalityId)]);
-  return <section id="conceptos" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">¿En qué se contrata?</h2><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Todas las comparaciones de gastos, reunidas para explorar las tres gestiones. Las categorías se detectan por la descripción y pueden superponerse: no deben sumarse entre sí. Abre el desglose para revisar cada orden.</p></div>
+  return <section id="conceptos" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">¿En qué se contrata?</h2><p className="mt-2 max-w-3xl text-sm text-muted-foreground">Todas las comparaciones de gastos, organizadas según el periodo aplicable a esta entidad. Las categorías se detectan por la descripción y pueden superponerse: no deben sumarse entre sí. Abre el desglose para revisar cada orden.</p></div>
     <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3"><GastoAlimentacion filas={alimentacion} />{categoriasGasto.map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={categorias.filter(f => f.categoria === c.id)} />)}</div>
   </section>;
 }
@@ -73,10 +75,10 @@ async function PanelEvolucion({ municipalityId }: { municipalityId: string }) {
   return <section id="evolucion" className="scroll-mt-6 space-y-4"><h2 className="text-xl font-semibold">La evolución de las órdenes</h2><p className="text-sm text-muted-foreground">Todos los periodos importados. Los meses o años ausentes no se muestran como gasto cero.</p><div className="grid min-w-0 gap-6 xl:grid-cols-2"><div className="min-w-0"><h3 className="mb-3 font-semibold">Mes a mes</h3><GraficoEvolucion puntos={puntos(mensual)} etiquetaSerie="Monto considerado" nombrePeriodo="Mes" /></div><div className="min-w-0"><h3 className="mb-3 font-semibold">Año a año</h3><GraficoEvolucion puntos={puntos(anual)} etiquetaSerie="Monto considerado" nombrePeriodo="Año" /></div></div></section>;
 }
 
-async function PanelComparacion({ municipalityId }: { municipalityId: string }) {
+async function PanelComparacion({ municipalityId, porGestion }: { municipalityId: string; porGestion: boolean }) {
   const gestiones = await comparativaPorGestion(municipalityId);
   const sinDatos = gestiones.filter((fila) => fila.ordenes === 0);
-  return <Seccion titulo="Comparación por gestión" descripcion="Órdenes, proveedores y montos de cada periodo de gobierno."><TablaComparativa filas={gestiones} />{sinDatos.length > 0 ? <p className="text-xs text-muted-foreground">{sinDatos.length === 1 ? 'La gestión' : 'Las gestiones'} {sinDatos.map((fila) => fila.gestion).join(', ')} {sinDatos.length === 1 ? 'aparece' : 'aparecen'} en cero porque todavía no se ha importado ningún libro de {sinDatos.length === 1 ? 'ese periodo' : 'esos periodos'}.</p> : null}</Seccion>;
+  return <Seccion titulo={porGestion ? 'Comparación por gestión' : 'Comparación anual'} descripcion={porGestion ? 'Órdenes, proveedores y montos de cada periodo de gobierno.' : 'Órdenes, proveedores y montos de los años calendario configurados.'}><TablaComparativa filas={gestiones} porGestion={porGestion} />{sinDatos.length > 0 ? <p className="text-xs text-muted-foreground">{sinDatos.length === 1 ? 'El periodo' : 'Los periodos'} {sinDatos.map((fila) => fila.gestion).join(', ')} {sinDatos.length === 1 ? 'aparece' : 'aparecen'} en cero porque todavía no se ha importado ningún libro de {sinDatos.length === 1 ? 'ese periodo' : 'esos periodos'}.</p> : null}</Seccion>;
 }
 
 async function PanelConcentracion({ municipalityId, municipalitySlug }: { municipalityId: string; municipalitySlug: string | null }) {

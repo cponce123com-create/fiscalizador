@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
 import { idMunicipalidadDesdeSlug } from '@/services/municipalityService';
+import { configuracionComparacion } from '@/services/statisticsModeService';
 
 /**
  * Agregaciones del portal público.
@@ -279,6 +280,23 @@ export type FilaGestion = {
 };
 
 export async function gastoPorGestion(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaGestion[]> {
+  const configuracion = await configuracionComparacion(municipalityId);
+  if (configuracion.modo === 'ROLLING_YEARS') {
+    const filas = await prisma.$queryRaw<Array<{ gestion: string; ordenes: number; proveedores: number; considerado: string }>>`
+      WITH anios AS (SELECT y::int AS anio FROM generate_series(
+        EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1,
+        EXTRACT(YEAR FROM CURRENT_DATE)::int
+      ) y)
+      SELECT a.anio::text AS gestion, COUNT(o.id)::int AS ordenes,
+        COUNT(DISTINCT o."supplierId")::int AS proveedores,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS considerado
+      FROM anios a LEFT JOIN "CurrentOrder" o ON o."municipalityId" = ${municipalityId}
+        AND o."issueDate" >= make_date(a.anio, 1, 1) AND o."issueDate" < make_date(a.anio + 1, 1, 1)
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      GROUP BY a.anio ORDER BY a.anio
+    `;
+    return filas.map(fila => ({ gestion: fila.gestion, ordenes: aNumero(fila.ordenes), proveedores: aNumero(fila.proveedores), considerado: aDecimal2(fila.considerado) }));
+  }
   const filas = await prisma.$queryRaw<
     Array<{ gestion: string; ordenes: number; proveedores: number; considerado: string }>
   >`
@@ -335,6 +353,30 @@ export type FilaComparativa = {
  * orden anulada se cuenta, pero no suma al considerado.
  */
 export async function comparativaPorGestion(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<FilaComparativa[]> {
+  const configuracion = await configuracionComparacion(municipalityId);
+  if (configuracion.modo === 'ROLLING_YEARS') {
+    const filas = await prisma.$queryRaw<Array<{ gestion: string; ordenes: number; anuladas: number; proveedores: number; registrado: string; anulado: string; considerado: string; promedio: string }>>`
+      WITH anios AS (SELECT y::int AS anio FROM generate_series(
+        EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1,
+        EXTRACT(YEAR FROM CURRENT_DATE)::int
+      ) y)
+      SELECT a.anio::text AS gestion, COUNT(o.id)::int AS ordenes,
+        COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+        COUNT(DISTINCT o."supplierId")::int AS proveedores, COALESCE(SUM(o.amount), 0)::text AS registrado,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = true), 0)::text AS anulado,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS considerado,
+        COALESCE(AVG(o.amount) FILTER (WHERE o."isCancelled" = false AND st."countsEconomically" = true), 0)::text AS promedio
+      FROM anios a LEFT JOIN "CurrentOrder" o ON o."municipalityId" = ${municipalityId}
+        AND o."issueDate" >= make_date(a.anio, 1, 1) AND o."issueDate" < make_date(a.anio + 1, 1, 1)
+      LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+      GROUP BY a.anio ORDER BY a.anio
+    `;
+    const total = filas.reduce((acumulado, fila) => acumulado + Number(fila.considerado), 0);
+    return filas.map(fila => {
+      const considerado = aDecimal2(fila.considerado);
+      return { gestion: fila.gestion, ordenes: aNumero(fila.ordenes), anuladas: aNumero(fila.anuladas), proveedores: aNumero(fila.proveedores), registrado: aDecimal2(fila.registrado), anulado: aDecimal2(fila.anulado), considerado, peso: porcentaje(Number(considerado), total), ticketMedio: aDecimal2(fila.promedio) };
+    });
+  }
   const filas = await prisma.$queryRaw<
     Array<{
       gestion: string;

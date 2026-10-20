@@ -24,13 +24,6 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
     return query ? `${pathname}?${query}` : pathname;
   };
 
-  const precargarRecientes = () => {
-    try {
-      const recientes = JSON.parse(localStorage.getItem('municipalidades-recientes') ?? '[]') as string[];
-      recientes.filter(slug => slug !== seleccionada).slice(0, 4).forEach(slug => router.prefetch(destino(slug)));
-    } catch { /* El historial es solo una optimización opcional. */ }
-  };
-
   return (
     <label className="flex w-full min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground sm:w-auto sm:min-w-[13rem]">
       Entidad pública
@@ -38,16 +31,9 @@ export function SelectorMunicipalidad({ municipalidades }: { municipalidades: Mu
         value={seleccionOptimista}
         disabled={cambiando}
         aria-busy={cambiando}
-        onPointerDown={precargarRecientes}
-        onFocus={precargarRecientes}
         onChange={(event) => {
           const slug = event.target.value;
           const url = destino(slug);
-          try {
-            const anteriores = JSON.parse(localStorage.getItem('municipalidades-recientes') ?? '[]') as string[];
-            localStorage.setItem('municipalidades-recientes', JSON.stringify([slug, ...anteriores.filter(item => item !== slug)].slice(0, 4)));
-          } catch { /* La navegación funciona aunque el almacenamiento esté bloqueado. */ }
-          router.prefetch(url);
           iniciarCambio(() => {
             setSeleccionOptimista(slug);
             router.push(url);

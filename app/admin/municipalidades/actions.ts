@@ -26,6 +26,8 @@ const esquema = z.object({
   entidadSuperiorRuc: z.union([z.literal(''), z.string().trim().regex(/^\d{11}$/, 'El RUC de la entidad superior debe tener 11 dígitos.')]).optional(),
   slug: z.string().trim().max(80).optional(),
   colorPrincipal: z.string().trim().max(20).optional(),
+  comparisonMode: z.enum(['MANAGEMENT', 'ROLLING_YEARS']),
+  comparisonYears: z.coerce.number().int().min(1).max(10),
   activa: z.boolean(),
   predeterminada: z.boolean(),
 });
@@ -49,6 +51,8 @@ export async function accionGuardarMunicipalidad(
       entidadSuperiorRuc: texto(formData.get('entidadSuperiorRuc')) || undefined,
       slug: texto(formData.get('slug')) || undefined,
       colorPrincipal: texto(formData.get('colorPrincipal')) || undefined,
+      comparisonMode: texto(formData.get('comparisonMode')),
+      comparisonYears: Number(texto(formData.get('comparisonYears')) || '5'),
       activa: formData.get('activa') !== null,
       predeterminada: formData.get('predeterminada') !== null,
     });

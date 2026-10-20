@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { decimalMonetario } from '@/lib/decimal';
 import { MUNICIPALIDAD_DEFAULT_ID } from '@/lib/municipalidad';
+import { configuracionComparacion } from '@/services/statisticsModeService';
 
 export type VentanaEstadistica = 'gestion' | 'primeros-100' | 'ultimo-anio';
 export type EstadisticaEtapa = {
@@ -16,6 +17,42 @@ export type EstadisticaEtapa = {
 export async function estadisticasPorEtapa(
   municipalityId = MUNICIPALIDAD_DEFAULT_ID,
 ): Promise<EstadisticaEtapa[]> {
+  const configuracion = await configuracionComparacion(municipalityId);
+  if (configuracion.modo === 'ROLLING_YEARS') {
+    const filas = await prisma.$queryRaw<EstadisticaEtapa[]>`
+      WITH anios AS (
+        SELECT y::int AS anio FROM generate_series(
+          EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1,
+          EXTRACT(YEAR FROM CURRENT_DATE)::int
+        ) y
+      ), ordenes AS MATERIALIZED (
+        SELECT o.id, o."issueDate", o."supplierId", o.amount, o."isCancelled",
+          st."countsEconomically", CASE WHEN left(s.ruc, 2) IN ('10', '20') THEN left(s.ruc, 2) ELSE 'otros' END AS grupo
+        FROM "CurrentOrder" o JOIN "Supplier" s ON s.id = o."supplierId"
+        LEFT JOIN "OrderStatus" st ON st.id = o."statusId"
+        WHERE o."municipalityId" = ${municipalityId}
+          AND o."issueDate" >= make_date((EXTRACT(YEAR FROM CURRENT_DATE)::int - ${configuracion.anios} + 1), 1, 1)
+          AND o."issueDate" < make_date(EXTRACT(YEAR FROM CURRENT_DATE)::int + 1, 1, 1)
+      )
+      SELECT a.anio::text AS id, a.anio::text AS gestion, 'gestion'::text AS ventana, r.grupo,
+        to_char(make_date(a.anio, 1, 1), 'YYYY-MM-DD') AS desde,
+        to_char(make_date(a.anio, 12, 31), 'YYYY-MM-DD') AS hasta,
+        true AS iniciada,
+        (SELECT COUNT(DISTINCT b.period)::int FROM "ImportBatch" b
+          WHERE b.year = a.anio AND b."isCurrent" = true AND b."municipalityId" = ${municipalityId}
+            AND b.status IN ('COMPLETED', 'COMPLETED_WITH_WARNINGS')) AS meses,
+        CASE WHEN a.anio = EXTRACT(YEAR FROM CURRENT_DATE)::int THEN EXTRACT(MONTH FROM CURRENT_DATE)::int ELSE 12 END AS esperados,
+        COUNT(o.id)::int AS ordenes, COUNT(o.id) FILTER (WHERE o."isCancelled" = true)::int AS anuladas,
+        COUNT(DISTINCT o."supplierId")::int AS proveedores,
+        COUNT(o.id) FILTER (WHERE o."isCancelled" = false AND o."countsEconomically" = true AND o.amount IS NOT NULL)::int AS economicas,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = false AND o."countsEconomically" = true), 0)::text AS considerado,
+        COALESCE(SUM(o.amount) FILTER (WHERE o."isCancelled" = true), 0)::text AS anulado
+      FROM anios a CROSS JOIN (VALUES ('10'), ('20'), ('otros')) r(grupo)
+      LEFT JOIN ordenes o ON o.grupo = r.grupo AND EXTRACT(YEAR FROM o."issueDate")::int = a.anio
+      GROUP BY a.anio, r.grupo ORDER BY a.anio, r.grupo
+    `;
+    return filas.map(f => ({ ...f, considerado: decimalMonetario(f.considerado), anulado: decimalMonetario(f.anulado) }));
+  }
   const filas = await prisma.$queryRaw<EstadisticaEtapa[]>`
     WITH gestiones AS (
       SELECT id, name, "startDate", "endDate" FROM "ManagementPeriod"

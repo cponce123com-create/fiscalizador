@@ -145,7 +145,7 @@ async function CombustiblePortada({ municipalityId }: { municipalityId: string }
 async function ComparacionesGastos({ municipalityId }: { municipalityId: string }) {
   const gastos = await gastosPorCategoriaGestion(municipalityId);
   return <section aria-labelledby="titulo-gastos-categorias" className="flex flex-col gap-4">
-    <header><h2 id="titulo-gastos-categorias" className="titulo-editorial text-2xl font-bold">¿En qué se gasta? Compara las gestiones</h2><p className="mt-2 text-sm text-muted-foreground">Las últimas tres gestiones iniciadas, según los libros disponibles. Una orden puede pertenecer a más de una categoría: estos montos no se suman entre sí.</p></header>
+    <header><h2 id="titulo-gastos-categorias" className="titulo-editorial text-2xl font-bold">¿En qué se gasta? Compara los periodos</h2><p className="mt-2 text-sm text-muted-foreground">Periodos aplicables a esta entidad, según los libros disponibles. Una orden puede pertenecer a más de una categoría: estos montos no se suman entre sí.</p></header>
     <div className="comparaciones-gastos grid items-stretch gap-4 md:grid-cols-2">{categoriasGasto.filter(c => c.id !== 'combustible').map(c => <GastoAlimentacion key={c.id} titulo={c.titulo} descripcion={c.descripcion} ruta={`/gastos/${c.id}`} filas={gastos.filter(f => f.categoria === c.id)} />)}</div>
   </section>;
 }
