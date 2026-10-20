@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 14364)
-Total output lines: 1516
-
 import { buscarNombreProveedor } from '@/lib/busqueda-nombres';
 import { coincideProveedor } from '@/lib/busqueda-nombres-sql';
 import { palabrasBusqueda, gruposBusquedaOrdenes, paginasPorGrupo } from '@/lib/busqueda-ordenes';
@@ -613,7 +610,261 @@ export async function repartoPorTipoOrden(municipalityId = MUNICIPALIDAD_DEFAULT
   }));
 }
 
-// ==================================================…2364 tokens truncated…Slug: orden.supplier.slug,
+// =============================================================================
+// Últimos registros
+// =============================================================================
+
+export type FilaUltimoRegistro = {
+  id: string;
+  orderNumber: string;
+  issueDate: Date | null;
+  amount: string | null;
+  isCancelled: boolean;
+  proveedor: string;
+  ruc: string;
+  tipo: string | null;
+  estado: string | null;
+  descripcion?: string | null;
+};
+
+export async function ultimosRegistros(
+  limite = 8,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+): Promise<FilaUltimoRegistro[]> {
+  const ordenes = await prisma.order.findMany({
+    where: { municipalityId, importBatch: { isCurrent: true } },
+    orderBy: [{ issueDate: 'desc' }, { sourceRow: 'asc' }],
+    take: limite,
+    select: {
+      id: true,
+      orderNumber: true,
+      description: true,
+      issueDate: true,
+      amount: true,
+      isCancelled: true,
+      ruc: true,
+      orderType: { select: { code: true } },
+      status: { select: { label: true } },
+      supplier: { select: { name: true } },
+    },
+  });
+
+  return ordenes.map((orden) => ({
+    id: orden.id,
+    orderNumber: orden.orderNumber,
+    descripcion: orden.description,
+    issueDate: orden.issueDate,
+    amount: orden.amount === null ? null : orden.amount.toFixed(2),
+    isCancelled: orden.isCancelled,
+    proveedor: orden.supplier.name,
+    ruc: orden.ruc,
+    tipo: orden.orderType?.code ?? null,
+    estado: orden.status?.label ?? null,
+  }));
+}
+
+// =============================================================================
+// Carga conjunta de la portada
+// =============================================================================
+
+export type DatosPortada = {
+  resumen: ResumenGeneral;
+  ranking: FilaRanking[];
+  mensual: PuntoEvolucion[];
+  anual: PuntoEvolucion[];
+  gestiones: FilaGestion[];
+  contrataciones: FilaContratacion[];
+  tiposOrden: FilaTipoOrden[];
+  ultimos: FilaUltimoRegistro[];
+};
+
+/**
+ * Reúne todo lo que necesita la portada.
+ *
+ * Las consultas se lanzan en paralelo: son independientes entre sí y en serie
+ * sumarían latencia sin motivo.
+ */
+export async function datosPortada(gestionRanking: string | null = null, municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<DatosPortada> {
+  const [resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos] =
+    await Promise.all([
+      resumenGeneral(municipalityId),
+      rankingProveedores(10, gestionRanking, null, municipalityId),
+      evolucionMensual(municipalityId),
+      evolucionAnual(municipalityId),
+      gastoPorGestion(municipalityId),
+      tiposContratacion(6, municipalityId),
+      repartoPorTipoOrden(municipalityId),
+      ultimosRegistros(8, municipalityId),
+    ]);
+
+  return { resumen, ranking, mensual, anual, gestiones, contrataciones, tiposOrden, ultimos };
+}
+
+/** La portada inicial solo consulta datos visibles; el análisis completo vive en /estadisticas. */
+export async function datosPortadaInicial(
+  gestionRanking: string | null = null,
+  tipoRucRanking: '10' | '20' | null = null,
+  municipalityId = MUNICIPALIDAD_DEFAULT_ID,
+) {
+  const [resumen, ranking, mensual, ultimos] = await Promise.all([
+    resumenGeneral(municipalityId),
+    rankingProveedores(10, gestionRanking, tipoRucRanking, municipalityId),
+    evolucionMensual(municipalityId),
+    ultimosRegistros(8, municipalityId),
+  ]);
+  return { resumen, ranking, mensual, ultimos };
+}
+
+// =============================================================================
+// Listados paginados
+// =============================================================================
+
+export type ResultadoPaginado<T> = {
+  filas: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  totalPaginas: number;
+};
+
+/** Años con órdenes. Alimenta los desplegables y el filtro por mes suelto. */
+export async function aniosDisponibles(municipalityId = MUNICIPALIDAD_DEFAULT_ID): Promise<number[]> {
+  const filas = await prisma.$queryRaw<Array<{ anio: string }>>`
+    SELECT DISTINCT to_char("issueDate", 'YYYY') AS anio
+    FROM "CurrentOrder"
+    WHERE "issueDate" IS NOT NULL AND "municipalityId" = ${municipalityId}
+    ORDER BY 1 DESC
+  `;
+
+  return filas.map((fila) => Number(fila.anio)).filter((anio) => Number.isFinite(anio));
+}
+
+/**
+ * Traduce los filtros de la URL a una condición de Prisma.
+ *
+ * Las condiciones se acumulan en un array y se combinan con `AND`, en lugar de
+ * anidar objetos. Así la búsqueda por texto —que necesita su propio `OR`— no
+ * pisa a los demás filtros.
+ */
+export async function construirWhereOrdenes(filtros: Filtros): Promise<Prisma.OrderWhereInput> {
+  const municipalityId = await idMunicipalidadDesdeSlug(filtros.municipalidadSlug);
+  const condiciones: Prisma.OrderWhereInput[] = [
+    { municipalityId, importBatch: { isCurrent: true } },
+  ];
+
+  const rango = rangoDeFechas(filtros);
+  if (rango) {
+    condiciones.push({ issueDate: { gte: rango.gte, lt: rango.lt } });
+  }
+
+  // Un mes sin año no cabe en un solo rango. En vez de descartarlo en silencio, se
+  // construye una condición por cada año presente: `?mes=6` significa «junio de
+  // cualquier año».
+  if (filtros.mes !== null && filtros.anio === null) {
+    const anios = await aniosDisponibles(municipalityId);
+
+    if (anios.length === 0) {
+      // Sin años cargados no hay nada que buscar. Un `in` vacío no devuelve filas.
+      condiciones.push({ id: { in: [] } });
+    } else {
+      condiciones.push({
+        OR: anios.map((anio) => ({
+          issueDate: {
+            gte: new Date(Date.UTC(anio, filtros.mes! - 1, 1)),
+            lt: new Date(Date.UTC(anio, filtros.mes!, 1)),
+          },
+        })),
+      });
+    }
+  }
+
+  if (filtros.gestionId) condiciones.push({ managementPeriodId: filtros.gestionId });
+  if (filtros.tipoOrdenId) condiciones.push({ orderTypeId: filtros.tipoOrdenId });
+  if (filtros.estadoId) condiciones.push({ statusId: filtros.estadoId });
+  if (filtros.proveedorId) condiciones.push({ supplierId: filtros.proveedorId });
+  if (filtros.tipoRuc) condiciones.push({ supplier: { rucPrefix: filtros.tipoRuc } });
+
+  if (filtros.texto) {
+    const t = filtros.texto;
+    condiciones.push({
+      OR: [
+        { orderNumber: { contains: t, mode: 'insensitive' } },
+        { description: { contains: t, mode: 'insensitive' } },
+        ...(palabrasBusqueda(t).length ? [{ AND: palabrasBusqueda(t).map(p => ({ descriptionSearch: { contains: p } })) }] : []),
+        { siafNumber: { contains: t, mode: 'insensitive' } },
+        { ruc: { contains: t } },
+        { supplier: buscarNombreProveedor(t) },
+      ],
+    });
+  }
+
+  return condiciones.length > 0 ? { AND: condiciones } : {};
+}
+
+/** Orden solicitado, siempre con un desempate para que la paginación sea estable. */
+function ordenDeOrdenes(filtros: Filtros): Prisma.OrderOrderByWithRelationInput[] {
+  const direccion = filtros.direccion;
+
+  if (filtros.orden === 'monto') {
+    return [{ amount: direccion }, { orderNumber: 'asc' }, { id: 'asc' }];
+  }
+  if (filtros.orden === 'proveedor') {
+    return [{ supplier: { name: direccion } }, { issueDate: 'desc' }, { sourceRow: 'asc' }, { id: 'asc' }];
+  }
+  return [{ issueDate: direccion }, { sourceRow: 'asc' }, { id: 'asc' }];
+}
+
+export type FilaOrdenListado = {
+  id: string;
+  orderNumber: string;
+  issueDate: Date | null;
+  /** Puede faltar: la columna es opcional en el archivo de origen. */
+  description: string | null;
+  amount: string | null;
+  ruc: string;
+  isCancelled: boolean;
+  tipo: string | null;
+  estado: string | null;
+  proveedor: string;
+  proveedorSlug: string;
+};
+
+/**
+ * Listado público de órdenes, paginado.
+ *
+ * La paginación se hace con `skip`/`take` en la consulta, no trayendo todo y
+ * cortando después: es lo que exige la sección 22 del pliego («no cargar miles de
+ * registros al navegador»).
+ */
+export async function listarOrdenes(
+  filtros: Filtros,
+): Promise<ResultadoPaginado<FilaOrdenListado>> {
+  const where = await construirWhereOrdenes(filtros);
+
+  const select = { id: true, orderNumber: true, issueDate: true, description: true, amount: true, ruc: true, isCancelled: true, orderType: { select: { code: true } }, status: { select: { label: true } }, supplier: { select: { name: true, slug: true } } } as const;
+  if (filtros.texto && filtros.orden === 'relevancia' && palabrasBusqueda(filtros.texto).length) {
+    return listarOrdenesConTextoCompleto(filtros);
+  }
+  const grupos = filtros.texto && filtros.orden === 'relevancia' ? gruposBusquedaOrdenes(filtros.texto, where) : [where];
+  const conteos = await Promise.all(grupos.map(where => prisma.order.count({ where })));
+  const total = conteos.reduce((suma, n) => suma + n, 0);
+  const pagina = Math.min(filtros.pagina, Math.max(1, Math.ceil(total / filtros.porPagina)));
+  const partes = paginasPorGrupo(conteos, pagina, filtros.porPagina);
+  const ordenes = (await Promise.all(partes.map(({ grupo, skip, take }) => prisma.order.findMany({ where: grupos[grupo], orderBy: ordenDeOrdenes(filtros), skip, take, select })))).flat();
+
+  return {
+    filas: ordenes.map((orden) => ({
+      id: orden.id,
+      orderNumber: orden.orderNumber,
+      issueDate: orden.issueDate,
+      description: orden.description,
+      amount: orden.amount === null ? null : orden.amount.toFixed(2),
+      ruc: orden.ruc,
+      isCancelled: orden.isCancelled,
+      tipo: orden.orderType?.code ?? null,
+      estado: orden.status?.label ?? null,
+      proveedor: orden.supplier.name,
+      proveedorSlug: orden.supplier.slug,
     })),
     total,
     pagina,
