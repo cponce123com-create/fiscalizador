@@ -11,6 +11,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!perfil?.photoKey || !datoProveedorPublicado(perfil, 'foto')) return new Response(null, { status: 404 });
   try {
     const imagen = await leerFotoPrivada(perfil.photoKey);
-    return new Response(new Uint8Array(imagen), { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' } });
+    return new Response(new Uint8Array(imagen), { headers: { 'Content-Type': 'image/webp', 'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600', 'X-Content-Type-Options': 'nosniff', 'Content-Disposition': 'inline' } });
   } catch { return new Response(null, { status: 404 }); }
 }
