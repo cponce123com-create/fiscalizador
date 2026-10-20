@@ -12,7 +12,7 @@ describe('foto pública del proveedor', () => {
     mocks.leer.mockResolvedValue(Buffer.from('foto'));
     const response = await GET(new Request('https://portal.test'), contexto);
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('public, max-age=300, s-maxage=300');
     expect(await response.text()).toBe('foto');
     expect(mocks.perfil).toHaveBeenCalledWith({ where: { supplierId: 'abc' }, select: { isPublic: true, publication: true, photoKey: true, photoMime: true } });
   });
