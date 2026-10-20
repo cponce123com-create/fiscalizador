@@ -28,3 +28,7 @@ No se debe usar la ausencia de una entidad en esta versión como evidencia de qu
 - Promover entidades seleccionadas con controles de RUC único, categoría y jerarquía.
 - Incorporar una fuente vigente para órdenes de compra/servicio, procesada por entidad y periodo en lotes; no derivar las órdenes del padrón de entidades.
 - Añadir seguimiento de cobertura y procedencia por entidad, fuente y periodo.
+
+## Ventanas de comparación
+
+Cada entidad tiene `comparisonMode` y `comparisonYears`. Las municipalidades conservan la comparación por gestiones de gobierno; las entidades no municipales pueden usar una ventana móvil de años calendario (5 por defecto, configurable entre 1 y 10). Las tarjetas muestran esos años y los enlaces de detalle filtran por fecha de emisión. Las órdenes sin fecha no se atribuyen artificialmente a un año.

@@ -7,11 +7,11 @@ import type { FilaComparativa } from '@/services/statisticsService';
  * Se publica solo el monto considerado. Las anuladas se cuentan para trazabilidad,
  * pero su importe agregado no se muestra al público.
  */
-export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
+export function TablaComparativa({ filas, porGestion = true }: { filas: FilaComparativa[]; porGestion?: boolean }) {
   if (filas.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-        No hay gestiones definidas en el sistema.
+        No hay periodos definidos para esta comparación.
       </p>
     );
   }
@@ -20,14 +20,14 @@ export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <p className="p-3 text-sm text-muted-foreground">
         Comparación de órdenes disponibles, no de pagos ni de presupuestos completos. Revise Fuentes
-        y cobertura antes de comparar gestiones. El promedio incluye únicamente órdenes con monto
+        y cobertura antes de comparar estos periodos. El promedio incluye únicamente órdenes con monto
         conocido y estado incluido en el análisis.
       </p>
       <table className="w-full text-sm">
         <thead className="bg-muted/60">
           <tr>
             <th className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Gestión
+              {porGestion ? 'Gestión' : 'Año'}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Órdenes
@@ -61,7 +61,7 @@ export function TablaComparativa({ filas }: { filas: FilaComparativa[] }) {
               }
             >
               <td className="whitespace-nowrap px-3 py-2.5">
-                <span className="font-medium">Gestión {fila.gestion}</span>
+                <span className="font-medium">{porGestion ? `Gestión ${fila.gestion}` : fila.gestion}</span>
                 {fila.ordenes === 0 ? (
                   <span className="block text-xs">sin libros importados</span>
                 ) : null}

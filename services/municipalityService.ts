@@ -109,6 +109,8 @@ export type MunicipalidadAdmin = MunicipalidadActiva & {
   activa: boolean;
   predeterminada: boolean;
   colorPrincipal: string | null;
+  comparisonMode: 'MANAGEMENT' | 'ROLLING_YEARS';
+  comparisonYears: number;
   importaciones: number;
   ordenes: number;
 };
@@ -128,6 +130,8 @@ export type DatosMunicipalidad = {
   activa: boolean;
   predeterminada: boolean;
   colorPrincipal?: string | null;
+  comparisonMode: 'MANAGEMENT' | 'ROLLING_YEARS';
+  comparisonYears: number;
 };
 
 export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]> {
@@ -149,6 +153,8 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
       isActive: true,
       isDefault: true,
       primaryColor: true,
+      comparisonMode: true,
+      comparisonYears: true,
       _count: { select: { importBatches: true, orders: true } },
     },
   });
@@ -170,6 +176,8 @@ export async function listarMunicipalidadesAdmin(): Promise<MunicipalidadAdmin[]
     activa: entidad.isActive,
     predeterminada: entidad.isDefault,
     colorPrincipal: entidad.primaryColor,
+    comparisonMode: entidad.comparisonMode as 'MANAGEMENT' | 'ROLLING_YEARS',
+    comparisonYears: entidad.comparisonYears,
     importaciones: entidad._count.importBatches,
     ordenes: entidad._count.orders,
   }));
@@ -182,6 +190,8 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
   if (!/^\d{11}$/.test(input.ruc)) throw new ErrorDeNegocio('El RUC debe tener 11 dígitos.');
   if (input.predeterminada && !input.activa) throw new ErrorDeNegocio('La municipalidad predeterminada debe estar activa.');
   if (!CATEGORIAS_ENTIDAD_PUBLICA.some((categoria) => categoria.id === input.categoria)) throw new ErrorDeNegocio('Selecciona una categoría de entidad pública válida.');
+  if (!['MANAGEMENT', 'ROLLING_YEARS'].includes(input.comparisonMode)) throw new ErrorDeNegocio('Selecciona un modo de comparación válido.');
+  if (!Number.isInteger(input.comparisonYears) || input.comparisonYears < 1 || input.comparisonYears > 10) throw new ErrorDeNegocio('Los años de comparación deben estar entre 1 y 10.');
 
   const existente = input.id
     ? await prisma.municipality.findUnique({ where: { id: input.id }, select: { id: true, isDefault: true, isActive: true, _count: { select: { importBatches: true, orders: true } } } })
@@ -234,6 +244,8 @@ export async function guardarMunicipalidad(input: DatosMunicipalidad & { userId:
       isActive: input.activa,
       isDefault: input.predeterminada,
       primaryColor: input.colorPrincipal || null,
+      comparisonMode: input.comparisonMode,
+      comparisonYears: input.comparisonYears,
     };
 
     const entidad = input.id
