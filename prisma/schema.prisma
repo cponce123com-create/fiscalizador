@@ -325,6 +325,9 @@ model Municipality {
   parentEntityId String?
   parentEntity   Municipality?  @relation("PublicEntityHierarchy", fields: [parentEntityId], references: [id], onDelete: SetNull)
   childEntities  Municipality[] @relation("PublicEntityHierarchy")
+  /// Comparación política por gestión o ventana estadística móvil por años.
+  comparisonMode  String   @default("MANAGEMENT")
+  comparisonYears Int      @default(5)
   isDefault    Boolean  @default(false)
   isActive     Boolean  @default(true)
   logoUrl      String?

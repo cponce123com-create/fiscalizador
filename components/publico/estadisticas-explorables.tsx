@@ -20,7 +20,8 @@ function Comparacion({ titulo, descripcion, filas, grupo, compartirId, rutaCompa
   return <article className="panel-portada flex min-w-0 flex-col gap-4">
     <div><h3 className="text-lg font-semibold">{titulo}</h3><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{descripcion}</p></div>
     <ul className="flex flex-col gap-5">{filas.map(f => {
-      const params = new URLSearchParams({ gestion: f.id, ...(grupo && grupo !== 'otros' ? { tipoRuc: grupo } : {}), ...(f.ventana !== 'gestion' ? { desde: f.desde, hasta: f.hasta } : {}) });
+      const esAnioCalendario = /^20\d{2}$/.test(f.id);
+      const params = new URLSearchParams({ ...(!esAnioCalendario ? { gestion: f.id } : {}), ...(grupo && grupo !== 'otros' ? { tipoRuc: grupo } : {}), ...(f.ventana !== 'gestion' || esAnioCalendario ? { desde: f.desde, hasta: f.hasta } : {}) });
       return <li key={f.id} className="min-w-0">
         <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="font-medium">{f.gestion}</span><strong className="tabular text-primary">{!f.iniciada ? 'Aún no comienza' : !f.meses && !f.ordenes ? 'Sin libros disponibles' : formatearMonto(f.considerado)}</strong></div>
         <div className="my-2 h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true"><div className="h-full rounded-full bg-primary" style={{ width: `${maximo ? Math.max(0, Number(f.considerado)) / maximo * 100 : 0}%` }} /></div>
@@ -35,6 +36,7 @@ function Comparacion({ titulo, descripcion, filas, grupo, compartirId, rutaCompa
   </article>;
 }
 export function EstadisticasExplorables({ filas }: { filas: EstadisticaEtapa[] }) {
+  const modoAnual = filas.some(f => /^20\d{2}$/.test(f.gestion));
   const totales = agrupar(filas, 'gestion');
   const total = suma(totales, 'considerado');
   const economicas = totales.reduce((n, f) => n + f.economicas, 0);
@@ -49,13 +51,13 @@ export function EstadisticasExplorables({ filas }: { filas: EstadisticaEtapa[] }
     ['Promedio por orden económica', economicas ? formatearMonto(new Prisma.Decimal(total).div(economicas).toFixed(2)) : 'Sin órdenes económicas'],
   ];
   return <>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{metricas.map(([titulo, dato]) => <div key={titulo} className="panel-portada min-w-0"><p className="text-xs text-muted-foreground">{titulo}</p><p className="tabular mt-2 break-words text-xl font-bold text-primary sm:text-2xl">{dato}</p><p className="mt-2 text-[11px] text-muted-foreground">Últimas tres gestiones iniciadas · libros disponibles</p></div>)}</div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{metricas.map(([titulo, dato]) => <div key={titulo} className="panel-portada min-w-0"><p className="text-xs text-muted-foreground">{titulo}</p><p className="tabular mt-2 break-words text-xl font-bold text-primary sm:text-2xl">{dato}</p><p className="mt-2 text-[11px] text-muted-foreground">{modoAnual ? `Últimos ${new Set(filas.map(f => f.id)).size} años calendario · libros disponibles` : 'Últimas tres gestiones iniciadas · libros disponibles'}</p></div>)}</div>
     <section id="por-ruc" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">¿A quién se contrata?</h2><p className="mt-2 text-sm text-muted-foreground">Comparación de montos por tipo de RUC. Los otros tipos se muestran aparte para que el total cuadre.</p></div>
-      <div className="grid items-stretch gap-4 lg:grid-cols-3">{[['10', 'RUC 10 · personas naturales', 'ruc-10'], ['20', 'RUC 20 · personas jurídicas', 'ruc-20'], ['otros', 'Otros tipos de RUC', 'ruc-otros']].map(([grupo, titulo, compartirId]) => <Comparacion key={grupo} titulo={titulo} descripcion="Monto considerado por gestión, excluyendo anuladas y estados no económicos." grupo={grupo} filas={agrupar(filas, 'gestion', grupo)} compartirId={compartirId} rutaCompartir="/estadisticas#por-ruc" />)}</div>
+      <div className="grid items-stretch gap-4 lg:grid-cols-3">{[['10', 'RUC 10 · personas naturales', 'ruc-10'], ['20', 'RUC 20 · personas jurídicas', 'ruc-20'], ['otros', 'Otros tipos de RUC', 'ruc-otros']].map(([grupo, titulo, compartirId]) => <Comparacion key={grupo} titulo={titulo} descripcion={`Monto considerado por ${modoAnual ? 'año' : 'gestión'}, excluyendo anuladas y estados no económicos.`} grupo={grupo} filas={agrupar(filas, 'gestion', grupo)} compartirId={compartirId} rutaCompartir="/estadisticas#por-ruc" />)}</div>
     </section>
-    <section id="etapas" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">El inicio y el cierre de cada gestión</h2><p className="mt-2 text-sm text-muted-foreground">Cortes por fecha de emisión. Compara la cobertura antes de interpretar diferencias; el último año de una gestión vigente puede estar incompleto o no haber empezado.</p></div>
+    {!modoAnual ? <section id="etapas" className="scroll-mt-6 space-y-4"><div><h2 className="text-xl font-semibold">El inicio y el cierre de cada gestión</h2><p className="mt-2 text-sm text-muted-foreground">Cortes por fecha de emisión. Compara la cobertura antes de interpretar diferencias; el último año de una gestión vigente puede estar incompleto o no haber empezado.</p></div>
       <div className="grid items-stretch gap-4 lg:grid-cols-2"><Comparacion titulo="Primeros 100 días" descripcion="Desde el primer día de mandato hasta el día 100 inclusive. Incluye todos los tipos de RUC." filas={agrupar(filas, 'primeros-100')} compartirId="primeros-100" rutaCompartir="/estadisticas#etapas" /><Comparacion titulo="Último año de mandato" descripcion="Año calendario en el que termina cada gestión, limitado a sus fechas oficiales. Incluye todos los tipos de RUC." filas={agrupar(filas, 'ultimo-anio')} compartirId="ultimo-anio" rutaCompartir="/estadisticas#etapas" /></div>
       <p className="text-xs leading-relaxed text-muted-foreground">Los meses con libros indican disponibilidad, no cobertura completa de todas las compras. El corte de 100 días puede utilizar solo una parte del último libro mensual. Las órdenes sin fecha de emisión no entran en estos cortes temporales.</p>
-    </section>
+    </section> : null}
   </>;
 }

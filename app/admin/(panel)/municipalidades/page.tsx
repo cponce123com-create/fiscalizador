@@ -3,12 +3,13 @@ import { Building2, Info } from 'lucide-react';
 
 import { accionGuardarMunicipalidad } from '@/app/admin/municipalidades/actions';
 import { FormularioAccion } from '@/components/admin/formulario-accion';
+import { ComparacionEntidad } from '@/components/admin/comparacion-entidad';
 import { Aviso, Insignia } from '@/components/ui/data';
 import { Campo, GrupoCampo, Selector } from '@/components/ui/form';
 import { puede } from '@/lib/auth/permissions';
 import { usuarioActual } from '@/lib/auth/session';
 import { listarMunicipalidadesAdmin } from '@/services/municipalityService';
-import { CATEGORIAS_ENTIDAD_PUBLICA, nombreCategoriaEntidadPublica } from '@/lib/entidad-publica';
+import { nombreCategoriaEntidadPublica } from '@/lib/entidad-publica';
 
 export const metadata: Metadata = { title: 'Entidades públicas' };
 
@@ -123,10 +124,9 @@ function CamposMunicipalidad({ municipalidad }: { municipalidad?: Awaited<Return
       <GrupoCampo etiqueta="Provincia o ámbito" htmlFor={`provincia-${municipalidad?.id ?? 'nuevo'}`} obligatorio ayuda="Usa la provincia correspondiente o indica Multirregional/Nacional.">
         <Campo id={`provincia-${municipalidad?.id ?? 'nuevo'}`} name="provincia" defaultValue={municipalidad?.provincia ?? ''} placeholder="Ej.: Chanchamayo, Oxapampa, Multirregional" required />
       </GrupoCampo>
-      <GrupoCampo etiqueta="Categoría" htmlFor={`categoria-${municipalidad?.id ?? 'nuevo'}`} obligatorio>
-        <Selector id={`categoria-${municipalidad?.id ?? 'nuevo'}`} name="categoria" defaultValue={municipalidad?.categoria ?? 'MUNICIPALIDAD'} required>
-          {CATEGORIAS_ENTIDAD_PUBLICA.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
-        </Selector>
+      <ComparacionEntidad id={municipalidad?.id ?? 'nuevo'} categoriaInicial={municipalidad?.categoria ?? 'MUNICIPALIDAD'} modoInicial={municipalidad?.comparisonMode ?? (municipalidad?.categoria && municipalidad.categoria !== 'MUNICIPALIDAD' ? 'ROLLING_YEARS' : 'MANAGEMENT')} />
+      <GrupoCampo etiqueta="Años en la comparación" htmlFor={`comparisonYears-${municipalidad?.id ?? 'nuevo'}`} ayuda="Se usa cuando el modo seleccionado es por años recientes. Valor recomendado: 5.">
+        <Campo id={`comparisonYears-${municipalidad?.id ?? 'nuevo'}`} name="comparisonYears" type="number" min={1} max={10} defaultValue={municipalidad?.comparisonYears ?? 5} required />
       </GrupoCampo>
       <GrupoCampo etiqueta="Nivel territorial (para municipalidades)" htmlFor={`tipoEntidad-${municipalidad?.id ?? 'nuevo'}`}>
         <Selector id={`tipoEntidad-${municipalidad?.id ?? 'nuevo'}`} name="tipoEntidad" defaultValue={municipalidad?.tipoEntidad ?? (municipalidad?.categoria && municipalidad.categoria !== 'MUNICIPALIDAD' ? 'NO_APLICA' : 'DISTRITAL')} required>

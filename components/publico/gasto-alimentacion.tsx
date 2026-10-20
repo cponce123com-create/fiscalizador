@@ -5,7 +5,7 @@ import { Coins, Utensils } from 'lucide-react';
 import type { GastoAlimentacionGestion } from '@/lib/alimentacion';
 import { formatearMonto } from '@/lib/utils';
 
-export function GastoAlimentacion({ filas, titulo = 'Gastos en alimentación', descripcion = 'Comparación de las tres gestiones · comidas, refrigerios, almuerzos, cenas, desayunos y similares.', ruta = '/alimentacion' }: { filas: GastoAlimentacionGestion[]; titulo?: string; descripcion?: string; ruta?: string }) {
+export function GastoAlimentacion({ filas, titulo = 'Gastos en alimentación', descripcion = 'Comparación por periodos disponibles · comidas, refrigerios, almuerzos, cenas, desayunos y similares.', ruta = '/alimentacion' }: { filas: GastoAlimentacionGestion[]; titulo?: string; descripcion?: string; ruta?: string }) {
   const tituloId = `titulo-${ruta.replace(/[^a-z0-9]/g, '-')}`;
   const Icono = ruta === '/alimentacion' ? Utensils : Coins;
   const maximo = Math.max(0, ...filas.map(f => Number(f.considerado)));
